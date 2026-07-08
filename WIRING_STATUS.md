@@ -1,7 +1,49 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-07-07 (PRD-43 WishLists Phase A).
+> Updated each build session. Last updated: 2026-07-08 (PRD-30 SM-C Safety Monitoring).
+
+## PRD-30 Safety Monitoring — SM-C (2026-07-08)
+
+Final slice of PRD-30 — the locked safety sequence (Layer 2 prompts → PRD-41 ethics enforcement → PRD-30 monitoring) is now complete. Weekly pattern digest + D5 crisis-hit flag wiring for the three non-persisted surfaces. See `.claude/rules/current-builds/PRD-30-safety-monitoring.md` for the full build record and CLAUDE.md Convention #282 for the architecture. E2E `tests/e2e/features/safety-monitoring.spec.ts` 27/27 (SM-A+B+C combined) + `safety-beta-gate.spec.ts` 58/58 regression + `npm run redteam` 66/66, zero fixture residue.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Weekly pattern digest generation | `safety-weekly-digest` Edge Function, Sunday-cadence cron (`util.invoke_edge_function`), idempotent per `(monitored_member_id, period_end)` (migration `00000000100303`), family-timezone-derived rolling 7-day window | **Wired** | Sweeps EVERY currently-monitored member platform-wide on every invocation — real, correct behavior, not scoped to one family |
+| Zero-flag digest narrative | PRD's literal edge-case string, no Haiku call | **Wired** | Cost + correctness — matches PRD §Edge Cases "No Flags Generated" verbatim |
+| Non-zero digest narrative | One Haiku call, COUNTS ONLY (category_counts/severity_breakdown/trend), never conversation content | **Wired** | Content-free by construction (J2/D2); also PRD-41 output-scanned (`scanUtilityOutput`/`enqueueOutputScan`) like any member-facing generative surface |
+| Digest notification | `notification_type='safety_digest'`, `category='safety'`, `priority='normal'` (J3/D3 — trend review, not an alert) to every active recipient | **Wired** | Links to `/safety-flags`, which renders the digest inline |
+| "This Week's Trend" inline digest view | New section on `SafetyFlagsPage.tsx` — reads `useLatestSafetyPatternSummaries`, shows narrative + trend icon per monitored member, freshness-filtered to the last 9 days | **Wired** | Part of the flag history surface, per PRD §Flows |
+| D5 crisis-hit flag wiring — `mindsweep-sort` | Fire-and-forget `flagCrisisEvent()` at the existing `detectCrisis` short-circuit; `conversation_table`/`conversation_id` NULL (no conversation store) | **Wired** | Category derived from the matched CRISIS_KEYWORDS phrase (self_harm/abuse/other, mirroring the migration 100289 seed's own categorization) |
+| D5 crisis-hit flag wiring — `mindsweep-scan` | Same helper at both `handleScan` (image OCR) and `handleLink` (URL fetch) hit sites | **Wired (static/vitest-verified, not live-probed)** | Live probing needs a real vision-model image or an uncontrolled external URL fetch — neither is a repeatable isolated CI fixture; covered by `tests/safety-crisis-flag.test.ts`'s static drift pin + code review, mirroring the exact precedent SAFETY-BETA-GATE Slice B already established for this same function |
+| D5 crisis-hit flag wiring — `message-coach` | Same helper, crisis check runs FIRST (unconditional, no DB dependency) with an independent best-effort sender lookup inside the crisis branch purely for the flag write | **Wired** | A real regression (sender-resolution reordered ahead of the crisis check) was caught by the `safety-beta-gate.spec.ts` regression pin and fixed same session — the crisis response itself must never depend on a DB lookup succeeding |
+| D5 dedup | Same 24h same-member+category window as the main pipeline (`decideDedup` semantics, reused inline) | **Wired** | A second crisis hit within 24h absorbs into the existing flag, no duplicate notification |
+| Scope-discipline static pin | `tests/safety-crisis-flag.test.ts` asserts `flagCrisisEvent` is imported by EXACTLY the three named surfaces | **Wired** | Closing this gap can never silently spread |
+| Model-ID hygiene guard | `tests/redteam/model-id-guard.test.ts` (wired into `npm run redteam`/pre-push) bans the invalid `'anthropic/claude-haiku-4-5-20251001'` string platform-wide outside a dated grandfather list | **Wired** | Found and fixed this exact bug in 4 functions this session (`safety-weekly-digest`, `safety-classify`, `validate-ai-output`, `message-coach`); 2 more found and grandfathered for follow-up (`auto-title-thread`, `lila-board-of-directors`) |
+| Email delivery (Critical-flag alerts + digest emails) | — | Stub | Founder chose "not ready" 2026-07-08 — needs Resend API key + domain DNS. Registered in STUB_REGISTRY.md, not silently dropped. |
+
+## PECON-SHOP — Point Economy: The Reward Shop (Worker B, 2026-07-08)
+
+Full spending-side pipeline for the point economy: catalog → purchase → (auto-approve or mom-approval) → `earned_prizes` reveal, plus the unlock-gate/limit-window/Play-always-approval fairness rules. Migration 100302 (+ 100304 execute-grant hardening). See `.claude/rules/current-builds/PECON-shop.md` for the full build record, `RLS-VERIFICATION.md` for the security-audit detail, and CLAUDE.md Convention #281 for the architecture. E2E `tests/e2e/features/point-economy-shop.spec.ts` 16/16 + Convention #277 eyes-on tour (5/5 tours, all screenshots read) — the tour caught a real bug live: `UniversalQueueModal.tsx`'s own badge/empty-state count (and the sibling `usePendingCounts.ts` hook) omitted store purchases entirely, so a real pending purchase showed the modal's global "All caught up!" empty state instead of the correctly-built `StorePurchaseCard`. Fixed in both aggregators same-session; re-verified 16/16 + all 5 tours green after the fix. Zero fixture residue, exact balance restoration confirmed.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Reward Shop catalog (create/edit/archive items) | `ShopItemEditorModal.tsx` via `RewardImagePicker` (3-mode: privilege/custom/money-equivalent image), `useCreateRewardShopItem`/`useUpdateRewardShopItem`/`useArchiveRewardShopItem` | **Wired** | Family-wide, mom + `reward_rules`-granted adults (Convention #274 shape) |
+| Bulk-add catalog items | `ShopManagerTab.tsx` reuses the shared `BulkAddWithAI` component via a text-encoding trick (`"<Name> — <cost>"` line format, parsed client-side) — Convention #252 compliance | **Wired** | |
+| Purchase lifecycle (pending/approved/declined/cancelled/auto_approved) | `purchase_reward_shop_item`/`resolve_reward_shop_purchase`/`cancel_reward_shop_purchase` RPCs (SECURITY DEFINER, all family-membership-authorized per the 100298/100300 standing law) | **Wired** | `reward_shop_purchases` has zero client write policies — RPCs are the only path |
+| Spend/refund via the point ledger | All 3 RPCs call `record_point_transaction()` (Convention #280) — never a direct `family_members` update | **Wired** | Points held at purchase time (not merely earmarked); refunded exactly on decline/cancel |
+| Unlock gates (`member_completion_percentage`) | New RPC reusing the Convention #271 blend (routine days via `obligation_active_for_member_on_date` + non-routine tasks direct-counted), minus money/pool coupling | **Wired** | 0-assigned = ungated (allowance parity); warm progress framing, never a list of misses |
+| Purchase limit windows (N per day/week/month) | Enforced inside `purchase_reward_shop_item`, freed by decline/cancel | **Wired** | |
+| Play members always pend | Server-enforced inside `purchase_reward_shop_item` regardless of the item's `requires_approval` flag; gated items never render on the Play picture shelf | **Wired** | |
+| `earned_prizes` on approval | Created ONLY at auto-approve or mom-approve, `source_type='store_purchase'`, visibility `'family'`, never revoked | **Wired** | Reuses existing redeem/history machinery — zero new redemption code |
+| Prize Board "Shop" tab | `ShopManagerTab.tsx` — item list, editor, bulk-add, pending-approval strip, collapsible purchase history | **Wired** | Route widened: `<GrantedRoute grant={['financial_tracking', 'reward_rules']}>` so a `reward_rules`-only dad reaches it |
+| Queue `StorePurchaseCard` (one decision inbox) | `RequestsTab.tsx` renders it alongside `ProposalCard` (Convention #66 precedent, `reward_proposals`/`ProposalCard` shape) | **Wired** | Real bug found+fixed: the modal's own count/empty-state gate (`UniversalQueueModal.tsx`) and the sibling `usePendingCounts.ts` hook both omitted store purchases — see Convention #281 |
+| `GamificationSettingsModal` Points-section door + My Rewards Page toggle | "[Manage the Reward Shop →]" + a "Reward Shop" `ToggleRow` | **Wired** | Closes the PECON-EARN-registered deferred door |
+| My Rewards "Shop" section (kid-facing) | `ShopSection`/`ShopItemCard` in `MyRewards.tsx` — Buy/progress/gate states, confirm-purchase modal, pending strip with "Take it back", result banner | **Wired** | `my_rewards_sections.shop` toggle, default ON when gamification enabled |
+| Play picture-shelf Shop variant | Image tiles, star-chip costs, Buy/Trade CTA, zero prices-as-dollars, no gated tiles rendered | **Wired** | |
+| `useRewardProvenance` `'store_purchase'` case | Resolves through `reward_shop_purchases.item_name` snapshot | **Wired** | |
+| Purchase history filters (date range, per-item) | — | Stub | Post-MVP, no PRD ruling requires it |
+| Shop items in NLC / Studio wizard catalogs | — | Stub | Post-MVP forward-note in the addendum |
 
 ## PRD-43 WishLists (Gift Planning & In-Store Capture) — Phase A (2026-07-07)
 

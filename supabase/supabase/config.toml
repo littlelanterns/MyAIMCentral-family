@@ -592,6 +592,11 @@ verify_jwt = false
 [functions.safety-classify]
 verify_jwt = false
 
+# PRD-30 Safety Monitoring — SM-C weekly digest, cron-invoked (Convention
+# #246, weekly). Same shape as safety-classify.
+[functions.safety-weekly-digest]
+verify_jwt = false
+
 # PRD-43 WishLists — client-invoked utility (link/photo extraction), same
 # shape as curriculum-parse/mindsweep-scan: authenticateRequest validates the
 # Bearer token in code.

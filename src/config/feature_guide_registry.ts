@@ -31,6 +31,16 @@ export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
       'When the target is hit, the whole family earns the prize — redeem it once, for everyone',
     ],
   },
+  reward_shop: {
+    title: 'The Reward Shop',
+    description:
+      'The Reward Shop is what points BUY. Stock it with anything — a privilege, an item, a photo of the prize — set a point cost, and decide whether it needs your yes first or delivers the moment they can afford it. Kids buy from their own My Rewards page; the points come out of their balance right away, and if it needs approval, it waits in your Queue until you decide (a decline refunds instantly).',
+    bullets: [
+      'Add items from Prize Board > Shop, or Bulk Add with AI for a whole list at once',
+      'Optionally cap how often something can be bought, or gate it behind a completion percentage',
+      'Play members\' purchases always wait for you, no matter the item\'s approval setting',
+    ],
+  },
   guiding_stars: {
     title: 'Your Guiding Stars',
     description:

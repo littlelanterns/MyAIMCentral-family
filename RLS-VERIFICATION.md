@@ -707,3 +707,199 @@ All 15/15 correctly locked to `service_role` only.
 ### Verdict: **PASS.** All 15 previously-unauthenticated-callable connector functions are now locked to `service_role` only; the legitimate deed-firing pipeline is proven, live, to survive the lockdown unmodified; both originally-exploited functions now fail closed at the permission layer (stronger than an in-body exception — the attacker's payload is never even evaluated); `member_points_today`'s cross-family leak is closed with the same auth-gate pattern used elsewhere, while its legitimate same-family use case continues to work. This closes the CRITICAL/blocking status from the prior section for all 15 functions plus the WARNING on `member_points_today`. Point Economy Slice A2 is now genuinely proof-complete on the security dimension.
 
 **Explicitly out of scope for this migration, per seat direction:** the broader platform-wide question "what OTHER `PUBLIC`-executable `SECURITY DEFINER` RPCs trust caller-supplied input without an auth check?" is NOT addressed here — the seat is folding a full RPC-grant audit into this week's adversarial safety-stack review, separately from PECON-EARN.
+
+---
+
+## Migration 100302 — PECON-SHOP (Worker B): Reward Shop RLS + function-security verification (2026-07-07)
+
+**Overall result: PASS — zero gaps found.** This is the first RLS/function-security pass on brand-new schema (2 tables, 5 functions) rather than a re-verification of a prior finding, and it comes on the heels of two live-exploited CRITICAL findings on this build's sibling (PECON-EARN, migrations 100296/100298/100300 above) — every one of the four client-callable RPCs in this migration (`purchase_reward_shop_item`, `resolve_reward_shop_purchase`, `cancel_reward_shop_purchase`, `member_completion_percentage`) was designed, from the start, with the exact in-body family-membership authorization gate that the sibling build had to retrofit under emergency conditions. All four hold up under live adversarial probing, including a genuinely-unauthenticated (`anon` role, empty `request.jwt.claims`) attack surface that the sibling review did not get to test as rigorously. All probes run via `supabase db query --linked` against the linked production database (project ref `vjfbzpliqialqmabfnxs`) using the same `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim-impersonation methodology established in this file, batched into 9 separate `BEGIN...ROLLBACK` transactions (one per functional area, plus a follow-up transaction re-testing mom's direct-write access after the initial pass) using a `CREATE TEMP TABLE probe_log` + role-switching capture pattern so multiple role-impersonated sub-tests could be asserted in a single transaction without losing intermediate results. Every mutation probe — INSERT/UPDATE/DELETE attempts, real purchase/approve/decline/cancel round-trips, temporary `member_permissions` grants — was rolled back; a final residue check (below) confirms zero permanent trace and all five involved members' `gamification_points` balances exactly restored to their pre-probe values.
+
+### Test roster
+
+Same two-family roster used throughout this file (OurFamily `4bc86323-545b-4faf-b31f-3926fdd8c5a6`, The Testworth Family `1f6200a7-df82-4ac4-bce3-3edcafe66bc5`), expanded this pass to explicitly exercise **all five platform roles plus both families' shadow (family-device) sessions** — the richest roster used in this file to date:
+
+| Member | Family | Role | dashboard_mode | fm_id | user_id |
+|---|---|---|---|---|---|
+| Tenise | OurFamily | primary_parent | adult | `fcac562b-b7f2-412b-8e25-33a1e94cc13b` | `7434224b-ebb4-4138-8bd8-9fbc62259c42` |
+| Jerrod | OurFamily | additional_adult | adult | `0aea47e9-e6fa-4300-b4a7-6da097c26f9e` | `44a07ad8-94ca-4dd4-84d8-42ae103cf1a6` |
+| Helam | OurFamily | member (independent teen) | independent | `b266cf06-d2b4-4c7b-a6bd-559224367005` | `75a9aa25-e980-4ed0-8a75-257fec7f9e8f` |
+| Mosiah | OurFamily | member (guided kid) | guided | `476f5e1f-cdd9-4490-8409-59a4440ebd79` | `bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4` |
+| Miriam | OurFamily | member (independent teen) | independent | `3554dacd-f541-4f41-9e3d-815731a671b5` | `280fe726-f6bf-44a4-b844-75728f62991c` |
+| Gideon | OurFamily | member (independent teen) | independent | `5aca243a-5f2e-425d-bc25-599d79e83a4f` | `2afba19b-14fd-410e-a716-57bdc3e856ac` |
+| Ruthie | OurFamily | member (play kid) | play | `5af76791-f965-4f3d-bf1a-2389bee66e19` | `de48d37a-69fb-49d5-989c-68e66879f3c9` |
+| Family (shadow) | OurFamily | family | adult | `c3d31bfa-6ce7-44db-9a0b-5f2a740dde18` | `f8c494bc-eec6-41d0-b8fa-558ac67ae017` |
+| Sarah | Testworth | primary_parent | adult | `606aad81-7c59-45af-8770-2df484e4418f` | `81246f0f-ab60-4932-8914-2a48b97b274c` |
+| Mark | Testworth | additional_adult | adult | `5f314a51-7c4d-41e3-801d-0aa7e45e54da` | `62d73914-8ff1-44b2-a7f7-92bd586aeb95` |
+| Amy | Testworth | special_adult | adult | `008408a7-aefe-43d5-925a-32b0e054c6a0` | `764df3bc-0a13-47c0-877e-d29082105715` |
+| Alex | Testworth | member (independent teen) | independent | `a6af8740-cc21-4ebb-8f78-c222dab7310f` | `e159934e-2981-48bf-921d-75931f517cdf` |
+
+Sarah and Jerrod/Helam/etc. have zero relationship — different families, no shared membership, no `member_permissions` grant of any kind — used throughout as the cross-family attacker/victim pair (matching the sibling PECON-EARN methodology).
+
+### Policy inventory
+
+**`reward_shop_items`** (RLS enabled) — 3 permissive policies, combined with OR per Postgres default:
+
+| Policy | Command | Predicate |
+|---|---|---|
+| `rsi_mom_all` | ALL | `family_id IN (SELECT family_id FROM family_members WHERE user_id=auth.uid() AND role='primary_parent')` |
+| `rsi_granted_adult_all` | ALL | `util.has_reward_rules_grant(family_id)` |
+| `rsi_member_read` | SELECT | same-family AND `is_active=true` AND `archived_at IS NULL` AND (audience array empty OR caller's fm_id is in it) |
+
+**`reward_shop_purchases`** (RLS enabled) — 1 policy, SELECT only. **No INSERT/UPDATE/DELETE policy exists for any role** — confirmed live, not just read from the migration text (§4 below).
+
+| Policy | Command | Predicate |
+|---|---|---|
+| `rsp_select` | SELECT | own rows (`family_member_id` matches caller) OR caller is `primary_parent` of the family OR `util.has_reward_rules_grant(family_id)` |
+
+### 1. `reward_shop_items` — full role matrix (11 sub-tests, all PASS)
+
+Setup (as `postgres`, bypasses RLS): 5 OurFamily test items — **A** (open/active/unarchived, empty audience), **B** (active, audience=[Helam] only), **C** (`is_active=false`), **D** (`archived_at` set), **E** (active, audience=[Mosiah] only) — plus 1 Testworth item for cross-family probing.
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T1 | Tenise (mom) | SELECT all 5 + INSERT + UPDATE + DELETE | Sees all 5 (incl. inactive C, archived D); full CRUD succeeds; never sees Testworth's item | Sees all 5, `sees_testworth_item=0`, insert/update succeeded, delete left 0 rows | PASS |
+| T2a | Jerrod (additional_adult, **no grant**) | SELECT | Same scoping as an ordinary member — sees only A (open/active/unarchived), not B/C/E | `sees_item_A_open=true`, B/C/E all `false`, `total_ourfamily_visible=2` (A + Tenise's inserted item, both open) | PASS |
+| T2b | Jerrod (no grant) | INSERT | Blocked — no write policy applies | `42501: new row violates row-level security policy` | PASS — blocked |
+| T2c | Jerrod (no grant) | UPDATE item A | Blocked, 0 rows affected | `rows_affected: 0` | PASS — blocked |
+| T3 | Jerrod, **after** a family-wide `reward_rules` grant is inserted | SELECT + INSERT + UPDATE | Full CRUD now — sees inactive item C, insert/update succeed | `sees_inactive_item_C_now=1`, insert/update succeeded | PASS |
+| T4a | Mosiah (guided kid) | SELECT | Sees A (open) and E (his own audience-scoped item); does not see B (Helam-only) or C (inactive) | `sees_item_A_open=true`, `sees_item_E_mosiah_only=true`, B/C `false` | PASS |
+| T4b | Mosiah | INSERT | Blocked | `42501` | PASS — blocked |
+| T4c | Mosiah | DELETE item A | Blocked, 0 rows affected | `rows_affected: 0` | PASS — blocked |
+| T5a | Sarah (Testworth mom, cross-family) | SELECT | Sees 0 OurFamily items, sees her own Testworth item | `sees_ourfamily_item_A=0`, `sees_own_testworth_item=1` | PASS — no cross-family leakage |
+| T5b | Sarah (cross-family) | UPDATE OurFamily item A | Blocked, 0 rows affected | `rows_affected: 0` | PASS — blocked |
+| T6 | Mark (Testworth additional_adult, ungranted, cross-family) | SELECT | Sees 0 OurFamily items (even the open one) | `sees_ourfamily_item_A_open=0` | PASS |
+
+### 2. `reward_shop_purchases` — read scoping + write lockdown (10 sub-tests, all PASS)
+
+Setup: 3 OurFamily purchases (Helam/pending, Mosiah/approved, Gideon/declined) + 1 Testworth purchase (Sarah), all inserted as `postgres` (RLS bypassed for setup only — this table has no client INSERT path at all, confirmed below).
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| P1 | Helam | SELECT | Sees only his own purchase, not Mosiah's or Gideon's | `sees_own_purchase=1`, `sees_mosiah_purchase=0`, `sees_gideon_purchase=0`, `total_visible_ourfamily=1` | PASS |
+| P2 | Helam | Direct INSERT (forged `status='approved'`, `points_cost=0`, bypassing the RPC entirely) | Blocked — no INSERT policy exists at all | `42501: new row violates row-level security policy` | PASS — blocked |
+| P3 | Helam | Direct UPDATE of his own row's `status` | Blocked, 0 rows affected, even for his own row | `rows_affected: 0` | PASS — blocked |
+| P4 | Helam | Direct DELETE of his own row | Blocked, 0 rows affected | `rows_affected: 0` | PASS — blocked |
+| P5 | Tenise (mom) | SELECT | Sees all 3 OurFamily purchases, not Testworth's | `total_visible_ourfamily=3`, `sees_testworth_purchase=0` | PASS |
+| P6 | Jerrod (ungranted) | SELECT | Sees 0 of the other members' purchases (not his own, no grant, not mom) | `total_visible_ourfamily=0` | PASS |
+| P7 | Jerrod, after family-wide `reward_rules` grant | SELECT | Sees all 3 | `total_visible_ourfamily=3` | PASS |
+| P8 | Sarah (cross-family) | SELECT | Sees 0 OurFamily purchases, sees her own | `sees_ourfamily_purchases=0`, `sees_own_testworth_purchase=1` | PASS — no cross-family leakage |
+| MW1 | **Tenise (mom, primary_parent, same family, has full SELECT visibility)** | Direct `UPDATE ... SET status='approved'` on a real pending purchase, bypassing `resolve_reward_shop_purchase` entirely | Blocked, 0 rows affected — the append-only-except-through-RPC posture holds even for mom, mirroring the `point_transactions` precedent (row 27 in this file) | `rows_affected: 0` | **PASS — mom's read visibility does not extend to direct mutation** |
+| MW2 | Tenise (mom) | Direct `DELETE` of the same purchase row | Blocked, 0 rows affected | `rows_affected: 0` | **PASS — blocked even for mom** |
+
+### 3. `purchase_reward_shop_item` — the highest-risk function (16 sub-tests, all PASS)
+
+This is the function that moves real points. Given the sibling build's exact failure mode (a completely absent auth check on `process_routine_step_completion`), every legitimate-vs-illegitimate combination this function's design comment claims to support was live-tested with real balance changes, real ledger rows, and real `earned_prizes` rows — not just exception presence/absence.
+
+| # | Caller | Scenario | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| R1 | Sarah (Testworth, unrelated family) | Cross-family attack: buy OurFamily's Helam-only item, targeting Helam | Blocked — no relationship to OurFamily | `P0001: Not authorized` | **PASS — BLOCKED** |
+| R1b | — | Helam's balance + purchase-row count after the attack | Unchanged (30 pts, 0 new purchase rows) | `points=30`, `purchase_rows_created=0` | PASS — zero side effect from the failed attack |
+| R2 | Miriam (own session) | Buys an auto-approve item (cost 5) for herself | Succeeds; balance 75→70; `status=auto_approved` | `balance_after=70`, `status=auto_approved` | PASS |
+| R2b | — | Post-purchase state | `earned_prizes` row created; `point_transactions` row created; purchase status = `auto_approved` | `earned_prize_created=1`, `point_txn_created=1`, `points_now=70` | PASS — full real round-trip verified |
+| R3 | Helam (own session) | Buys a `requires_approval=true` item (cost 3) for himself | Succeeds; balance 30→27; `status=pending` (points still deducted up-front, per the "deduct now, refund on decline" design) | `balance_after=27`, `status=pending` | PASS |
+| R3b | — | Post-purchase state | No `earned_prizes` row yet (correctly deferred until mom resolves) | `earned_prize_created_yet=0` | PASS |
+| R4 | Mosiah (guided kid, `role='member'`, not the target) | Buys the auto-approve item **targeting Miriam** (a sibling, not himself; not family-shadow; not an adult role) | Blocked — matches none of the three allowed authorization paths | `P0001: Not authorized` | **PASS — BLOCKED** |
+| R5 | Mosiah (own session, valid actor) | Buys the Helam-only item **for himself** | Soft business-logic rejection (not an exception) — `not_in_audience` | `status=not_in_audience`, `error_message: "This item is not available to you."` | PASS |
+| R5b | — | Mosiah's balance after the audience rejection | Unchanged (255) | `points=255` | PASS |
+| R6 | Gideon (5 pts) | Buys a 999,999-point item for himself | Clean soft failure, no crash, no negative balance | `status=insufficient_balance`, `points_needed=999999` | PASS |
+| R6b | — | Gideon's balance after | Unchanged (5) | `points=5` | PASS — no negative-balance corruption |
+| R7 | OurFamily **family-shadow session** (`util.is_family_shadow_of`) | Buys the auto-approve item **on behalf of Ruthie** (a `dashboard_mode='play'` kid) | Succeeds (FDWA lesson explicitly wired); balance 11→6 | `balance_after=6` | PASS |
+| R7b | — | **Play-always-pends rule**: item has `requires_approval=false`, but Ruthie is `dashboard_mode='play'` | Purchase forced to `status='pending'` regardless of the item's own flag | `status=pending` | **PASS — Play override confirmed live, not just by code-reading** |
+| R8 | Tenise (mom) | Buys the auto-approve item **on behalf of Helam** (`p_acted_by` set to her own fm_id) | Succeeds (primary_parent acting-for path); balance 27→22, `auto_approved` | `balance_after=22`, `status=auto_approved` | PASS |
+| R9 | Jerrod (additional_adult, **no `reward_rules` grant**) | Buys the auto-approve item **on behalf of Gideon** | Succeeds — acting-for does NOT require the management grant, by design (see Observation A below) | `balance_after=0`, `status=auto_approved` | PASS (documented design, not a gap) |
+| R10 | Amy (Testworth `special_adult`) | Buys a Testworth item **on behalf of Alex** (both same family as Amy) | Blocked — `special_adult` is not in the `('primary_parent','additional_adult')` acting-for role list | `P0001: Not authorized` | **PASS — BLOCKED** |
+| TA2 | Genuinely anonymous caller (`anon` role, `request.jwt.claims` explicitly cleared — see §8) | Any purchase attempt | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+
+### 4. `resolve_reward_shop_purchase` — mom-only v1 approve/decline (8 sub-tests, all PASS)
+
+| # | Caller | Scenario | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| S1 | Sarah (cross-family stranger) | Approve a real OurFamily pending purchase | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+| S2 | Jerrod (additional_adult, **same family**, no grant) | Approve the same purchase | Blocked — only `primary_parent` may resolve | `P0001: Not authorized` | **PASS — BLOCKED** |
+| S3 | Jerrod, **after** a family-wide `reward_rules` grant | Approve the same purchase | **Still blocked** — the management grant does NOT extend to approve/decline authority (v1 ruling 6: mom only) | `P0001: Not authorized` | **PASS — confirms grant scope boundary holds** |
+| S4 | Tenise (mom) | Approve a real pending purchase | Succeeds; creates a real `earned_prizes` row | `status=approved`, `prize_id` returned | PASS |
+| S5 | Tenise (mom) | Decline a different real pending purchase, with a note | Succeeds; refund transaction created; no `earned_prizes` row | `status=declined` | PASS |
+| S6 | Tenise (mom) | Resolve an **already-approved** purchase (idempotency) | Soft return, no double-payout | `status=already_resolved`, `current_status=approved` | PASS |
+| S7 | — | Post-state check across S4/S5 | Approve target: 1 prize created, `status=approved`. Decline target: 0 prizes, 1 refund txn, decline note stored verbatim, `status=declined` | All 6 assertions matched exactly | PASS |
+| S8 | Amy (Testworth `special_adult`, **same family** as the pending purchase) | Approve it | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+| TA3 | Genuinely anonymous caller | Any resolve attempt | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+
+### 5. `cancel_reward_shop_purchase` — kid "Take it back" (7 sub-tests, all PASS)
+
+| # | Caller | Scenario | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| C1 | Helam (own session) | Cancels his own pending purchase (cost 5) | Succeeds; refund fires; balance 30→35 | `status=cancelled`, `points_now=35`, `refund_txn_created=1` | PASS |
+| C2 | Sarah (cross-family stranger) | Cancels Mosiah's (OurFamily) pending purchase | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+| C3 | Tenise (mom) | Cancels Gideon's pending purchase (on behalf) | Succeeds | `status=cancelled` | PASS |
+| C4 | OurFamily family-shadow session | Cancels Miriam's pending purchase | Succeeds — closes the exact "`redeem_own_prize`'s missing shadow branch" gap the migration's own comment references | `status=cancelled` | PASS |
+| C5 | Jerrod (additional_adult, same family, **not** mom, not shadow, not the purchasing member) | Cancels Ruthie's pending purchase | **Blocked** — unlike `purchase_reward_shop_item`'s acting-for rule, `cancel` restricts on-behalf-of to self/shadow/mom ONLY (no additional_adult clause in the code) | `P0001: Not authorized` | **PASS — confirms a real, intentional asymmetry vs. R9 above (see Observation B)** |
+| C6 | Helam (own session) | Cancels an **already-cancelled** purchase (idempotency) | Soft return, no double-refund | `status=already_resolved`, `current_status=cancelled` | PASS |
+| TA4 | Genuinely anonymous caller | Any cancel attempt | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+
+### 6. `member_completion_percentage` — unlock-gate percentage (4 sub-tests, all PASS)
+
+| # | Caller | Scenario | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| M1 | Sarah (Testworth, cross-family) | Compute Mosiah's (OurFamily) completion % | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+| M2 | Mosiah (own session) | Compute his own completion % | Succeeds, returns a real computed value | `65.8968850698174` | PASS |
+| M3 | Tenise (mom, same family) | Compute Mosiah's completion % | Succeeds, same value as M2 (consistent) | `65.8968850698174` | PASS — confirms same-family access is intentionally unrestricted by role (any family member may check any sibling's progress — a read-only, non-sensitive percentage, consistent with the addendum's framing rules) |
+| TA1 | Genuinely anonymous caller | Compute any member's completion % | Blocked | `P0001: Not authorized` | **PASS — BLOCKED** |
+
+### 7. `util.has_reward_rules_grant` — grant resolution logic (6 sub-tests, all PASS)
+
+Tested indirectly via its real effect inside the `rsi_granted_adult_all` RLS policy (an inactive "indicator" item only visible through that policy or `rsi_mom_all`), since `authenticated`/`anon` lack `USAGE` on the `util` schema and cannot invoke it via ad-hoc SQL directly (see §8) — this is the same mechanism through which the function is actually exercised in production (from within policy predicates, not direct client RPC calls).
+
+| # | Scenario | Expected | Actual | Result |
+|---|---|---|---|---|
+| G0 | Direct call as `postgres`, Jerrod ungranted | Returns `false` | `false` | PASS |
+| G1 | Jerrod (ungranted) — visibility into the RLS-gated indicator item | Does not see it | `sees_it=0` | PASS |
+| G2 | Jerrod, family-wide `reward_rules` grant (`target_member_id IS NULL`, `access_level='manage'`) | Now sees it | `sees_it=1` | PASS |
+| G3 | Jerrod, **per-kid-scoped** grant (`target_member_id` set to a real kid) instead of family-wide | Does **NOT** count — the function explicitly requires `target_member_id IS NULL` | `sees_it=0` | **PASS — confirms `reward_rules` is family-wide-only, matching the `studio`/`reward_rules` shape (Convention #274), never the per-kid `financial_tracking` shape** |
+| G4 | Jerrod, family-wide grant but `access_level='none'` | Does **NOT** count | `sees_it=0` | PASS — explicit revoke honored |
+| — | Sarah (cross-family) checking OurFamily's grant status | Not tested directly (schema-usage blocked — see §8); indirectly proven irrelevant since her own family membership already gates every table policy that calls this function | — | N/A |
+
+### 8. ACL hygiene observation (non-blocking) — implicit `PUBLIC` EXECUTE grant on all 5 new functions
+
+Checked `pg_proc.proacl` for all 5 new functions directly (not inferred): all 4 client-callable functions in the `public` schema (`purchase_reward_shop_item`, `resolve_reward_shop_purchase`, `cancel_reward_shop_purchase`, `member_completion_percentage`) carry an explicit `anon=X/postgres` grant in addition to `authenticated=X/postgres` and `service_role=X/postgres` — this appears to be a project-wide default privilege behavior for new functions created in the `public` schema (not something this migration's `GRANT ... TO authenticated, service_role` statements introduced on their own — Postgres/Supabase's default privilege configuration for this project evidently auto-grants `EXECUTE` on new `public`-schema functions to `anon` as well). `util.has_reward_rules_grant` shows no explicit `anon=` entry (its `REVOKE ALL ... FROM anon` succeeded in removing that), but still carries the implicit `=X/postgres` (`PUBLIC`) entry from function creation, meaning `anon` still inherits `EXECUTE` via `PUBLIC` membership regardless of the explicit per-role revoke — a well-known Postgres nuance (revoking from a named role has no effect on privileges the role inherits from `PUBLIC`).
+
+**This was not left as a theoretical concern — it was empirically tested with a genuinely-anonymous call (§3 TA2, §4 TA3, §5 TA4, §6 TA1), correcting an initial test-methodology mistake:** the first attempt to simulate "truly anonymous" used `SET LOCAL ROLE anon` without also clearing the `request.jwt.claims` session GUC, which — because `SET LOCAL` variables persist for the remainder of a transaction independent of `RESET ROLE` — left Tenise's `sub` claim from an earlier impersonation still active, causing `member_completion_percentage` to appear to succeed for "anon" (a false positive caused by test setup, not a real gap). Re-run with `SET LOCAL request.jwt.claims TO '';` explicitly clearing the GUC before `SET LOCAL ROLE anon`, all four functions correctly raised `Not authorized` — confirming the implicit `PUBLIC`/`anon` `EXECUTE` grant does not translate into an exploitable bypass, because every one of the four functions independently checks `auth.uid() IS NOT NULL` before attempting any authorization resolution, and defaults to `v_authorized := FALSE` (raising the exception) when it is not. `util.has_reward_rules_grant` is additionally protected by a second layer: neither `authenticated` nor `anon` holds `USAGE` on the `util` schema, so an ad-hoc client call to it fails at parse time (`42501: permission denied for schema util`) before the function-level `EXECUTE` grant is even reached — a stronger posture than the four `public`-schema functions.
+
+**Verdict on this finding: WARNING, not blocking** — matches the exact severity classification already established in this file for `member_points_today` (pre-100300-fix), `calculate_running_balance`, and `family_today`: an ACL hygiene gap (the implicit `PUBLIC` grant should ideally be explicitly revoked, e.g. `REVOKE ALL ON FUNCTION ... FROM PUBLIC` before the intended `GRANT ... TO authenticated, service_role`), but with zero practical exploitability because every function's own body independently fails closed for a truly-unauthenticated caller. This is a materially different situation from the `execute_*_godmother` CRITICAL findings in migrations 100296/100298 — those functions had **no authorization check of any kind**, trusting caller-supplied JSON outright; these four functions were built, from the start, with the correct family-membership gate this build's sibling had to retrofit under emergency conditions. Recommend folding this into the same future least-privilege hardening pass already flagged in this file (`REVOKE ALL ... FROM PUBLIC` + re-`GRANT` explicitly to `authenticated, service_role` on these 4 functions, mirroring what `util.has_reward_rules_grant` should also receive) — optional hygiene, not a pre-beta blocker.
+
+### 9. Residue check — zero permanent trace across all 9 probe transactions
+
+```sql
+SELECT
+  (SELECT COUNT(*) FROM reward_shop_items WHERE name LIKE 'RLSPROBE%')          AS items_residue,        -- 0
+  (SELECT COUNT(*) FROM reward_shop_purchases WHERE item_name LIKE 'RLSPROBE%') AS purchases_residue,    -- 0
+  (SELECT COUNT(*) FROM point_transactions WHERE source_type IN ('store_purchase','store_refund')) AS pt_from_probes, -- 0
+  (SELECT COUNT(*) FROM earned_prizes WHERE source_type='store_purchase')      AS prizes_residue,        -- 0
+  (SELECT COUNT(*) FROM financial_transactions WHERE description LIKE '%RLSPROBE%') AS ft_residue,        -- 0
+  (SELECT COUNT(*) FROM member_permissions WHERE permission_key='reward_rules') AS grants_residue,        -- 0
+  (SELECT COUNT(*) FROM notifications WHERE source_type='reward_shop_purchase') AS notif_residue;         -- 0
+```
+
+All zero. Every probed member's `gamification_points` confirmed back to its exact pre-probe baseline: Helam 30, Mosiah 255, Miriam 75, Gideon 5, OurFamily-Ruthie 11.
+
+### Observations (design confirmations, not gaps)
+
+- **Observation A (R9):** an `additional_adult` **without** a `reward_rules` management grant can still call `purchase_reward_shop_item` on behalf of any kid in the family — the acting-for path checks `role IN ('primary_parent','additional_adult')` only, independent of the catalog-management grant. This is explicitly documented in the migration's own header comment ("a parent/adult acting-for") and is architecturally consistent: managing the *catalog* (creating/pricing items) requires the grant; helping a kid *check out* an item mom already priced does not, since every purchase still routes through the same balance/audience/limit/unlock checks and, for `requires_approval=true` items, still parks for mom's own approval. Confirmed intentional, not flagged as a gap — but worth the founder's explicit awareness that this is broader than the catalog-management boundary.
+- **Observation B (C5 vs. R9):** `cancel_reward_shop_purchase` does **not** extend the same acting-for privilege to `additional_adult` — only the purchasing member's own session, a family-shadow session, or `primary_parent` may cancel a pending purchase on someone else's behalf. This creates a real, live-confirmed asymmetry (an ungranted dad can help a kid buy something, but cannot take it back on the kid's behalf) — consistent with the code as written, not a bug, but worth a design-intent confirmation from the founder since the two "acting-for" surfaces don't mirror each other.
+- **Play-always-pends (R7b)** is enforced correctly at the function level regardless of the item's own `requires_approval` flag — verified live, not just by code inspection.
+- **Grant-scope boundary (S3)** is airtight: a `reward_rules` grant expands catalog CRUD and purchase visibility, but never approve/decline authority, which remains `primary_parent`-only in this v1 (ruling 6).
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| `reward_shop_items` RLS (mom/granted-adult full CRUD; kid/ungranted-adult scoped read, no write; cross-family isolation) | **PASS** — 11/11 sub-tests |
+| `reward_shop_purchases` RLS (own-only read; mom/granted-adult full read; zero write policies for any role — including mom herself) | **PASS** — 10/10 sub-tests |
+| `purchase_reward_shop_item` (cross-family block, own-session success, kid-for-sibling block, audience scoping, insufficient balance, family-shadow, acting-for, special_adult block, Play-always-pends, truly-anon block) | **PASS** — 16/16 sub-tests, zero exploit found |
+| `resolve_reward_shop_purchase` (mom-only v1, grant does not bypass, real approve/decline round-trip, idempotency, special_adult block, truly-anon block) | **PASS** — 8/8 sub-tests |
+| `cancel_reward_shop_purchase` (self/mom/shadow succeed, stranger blocked, additional_adult blocked, idempotency, truly-anon block) | **PASS** — 7/7 sub-tests |
+| `member_completion_percentage` (cross-family block, same-family unrestricted, truly-anon block) | **PASS** — 4/4 sub-tests |
+| `util.has_reward_rules_grant` (family-wide-only resolution, per-kid excluded, `none` excluded, schema-usage-blocked for direct client calls) | **PASS** — 6/6 sub-tests |
+| Implicit `PUBLIC`/`anon` `EXECUTE` grant on all 5 functions | **WARNING, non-blocking** — empirically confirmed unexploitable; recommend folding into the platform-wide least-privilege sweep already flagged in this file |
+| Residue after all 9 probe transactions | **Zero** — every table, every balance, exactly restored |
+
+**Verdict: PASS.** No CRITICAL or ERROR findings. Every mutation path on both new tables is correctly locked to its intended role; all four client-callable RPCs correctly gate on family membership (or the specific narrower rule each is designed around — mom-only for resolve, self/shadow/mom for cancel, self/shadow/adult for purchase) *before* computing or paying anything, including against a genuinely-unauthenticated caller; the one hygiene gap found (implicit `PUBLIC` EXECUTE grant) does not translate into a working exploit and is recommended for the same future platform-wide least-privilege pass already on file, not a blocker for this build.

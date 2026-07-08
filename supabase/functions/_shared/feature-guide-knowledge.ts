@@ -129,7 +129,7 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Rotating prize pools: set mode to Sequential or Random — different prize each time!
   Prize Box: earned prizes show up for kids until mom marks them as redeemed.`,
 
-  '/prize-board': `PRIZE BOARD — 3 tabs: Allowance, Prizes, Balance.
+  '/prize-board': `PRIZE BOARD — 4 tabs: Allowance, Prizes, Balance, Shop.
   ALLOWANCE TAB: Unpaid periods grouped by date range. Each group expands to show per-pool breakdown (pool name, percentage, earned amount, weight). "Paid" button marks all pools in that period as closed.
   PRIZES TAB: Earned IOUs from reward reveals, one per kid — PLUS a "Family Goals" strip at the top showing active family goals with progress bars and a "Manage Family Goals" button (opens the same manager as Hub Settings). Earned-but-unredeemed family prizes render in their own "Family" group when arranged By kid, or with a "Family" tag when arranged By date — they're a whole-family prize, not any one kid's. A summary strip up top shows how many prizes are waiting and across how many kids (family prizes counted separately, e.g. "+1 family prize" — prizes/privileges only, never dollar amounts). "Arrange: By kid / By date" toggle switches between grouped-per-kid and one combined chronological stream (choice remembered). Mark a prize "Redeemed" when fulfilled — for a family prize this redeems it for everyone at once; recently redeemed prizes have an Un-redeem button for accidental taps. A "Me" pill at the top is mom's own promises-to-herself — her own self-proposed rewards, redeem, history, and "Promise Yourself a Reward" — kept separate from what's owed to the kids below.
   BALANCE TAB: Full earnings ledger with running balance.
@@ -137,7 +137,8 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Filters: All / Earnings / Payments / Adjustments / By Pool.
   Pool contribution rows (informational, no money amount) show in lighter style.
   Pay button opens PaymentModal — full or partial amount with note field.
-  Kids see their own ledger only (respects child_can_see_finances per pool). Play shell shows percentages only.`,
+  Kids see their own ledger only (respects child_can_see_finances per pool). Play shell shows percentages only.
+  SHOP TAB: the Reward Shop — what points BUY. "+ Add Reward" opens the item editor (name, point cost, optional photo, needs-approval toggle, purchase limit window, and an optional completion-percentage unlock gate). "Bulk Add with AI" pastes a whole list of rewards at once. A "Waiting for your approval" strip shows pending purchases with Approve/Not-this-time buttons right there (they also land in your Queue > Requests tab). A collapsible "Purchase history" shows resolved purchases. Kids buy from their own My Rewards page; approval-required buys hold the points until you decide, auto-approve items deliver instantly. Reachable by mom or any adult you've granted "Reward Rules" access to in the Permission Hub, even without full financial access.`,
 
   '/settings/allowance': `ALLOWANCE & FINANCES SETTINGS — Per-child allowance configuration.
   SINGLE POOL (default): Weekly amount, bonus threshold, calculation approach. No pool list visible.
@@ -165,7 +166,8 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   Mom's own tile always asks for HER email sign-in — the family password never opens mom's dashboard.`,
 
   '/my-rewards': `MY REWARDS PAGE — each family member's own rewards hub (Guided/Independent/Adult; Play gets the same sections on their Fun tab). Mom turns sections on per person: Family Members > [member] > Gamification Settings > "My Rewards Page."
-  Sections mom can enable: Points & streak, Custom Rewards (redeem-ready prizes + Previously Redeemed history), Victories (tap one to see its celebration narrative), Finances (money owed — reconciles with the Balance page), Creatures (sticker-book background frame), Coloring (active + finished reveal gallery), and Propose a deal (Guided+ kids only, never Play).
+  Sections mom can enable: Points & streak, Reward Shop, Custom Rewards (redeem-ready prizes + Previously Redeemed history), Victories (tap one to see its celebration narrative), Finances (money owed — reconciles with the Balance page), Creatures (sticker-book background frame), Coloring (active + finished reveal gallery), and Propose a deal (Guided+ kids only, never Play).
+  REWARD SHOP section: the catalog mom built in Prize Board > Shop. Each item shows its point cost and a Buy button, or a warm "N more to go!" progress line if it's out of reach or gated behind a completion percentage. Buying an approval-required item shows "A grown-up will need to say yes first," holds the points immediately, and shows a "Waiting for mom" strip with a "Take it back" cancel option (instant refund) until mom decides. Auto-approve items deliver right away. On Play, this becomes a picture shelf with Buy/Trade tiles and no numbers or gated items shown at all.
   PROPOSE A DEAL (kids/teens): the kid describes what they want and what they'll do to earn it — once, a daily streak for N days, or finishing a checklist of items. It lands as a pending card in mom's Queue > Requests tab.
   PROMISE YOURSELF A REWARD (adults, including mom on her own page): same idea, but self-directed and private by default — she can optionally share it with specific family members.
   Mom's processing options on a pitch: Approve (opens a prefilled task, streak tracker, or routine checklist for her to confirm — nothing is created until she saves), Counter (revise the terms once; the kid then accepts or declines the counteroffer), or Decline with an optional note.
@@ -243,6 +245,26 @@ When the shared total hits the target, the family earns the prize instantly — 
         description: 'Each participant must hit their own target independently.',
         howToSetUp: `Same manager, but pick "Everyone does their part" and set the per-person target.
 The goal completes only once every participant has individually reached the target — the Hub and My Rewards pages show each person's own progress toward it.`,
+      },
+    ],
+  },
+  {
+    triggers: ['reward shop', 'spend points on', 'let my kid buy something with points', 'point store', 'trade points for', 'what should points be worth', 'set up a reward shop', 'buy screen time with points'],
+    clarifyingQuestion: "The Reward Shop is where points turn into real things — Prize Board > Shop tab. Quick question so I set the right defaults: should a purchase need your yes first, or should it deliver automatically the moment they can afford it?",
+    variants: [
+      {
+        name: 'Needs my approval',
+        description: 'Points are held the moment they buy it; you decide before it delivers.',
+        howToSetUp: `Open Prize Board > Shop tab and tap "+ Add Reward."
+Name it, set a point cost, add a photo if you like, and leave "Needs approval" ON (the default).
+When a kid buys it, their points are deducted right away and it shows up in your Queue > Requests tab — Approve delivers the prize, Not this time refunds the points instantly.`,
+      },
+      {
+        name: 'Delivers automatically',
+        description: "No approval step — good for low-stakes items like extra screen time or picking dinner.",
+        howToSetUp: `Same "+ Add Reward" flow, but toggle "Needs approval" OFF.
+The moment a kid has enough points, Buy delivers it instantly and it shows up in their prize history — no queue card, no waiting.
+Note: Play members' purchases always wait for you regardless of this toggle — a built-in safety net for the youngest kids.`,
       },
     ],
   },

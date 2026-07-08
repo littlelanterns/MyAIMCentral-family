@@ -193,9 +193,12 @@ function App() {
               <Route path="/my-rewards" element={<ProtectedRoute><MyRewardsPage /></ProtectedRoute>} />
               {/* Phase 3 prize IOU board + reward rules. PERMISSIONS-WIRING
                   (2026-06-09): mom + granted adults. Prize Board follows the
-                  per-kid financial_tracking grant; RewardRules follows the
-                  family-wide reward_rules grant. */}
-              <Route path="/prize-board" element={<GrantedRoute grant="financial_tracking"><PrizeBoard /></GrantedRoute>} />
+                  per-kid financial_tracking grant OR the family-wide
+                  reward_rules grant (PECON-SHOP added a Shop tab gated on
+                  reward_rules — the route must admit either grant so a
+                  reward_rules-only-granted adult can still reach it);
+                  RewardRules follows the family-wide reward_rules grant. */}
+              <Route path="/prize-board" element={<GrantedRoute grant={['financial_tracking', 'reward_rules']}><PrizeBoard /></GrantedRoute>} />
               <Route path="/contracts" element={<GrantedRoute grant="reward_rules"><ContractsPage /></GrantedRoute>} />
               {/* PRD-28 financial audit surface — mom + finance-granted adults
                   (PERMISSIONS-WIRING 2026-06-09; RLS migration 100260 scopes

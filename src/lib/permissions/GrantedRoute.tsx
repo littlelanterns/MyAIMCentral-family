@@ -30,8 +30,22 @@ import { useManagementGrants } from './useManagementGrants'
 export type GrantedRouteKey = 'studio' | 'reward_rules' | 'financial_tracking'
 
 interface GrantedRouteProps {
-  grant: GrantedRouteKey
+  /**
+   * A single grant, or an array (ANY-of semantics) for a page that hosts
+   * surfaces gated by different grants — e.g. Prize Board's Allowance/
+   * Balance tabs need financial_tracking while its Shop tab needs
+   * reward_rules (PECON-SHOP), so the route itself must admit either.
+   */
+  grant: GrantedRouteKey | GrantedRouteKey[]
   children: ReactNode
+}
+
+function hasGrant(grant: GrantedRouteKey, grants: ReturnType<typeof useManagementGrants>): boolean {
+  return grant === 'studio'
+    ? grants.studioLevel !== 'none'
+    : grant === 'reward_rules'
+      ? grants.rewardRulesLevel !== 'none'
+      : grants.financeMaxLevel !== 'none'
 }
 
 export function GrantedRoute({ grant, children }: GrantedRouteProps) {
@@ -50,14 +64,10 @@ export function GrantedRoute({ grant, children }: GrantedRouteProps) {
     )
   }
 
+  const grantList = Array.isArray(grant) ? grant : [grant]
   const allowed =
     member.role === 'primary_parent' ||
-    (member.role === 'additional_adult' &&
-      (grant === 'studio'
-        ? grants.studioLevel !== 'none'
-        : grant === 'reward_rules'
-          ? grants.rewardRulesLevel !== 'none'
-          : grants.financeMaxLevel !== 'none'))
+    (member.role === 'additional_adult' && grantList.some((g) => hasGrant(g, grants)))
 
   if (!allowed) {
     return (

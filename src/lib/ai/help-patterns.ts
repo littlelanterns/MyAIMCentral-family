@@ -348,6 +348,16 @@ const HELP_PATTERNS: HelpPattern[] = [
     keywords: ['food restrictions', 'food allergies', 'allergy list', 'food profiles', 'dietary restrictions', 'what my kid can eat', "can't turn off allergy"],
     response: "**Food Profiles** (the shield icon button on the KitchenCompass page) is where you track allergies and restrictions per family member, plus a whole-family row for things everyone avoids. Restrictions I always plan around and can't be turned off — that's on purpose, since these are safety-critical. You can also quick-add what someone loves or isn't a fan of, which saves to their Preferences in Archives. There's also a private, mom-only note for general nutrition awareness (no calorie or macro tracking anywhere in the app) that gently shapes suggestions without ever showing on a kid's screen.",
   },
+  {
+    category: 'reward_shop',
+    keywords: ['reward shop', 'point shop', 'points shop', 'spend points', 'buy with points', 'trade points', 'what can points buy', 'set up reward shop'],
+    response: "The **Reward Shop** is what points BUY — separate from how points are earned. Set it up from **Prize Board > Shop tab**, or the \"Manage the Reward Shop →\" link at the bottom of a child's Gamification Settings Points section. Add items with a point cost, an optional photo, and whether it needs your approval or auto-approves. You can limit how often something can be bought (once a day/week/month) and require a kid to hit a completion percentage before an item unlocks. Kids buy from their own My Rewards page (or a picture shelf on Play) — approval-required purchases hold the points and land in your Queue > Requests tab for a yes/no; auto-approve items deliver right away. Declining or a kid cancelling a pending purchase refunds the points instantly, and Play kids' purchases always wait for you regardless of the item's setting.",
+  },
+  {
+    category: 'points_earning',
+    keywords: ['points per task', 'how are points earned', 'points for routine', 'points for best intention', 'daily points goal', 'currency name', 'rename points'],
+    response: "Points are earned automatically as kids complete work — no setup needed beyond turning on Gamification. Go to **Settings > Gamification > [child] > Points** to fine-tune: the base points per task, points per Best Intention tally (off by default), and a Daily Points Goal that shows warm \"N/goal today\" progress once you set one (leave it blank to hide it entirely). You can also rename \"points\" to your own currency name and pick an icon. Individual tasks can override the base value with their own \"Points for this task\" field, and routines can pay per-step or a lump sum on full completion — set that in the routine's own editor. Whatever a kid earns, they spend in the **Reward Shop**.",
+  },
 ]
 
 /**

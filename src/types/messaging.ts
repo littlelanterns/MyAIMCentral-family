@@ -38,6 +38,9 @@ export type NotificationType =
   | 'reward_proposal_countered'
   | 'reward_proposal_counter_response'
   | 'reward_proposal_outcome'
+  // PRD-30 Safety Monitoring (SM-A/SM-C): per-flag alert vs. weekly digest
+  | 'safety_flag'
+  | 'safety_digest'
 
 export type NotificationCategory = 'messages' | 'requests' | 'calendar' | 'tasks' | 'safety' | 'lila' | 'meetings'
 
