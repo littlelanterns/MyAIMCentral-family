@@ -12,7 +12,9 @@
 
 **Slice E is LIVE IN SHADOW MODE** (37 fns deployed, 3 tiers armed — note: Tier-2 verdicts only real AFTER the model-ID fix deploy; earlier shadow data is Tier-0/1 only, recorded in the SAFETY-BETA-GATE.md Phase-4 handoff). **PRD-30 detection + digests LIVE.**
 
-## Builds complete — Checkpoint 5 VERIFIED (independent Fable passes, 2026-07-08), awaiting FOUNDER SIGN-OFF only
+## Builds complete — Checkpoint 5 VERIFIED + **FOUNDER SIGNED OFF 2026-07-08** — ARCHIVED
+
+Both build files (+ PECON-earn/shop) moved to `.claude/completed-builds/2026-07/`, along with a housekeeping sweep of five previously-completed-and-pushed build files (ALLOWANCE-RECONCILIATION, CLIENT-DATE-REMEDIATION, FAMILY-GOALS-PRIZES, HITM-CLOSURE, PRD-42, PRD-43) that were still auto-loading into every session. `current-builds/` now holds ONLY: SAFETY-BETA-GATE (stays until Phase-4 flip), PRD-40-coppa (Slice 1 pending), STUDIO-EXPERIENCE (ST-A+ pending), VOICE-INPUT-REPAIR (founder mic feel-pass open), IDLE.md. Ledger rows added to both READMEs.
 
 - **PRD-30 (SM-A+B+C): Checkpoint 5 PASS** — 48 Wired / 4 Stubbed / 0 Missing, all six spot-checks green (no-side-door column guard holds even vs mom; crisis path provably DB-independent). Three doc discrepancies found → all corrected by the seat same day (tier-gate STUB row added, two stale "not yet fixed" texts updated). Verdict appended to the feature decision file. On founder sign-off: archive build file to completed-builds + README index row.
 - **PECON (A+B): Checkpoint 5 PASS** — 24 Wired / 0 Missing; ledger genuinely append-only with zero platform-wide bypass; lockdown covers all 15 functions. Three non-blocking follow-ups queued (see pile): rider-3 pin strengthening (D1), refund idempotency key (D2 — one line, next PECON-adjacent session), mom manual-points-adjustment stub registered + Convention #206 corrected (D3, done). Verdict appended to PECON-shop.md. Founder feel-pass still hers: kid buys a shop item on a real device (Play shelf = human-feel class).
