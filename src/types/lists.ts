@@ -16,6 +16,7 @@ export type ListType =
   | 'ideas'
   | 'prayer'
   | 'reward_list'
+  | 'gift_ideas'
 
 export type ListItemPriority = 'low' | 'medium' | 'high' | 'urgent' | 'must_have' | 'would_love' | 'nice_to_have'
 
@@ -82,9 +83,13 @@ export interface List {
   default_purchase_history_days: number
   default_auto_archive_days: number
   include_in_shopping_mode: boolean
+  // PRD-43 WishLists — who a gift_ideas list is FOR. NULL for every other list_type.
+  subject_member_id: string | null
   created_at: string
   updated_at: string
 }
+
+export type WishlistItemState = 'active' | 'dormant' | 'received'
 
 export interface ListItem {
   id: string
@@ -153,6 +158,14 @@ export interface ListItem {
   store_tags: string[] | null
   store_category: string | null
   archived_at: string | null
+  // PRD-43 WishLists
+  image_url: string | null
+  is_included_in_ai: boolean
+  wishlist_state: WishlistItemState | null
+  occasion_tags: string[] | null
+  added_by: string | null
+  excluded_from_shares: boolean
+  source_list_item_id: string | null
   created_at: string
   updated_at: string
 }
@@ -248,6 +261,7 @@ export type CreateList = Pick<List, 'family_id' | 'owner_id' | 'title' | 'list_t
   is_shared?: boolean
   pool_mode?: PoolMode
   eligible_members?: string[]
+  subject_member_id?: string
 }
 
 export type CreateListItem = Pick<ListItem, 'list_id' | 'content'> & {
@@ -260,6 +274,11 @@ export type CreateListItem = Pick<ListItem, 'list_id' | 'content'> & {
   priority?: ListItemPriority
   gift_for?: string
   sort_order?: number
+  image_url?: string
+  wishlist_state?: WishlistItemState
+  occasion_tags?: string[]
+  added_by?: string
+  is_included_in_ai?: boolean
 }
 
 export interface ListFilters {

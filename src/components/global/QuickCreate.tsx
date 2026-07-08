@@ -12,7 +12,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Zap, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, BarChart3, Brain } from 'lucide-react'
+import { Zap, CheckSquare, StickyNote, Trophy, CalendarPlus, HandHelping, BarChart3, Brain, Gift } from 'lucide-react'
 import { useShell } from '@/components/shells/ShellProvider'
 
 const QUICK_ACTIONS = [
@@ -20,6 +20,7 @@ const QUICK_ACTIONS = [
   { key: 'note', label: 'Quick Note', icon: StickyNote },
   { key: 'victory', label: 'Log Victory', icon: Trophy },
   { key: 'event', label: 'Calendar Event', icon: CalendarPlus },
+  { key: 'wishlist', label: 'Wishlist', icon: Gift },
   { key: 'request', label: 'Send Request', icon: HandHelping },
   { key: 'tracker', label: 'Track Something', icon: BarChart3 },
   { key: 'sweep', label: 'Mind Sweep', icon: Brain },
@@ -32,6 +33,7 @@ export interface QuickCreateProps {
   onQuickNote?: () => void
   onLogVictory?: () => void
   onCalendarEvent?: () => void
+  onWishlist?: () => void
   onSendRequest?: () => void
   onTrackSomething?: () => void
   onMindSweep?: () => void
@@ -92,6 +94,7 @@ export function QuickCreate({
   onQuickNote,
   onLogVictory,
   onCalendarEvent,
+  onWishlist,
   onSendRequest,
   onTrackSomething,
   onMindSweep,
@@ -122,11 +125,12 @@ export function QuickCreate({
       case 'note': onQuickNote?.(); break
       case 'victory': onLogVictory?.(); break
       case 'event': onCalendarEvent?.(); break
+      case 'wishlist': onWishlist?.(); break
       case 'request': onSendRequest?.(); break
       case 'tracker': onTrackSomething?.(); break
       case 'sweep': onMindSweep?.(); break
     }
-  }, [onAddTask, onQuickNote, onLogVictory, onCalendarEvent, onSendRequest, onTrackSomething, onMindSweep])
+  }, [onAddTask, onQuickNote, onLogVictory, onCalendarEvent, onWishlist, onSendRequest, onTrackSomething, onMindSweep])
 
   // Close on click outside
   useEffect(() => {

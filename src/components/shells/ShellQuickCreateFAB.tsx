@@ -5,12 +5,14 @@ import { useState } from 'react'
 import { QuickCreate } from '@/components/global/QuickCreate'
 import { TrackerQuickCreateModal } from '@/components/widgets/TrackerQuickCreateModal'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
+import { WishCatchModal } from '@/components/wishlists/WishCatchModal'
 import { useNotepadContext } from '@/components/notepad'
 
 export function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
   const { openNotepad } = useNotepadContext()
   const [showTrackerCreate, setShowTrackerCreate] = useState(false)
   const [showQuickRequest, setShowQuickRequest] = useState(false)
+  const [showWishCatch, setShowWishCatch] = useState(false)
   return (
     <>
       <QuickCreate
@@ -18,6 +20,7 @@ export function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
         onQuickNote={openNotepad}
         onLogVictory={() => { window.location.href = '/victories?new=1' }}
         onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
+        onWishlist={() => setShowWishCatch(true)}
         onSendRequest={() => setShowQuickRequest(true)}
         onTrackSomething={() => setShowTrackerCreate(true)}
         onMindSweep={() => { window.location.href = '/sweep' }}
@@ -29,6 +32,10 @@ export function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
       <QuickRequestModal
         isOpen={showQuickRequest}
         onClose={() => setShowQuickRequest(false)}
+      />
+      <WishCatchModal
+        isOpen={showWishCatch}
+        onClose={() => setShowWishCatch(false)}
       />
     </>
   )

@@ -29,6 +29,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { createTaskFromData } from '@/utils/createTaskFromData'
 import { QuickRequestModal } from '@/components/requests/QuickRequestModal'
+import { WishCatchModal } from '@/components/wishlists/WishCatchModal'
 import { RewardRevealProvider } from '@/components/reward-reveals/RewardRevealProvider'
 import { ContractRevealWatcher } from '@/components/reward-reveals/ContractRevealWatcher'
 import { FamilyPasswordSetupModal } from '@/components/auth/FamilyPasswordSetupModal'
@@ -267,6 +268,7 @@ function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
   const { openNotepad } = useNotepadContext()
   const [showTrackerCreate, setShowTrackerCreate] = useState(false)
   const [showQuickRequest, setShowQuickRequest] = useState(false)
+  const [showWishCatch, setShowWishCatch] = useState(false)
   return (
     <>
       <QuickCreate
@@ -274,6 +276,7 @@ function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
         onQuickNote={openNotepad}
         onLogVictory={() => { window.location.href = '/victories?new=1' }}
         onCalendarEvent={() => { window.location.href = '/calendar?new=1' }}
+        onWishlist={() => setShowWishCatch(true)}
         onSendRequest={() => setShowQuickRequest(true)}
         onTrackSomething={() => setShowTrackerCreate(true)}
         onMindSweep={() => { window.location.href = '/sweep' }}
@@ -285,6 +288,10 @@ function ShellQuickCreateFAB({ onAddTask }: { onAddTask?: () => void }) {
       <QuickRequestModal
         isOpen={showQuickRequest}
         onClose={() => setShowQuickRequest(false)}
+      />
+      <WishCatchModal
+        isOpen={showWishCatch}
+        onClose={() => setShowWishCatch(false)}
       />
     </>
   )

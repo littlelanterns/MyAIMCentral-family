@@ -19,6 +19,7 @@
  */
 
 import { useNavigate } from 'react-router-dom'
+import { Gift } from 'lucide-react'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
@@ -95,6 +96,27 @@ export function PlayRewards() {
             : 'Start earning creatures to fill your sticker book.'}
         </p>
       </header>
+
+      {/* PRD-43 WishLists — Play nav is deliberately Home+Fun only (founder
+          eyes-on 2026-06-12), so the picture-grid wishlist surface is
+          reachable from here rather than a third top-level tab. */}
+      <button
+        type="button"
+        onClick={() => navigate('/wishlists')}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem',
+          padding: '1rem 1.5rem', fontSize: '1.125rem', fontWeight: 600,
+          borderRadius: 'var(--vibe-radius-button, 0.75rem)',
+          backgroundColor: 'var(--color-bg-card)',
+          border: '2px solid var(--color-accent)',
+          color: 'var(--color-text-primary)',
+          cursor: 'pointer',
+          minHeight: '56px',
+        }}
+      >
+        <Gift size={24} style={{ color: 'var(--color-accent)' }} />
+        My Wish List
+      </button>
 
       {/* Shared sections — Creatures (swipe-strip sticker book) / Coloring /
           Points / Custom Rewards / Victories per mom's opt-ins. Finances only

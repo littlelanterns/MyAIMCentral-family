@@ -235,7 +235,7 @@ function FolderGroup({
   childFolders: ArchiveFolderNode[]
   lilaFilterActive: boolean
 }) {
-  const [expanded, setExpanded] = useState(depth === 0)
+  const [expanded, setExpanded] = useState(depth === 0 && folder.folder_type !== 'wishlist')
   const { data: items = [], isLoading } = useArchiveContextItems(folder.id)
   const toggleItemAI = useToggleArchiveItemAI()
   const archiveItem = useArchiveContextItem()
@@ -248,6 +248,12 @@ function FolderGroup({
   const [showMenu, setShowMenu] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState(folder.folder_name)
+  const navigate = useNavigate()
+
+  // PRD-43 WishLists §6.8: the auto-provisioned Wishlist folder is a
+  // DOORWAY, not a rendering surface — opening it navigates to the
+  // member's real wishlist. No copies, no separate item list here.
+  const isWishlistDoorway = folder.folder_type === 'wishlist'
 
   // Filter items if LiLa filter is active
   const displayItems = useMemo(() => {
@@ -301,8 +307,13 @@ function FolderGroup({
         className="flex items-center gap-2 py-2 px-2 rounded-lg cursor-pointer"
         style={{ backgroundColor: expanded ? 'color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)' : 'transparent' }}
       >
-        <button onClick={() => setExpanded(!expanded)} className="flex-1 flex items-center gap-2 text-left min-w-0">
-          {expanded ? (
+        <button
+          onClick={() => (isWishlistDoorway ? navigate(`/wishlists?member=${memberId}`) : setExpanded(!expanded))}
+          className="flex-1 flex items-center gap-2 text-left min-w-0"
+        >
+          {isWishlistDoorway ? (
+            <ExternalLink size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+          ) : expanded ? (
             <ChevronUp size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
           ) : (
             <ChevronDown size={16} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />

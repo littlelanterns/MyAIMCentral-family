@@ -132,6 +132,7 @@ const GUIDED_MORE_SECTIONS: GuidedMoreSection[] = [
     title: 'Family',
     items: [
       { path: '/messages', icon: <MessageCircle size={20} />, label: 'Messages', description: 'Talk to your family' },
+      { path: '/wishlists', icon: <Gift size={20} />, label: 'WishLists', description: 'Your wish list' },
     ],
   },
   {
