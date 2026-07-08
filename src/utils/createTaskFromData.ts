@@ -136,6 +136,10 @@ export async function createTaskFromData(
     counts_for_homework: data.countsForHomework ?? false,
     counts_for_gamification: data.countsForGamification ?? true,
     allowance_points: data.allowancePoints ?? null,
+    // PRD-24 Point Economy Addendum §5.1 (rider 1): per-task points override.
+    // Only meaningful for non-routine tasks (the UI hides this field when
+    // taskType='routine' — routines use routine_points_mode instead).
+    points_override: data.pointsOverride ?? null,
     homework_subject_ids: (data.homeworkSubjectIds?.length ?? 0) > 0 ? data.homeworkSubjectIds : [],
     // PRD-28 NEW-EE: extra credit. Gated at the UI layer — extra_credit without
     // allowance participation is meaningless, but we still write the raw value
@@ -193,6 +197,10 @@ export async function createTaskFromData(
         p_title: data.title,
         p_description: data.description || null,
         p_sections: rpcSections,
+        // PRD-24 Point Economy Addendum §5.2 (ruling 2, migration 100301)
+        p_routine_points_mode: data.routinePointsMode ?? 'none',
+        p_routine_step_points: data.routineStepPoints ?? null,
+        p_routine_completion_points: data.routineCompletionPoints ?? null,
       })
       if (rpcError) {
         throw new Error(`[createTaskFromData] Atomic template rewrite failed: ${rpcError.message}`)
@@ -236,6 +244,10 @@ export async function createTaskFromData(
             description: data.description || null,
             task_type: 'routine',
             template_type: 'routine',
+            // PRD-24 Point Economy Addendum §5.2 (ruling 2)
+            routine_points_mode: data.routinePointsMode ?? 'none',
+            routine_step_points: data.routineStepPoints ?? null,
+            routine_completion_points: data.routineCompletionPoints ?? null,
           })
           .select('id')
           .single()
@@ -292,6 +304,12 @@ export async function createTaskFromData(
             linked_source_id?: string | null
             linked_source_type?: 'sequential_collection' | 'randomizer_list' | 'recurring_task' | null
             display_name_override?: string | null
+            // PRD-24 Point Economy Addendum §5.5 (RSTP scope, ruling 4)
+            reward_type?: 'privilege' | 'custom' | 'money' | 'stars' | null
+            reward_amount?: number | null
+            reward_description?: string | null
+            reward_image_url?: string | null
+            reward_image_asset_key?: string | null
           }
           const stepInserts = section.steps.map(step => {
             const s = step as StepWithLinkedFields
@@ -307,6 +325,11 @@ export async function createTaskFromData(
               linked_source_id: s.linked_source_id ?? null,
               linked_source_type: s.linked_source_type ?? null,
               display_name_override: s.display_name_override ?? null,
+              reward_type: s.reward_type ?? null,
+              reward_amount: s.reward_amount ?? null,
+              reward_description: s.reward_description ?? null,
+              reward_image_url: s.reward_image_url ?? null,
+              reward_image_asset_key: s.reward_image_asset_key ?? null,
             }
           })
           if (stepInserts.length > 0) {

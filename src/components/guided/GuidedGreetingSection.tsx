@@ -16,6 +16,9 @@ interface GuidedGreetingSectionProps {
   points: number
   streak: number
   readingSupport: boolean
+  /** PRD-24 Point Economy Addendum §5.6 (rider 2). Both undefined = goal off, indicator hidden entirely. */
+  dailyGoal?: number | null
+  pointsToday?: number
 }
 
 export function GuidedGreetingSection({
@@ -25,6 +28,8 @@ export function GuidedGreetingSection({
   points,
   streak,
   readingSupport,
+  dailyGoal,
+  pointsToday = 0,
 }: GuidedGreetingSectionProps) {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -116,6 +121,24 @@ export function GuidedGreetingSection({
             <div className="flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
               <Flame size={16} style={{ color: 'var(--color-accent-warm, #f59e0b)' }} />
               <span className="text-sm font-medium">{streak}</span>
+            </div>
+          )}
+          {/* PRD-24 Point Economy Addendum §5.6: "7/10 today" — absent
+              entirely when mom hasn't set a goal. Never shows a miss. */}
+          {dailyGoal != null && dailyGoal > 0 && (
+            <div
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+                color: 'var(--color-btn-primary-bg)',
+              }}
+            >
+              <span className="text-sm font-semibold">
+                {Math.min(pointsToday, dailyGoal)}/{dailyGoal}
+              </span>
+              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                today
+              </span>
             </div>
           )}
         </div>

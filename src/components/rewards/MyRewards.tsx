@@ -50,6 +50,7 @@ import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useMyRewardsSettings } from '@/hooks/useMyRewardsSettings'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useMemberStreak } from '@/hooks/useMemberStreak'
+import { useMemberPointsToday } from '@/hooks/useMemberPointsToday'
 import { useRunningBalance, useMemberAllowancePools } from '@/hooks/useFinancial'
 import { useEarnedPrizes } from '@/hooks/useRewardReveals'
 import {
@@ -222,6 +223,10 @@ function PointsSection({
   // Per-child currency name — never hardcode (PRD-24 / recon binding rule).
   const currencyName = config?.currency_name?.trim() || 'points'
   const play = variant === 'play'
+  // PRD-24 Point Economy Addendum §5.6 (rider 2): daily points goal — renders
+  // NOTHING when unset (neutral-primitive law). Never framed as a miss.
+  const dailyGoal = config?.daily_points_goal ?? null
+  const { data: pointsToday } = useMemberPointsToday(dailyGoal != null ? member.id : undefined)
 
   return (
     <SectionCard title="My Points" icon={<Star size={play ? 24 : 18} />} testId="mr-section-points" play={play}>
@@ -266,6 +271,37 @@ function PointsSection({
           </div>
         )}
       </div>
+
+      {/* PRD-24 Point Economy Addendum §5.6: "7/10 today" warm progress —
+          absent entirely when mom hasn't set a goal. Never shows a miss. */}
+      {dailyGoal != null && dailyGoal > 0 && (
+        <div className="mt-3" data-testid="mr-daily-goal-progress">
+          <div
+            className="flex items-center justify-between mb-1"
+            style={{ fontSize: play ? 'var(--font-size-sm)' : 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}
+          >
+            <span>{Math.min(pointsToday ?? 0, dailyGoal)}/{dailyGoal} today</span>
+          </div>
+          <div
+            style={{
+              height: play ? 12 : 8,
+              borderRadius: 999,
+              backgroundColor: 'var(--color-bg-secondary)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: `${Math.min(100, Math.round(((pointsToday ?? 0) / dailyGoal) * 100))}%`,
+                background: 'var(--surface-primary)',
+                borderRadius: 999,
+                transition: 'width 0.3s ease',
+              }}
+            />
+          </div>
+        </div>
+      )}
     </SectionCard>
   )
 }

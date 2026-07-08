@@ -9,6 +9,8 @@
  *   'intention_iteration'                          → best_intentions.statement
  *   'randomizer_item'                              → list_items.item_name/content
  *   'contract_grant'                               → "a reward rule"
+ *   'routine_step'                                 → task_template_steps display name
+ *                                                     (PRD-24 Point Economy Addendum §5.5)
  *
  * Returns a Record<prizeId, label> where label is the SOURCE phrase (the UI
  * renders it as "Earned by: {label}"). Prizes whose source can't be resolved
@@ -35,15 +37,17 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
       const taskIds = new Set<string>()
       const intentionIds = new Set<string>()
       const listItemIds = new Set<string>()
+      const routineStepCompletionIds = new Set<string>()
 
       for (const p of prizes) {
         if (!p.source_id) continue
         if (TASK_SOURCE_TYPES.has(p.source_type)) taskIds.add(p.source_id)
         else if (p.source_type === 'intention_iteration') intentionIds.add(p.source_id)
         else if (p.source_type === 'randomizer_item') listItemIds.add(p.source_id)
+        else if (p.source_type === 'routine_step') routineStepCompletionIds.add(p.source_id)
       }
 
-      const [tasksRes, intentionsRes, itemsRes] = await Promise.all([
+      const [tasksRes, intentionsRes, itemsRes, routineStepsRes] = await Promise.all([
         taskIds.size > 0
           ? supabase.from('tasks').select('id, title').in('id', [...taskIds])
           : Promise.resolve({ data: [] as { id: string; title: string | null }[], error: null }),
@@ -59,6 +63,24 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
               data: [] as { id: string; item_name: string | null; content: string | null }[],
               error: null,
             }),
+        // PRD-24 Point Economy Addendum §5.5: routine_step prizes carry the
+        // routine_step_completions.id as source_id — resolve through its
+        // step's display name (or the parent task's title as a fallback).
+        routineStepCompletionIds.size > 0
+          ? supabase
+              .from('routine_step_completions')
+              .select('id, task_id, step_id, task_template_steps(step_name, display_name_override), tasks(title)')
+              .in('id', [...routineStepCompletionIds])
+          : Promise.resolve({
+              data: [] as unknown as Array<{
+                id: string
+                task_id: string
+                step_id: string | null
+                task_template_steps: { step_name: string | null; display_name_override: string | null } | null
+                tasks: { title: string | null } | null
+              }>,
+              error: null,
+            }),
       ])
 
       const taskTitles = new Map(
@@ -70,6 +92,19 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
       const itemNames = new Map(
         (itemsRes.data ?? []).map(li => [li.id, li.item_name ?? li.content ?? null]),
       )
+      const routineStepLabels = new Map(
+        ((routineStepsRes.data ?? []) as unknown as Array<{
+          id: string
+          task_template_steps: { step_name: string | null; display_name_override: string | null } | null
+          tasks: { title: string | null } | null
+        }>).map(rsc => [
+          rsc.id,
+          rsc.task_template_steps?.display_name_override
+            ?? rsc.task_template_steps?.step_name
+            ?? rsc.tasks?.title
+            ?? null,
+        ]),
+      )
 
       const result: Record<string, string> = {}
       for (const p of prizes) {
@@ -80,6 +115,8 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
           label = intentionStatements.get(p.source_id) ?? null
         } else if (p.source_type === 'randomizer_item') {
           label = itemNames.get(p.source_id) ?? null
+        } else if (p.source_type === 'routine_step') {
+          label = routineStepLabels.get(p.source_id) ?? null
         } else if (p.source_type === 'contract_grant') {
           label = 'a reward rule'
         }

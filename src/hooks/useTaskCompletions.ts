@@ -13,6 +13,7 @@ import type {
 } from '@/types/tasks'
 import { fireDeed } from '@/lib/connector/fireDeed'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
+import { processRoutineStepCompletion } from '@/lib/connector/processRoutineStepCompletion'
 import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
 
 // ============================================================
@@ -423,6 +424,19 @@ export function useCompleteRoutineStep() {
         .maybeSingle()
 
       if (error) throw error
+
+      // PRD-24 Point Economy Addendum §5.3 (ruling 3): process routine-step
+      // economics (per-step points, per-completion evaluation, per-step
+      // prizes) after a FRESH completion only — data.id is present only when
+      // the upsert actually inserted a row; a recheck (already completed)
+      // returns no row under ignoreDuplicates and has nothing new to
+      // process. Fire-and-forget, mirrors awardCustomRewardForCompletion's
+      // call-site convention exactly (Convention #199 — never blocks the
+      // checkmark the kid just committed).
+      if (data?.id) {
+        processRoutineStepCompletion(data.id)
+      }
+
       return (data ?? {
         task_id: completion.task_id,
         step_id: completion.step_id,
@@ -450,6 +464,12 @@ export function useCompleteRoutineStep() {
       queryClient.invalidateQueries({
         queryKey: ['live-allowance-progress', data.member_id],
       })
+      // Points economy: a step/completion award may have moved the
+      // completer's balance — invalidate the same keys grant_points-driven
+      // flows use so My Rewards / dashboard points readouts refresh.
+      queryClient.invalidateQueries({ queryKey: ['family-member', data.member_id] })
+      queryClient.invalidateQueries({ queryKey: ['family-members'] })
+      queryClient.invalidateQueries({ queryKey: ['member-points-today', data.member_id] })
     },
   })
 }

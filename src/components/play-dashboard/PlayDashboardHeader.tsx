@@ -19,6 +19,9 @@ interface PlayDashboardHeaderProps {
   streak: number
   creatureCount: number
   currencyName: string
+  /** PRD-24 Point Economy Addendum §5.6 (rider 2). Both null/undefined = goal off, pill hidden entirely. */
+  dailyGoal?: number | null
+  pointsToday?: number
 }
 
 export function PlayDashboardHeader({
@@ -27,6 +30,8 @@ export function PlayDashboardHeader({
   streak,
   creatureCount,
   currencyName,
+  dailyGoal,
+  pointsToday = 0,
 }: PlayDashboardHeaderProps) {
   const greeting = greetingForTimeOfDay()
   const firstName = memberName.split(' ')[0]
@@ -88,6 +93,30 @@ export function PlayDashboardHeader({
           value={creatureCount}
           label={creatureCount === 1 ? 'creature' : 'creatures'}
         />
+        {/* PRD-24 Point Economy Addendum §5.6: minimal-numbers Play variant —
+            "7/10 today", absent entirely when mom hasn't set a goal. */}
+        {dailyGoal != null && dailyGoal > 0 && (
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+              padding: '0.375rem 0.75rem',
+              borderRadius: '9999px',
+              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-secondary))',
+              border: '1px solid color-mix(in srgb, var(--color-btn-primary-bg) 25%, transparent)',
+              color: 'var(--color-btn-primary-bg)',
+            }}
+          >
+            <Star size={16} />
+            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700 }}>
+              {Math.min(pointsToday, dailyGoal)}/{dailyGoal}
+            </span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+              today
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

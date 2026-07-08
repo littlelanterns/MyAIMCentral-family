@@ -583,7 +583,7 @@
 
 ## Tasks & Studio (PRD-09A, PRD-09B, PRD-17)
 
-### `task_templates` — 20 rows
+### `task_templates` — 22 rows
 
 | # | Column |
 |---|---|
@@ -636,7 +636,7 @@
 | 47 | `routine_step_points` |
 | 48 | `routine_completion_points` |
 
-### `task_template_sections` — 44 rows
+### `task_template_sections` — 46 rows
 
 | # | Column |
 |---|---|
@@ -651,7 +651,7 @@
 | 9 | `show_until_complete` |
 | 10 | `updated_at` |
 
-### `task_template_steps` — 189 rows
+### `task_template_steps` — 191 rows
 
 | # | Column |
 |---|---|
@@ -806,7 +806,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2069 rows
+### `routine_step_completions` — 2085 rows
 
 | # | Column |
 |---|---|
@@ -3052,7 +3052,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 71 rows
+### `contracts` — 72 rows
 
 | # | Column |
 |---|---|

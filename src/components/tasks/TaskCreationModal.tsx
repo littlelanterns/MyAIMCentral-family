@@ -182,6 +182,21 @@ export interface CreateTaskData {
    */
   rewardVisibility?: 'family' | 'private' | 'shared'
   rewardSharedWith?: string[]
+  /**
+   * PRD-24 Point Economy Addendum §5.1 (rider 1): per-task points override,
+   * writes tasks.points_override. Symmetric with allowancePoints — one
+   * value, gated on countsForGamification, blank uses the assignee's
+   * gamification_configs.base_points_per_task default.
+   */
+  pointsOverride?: number | null
+  /**
+   * PRD-24 Point Economy Addendum §5.2 (ruling 2): per-ROUTINE points mode.
+   * Template-level, not per-task — only meaningful when taskType='routine'.
+   * Default 'none' — routines earn nothing until mom opts a routine in.
+   */
+  routinePointsMode?: 'none' | 'per_step' | 'per_completion'
+  routineStepPoints?: number | null
+  routineCompletionPoints?: number | null
 }
 
 interface TaskCreationModalProps {
@@ -249,6 +264,12 @@ interface TaskCreationModalProps {
     rewardDescription?: string
     rewardImageUrl?: string
     rewardImageAssetKey?: string
+    /** PRD-24 Point Economy Addendum: MUST be passed on edit — see the
+     *  same checkbox-honesty discipline as the reward* fields above. */
+    pointsOverride?: number | null
+    routinePointsMode?: 'none' | 'per_step' | 'per_completion'
+    routineStepPoints?: number | null
+    routineCompletionPoints?: number | null
   } | null
   /**
    * Stable identity of the task being edited. Callers that may swap the modal's
@@ -327,6 +348,11 @@ function defaultTaskData(queueItem?: StudioQueueItem): CreateTaskData {
     countsForGamification: true, // default checked — preserves current behavior
     isExtraCredit: false, // NEW-EE: opt-in only, gated by countsForAllowance
     homeworkSubjectIds: [],
+    // PRD-24 Point Economy Addendum: blank override, routine points off by default
+    pointsOverride: null,
+    routinePointsMode: 'none',
+    routineStepPoints: null,
+    routineCompletionPoints: null,
   }
 }
 
@@ -729,6 +755,11 @@ export function TaskCreationModal({
       if (editTaskValues.rewardDescription !== undefined) d.reward.rewardDescription = editTaskValues.rewardDescription
       if (editTaskValues.rewardImageUrl !== undefined) d.reward.rewardImageUrl = editTaskValues.rewardImageUrl
       if (editTaskValues.rewardImageAssetKey !== undefined) d.reward.rewardImageAssetKey = editTaskValues.rewardImageAssetKey
+      // PRD-24 Point Economy Addendum: hydrate points config on edit
+      if (editTaskValues.pointsOverride !== undefined) d.pointsOverride = editTaskValues.pointsOverride
+      if (editTaskValues.routinePointsMode !== undefined) d.routinePointsMode = editTaskValues.routinePointsMode
+      if (editTaskValues.routineStepPoints !== undefined) d.routineStepPoints = editTaskValues.routineStepPoints
+      if (editTaskValues.routineCompletionPoints !== undefined) d.routineCompletionPoints = editTaskValues.routineCompletionPoints
     }
     // When deploying from an existing template, link (don't duplicate)
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
@@ -901,6 +932,11 @@ export function TaskCreationModal({
       if (editTaskValues.rewardDescription !== undefined) d.reward.rewardDescription = editTaskValues.rewardDescription
       if (editTaskValues.rewardImageUrl !== undefined) d.reward.rewardImageUrl = editTaskValues.rewardImageUrl
       if (editTaskValues.rewardImageAssetKey !== undefined) d.reward.rewardImageAssetKey = editTaskValues.rewardImageAssetKey
+      // PRD-24 Point Economy Addendum: hydrate points config on edit
+      if (editTaskValues.pointsOverride !== undefined) d.pointsOverride = editTaskValues.pointsOverride
+      if (editTaskValues.routinePointsMode !== undefined) d.routinePointsMode = editTaskValues.routinePointsMode
+      if (editTaskValues.routineStepPoints !== undefined) d.routineStepPoints = editTaskValues.routineStepPoints
+      if (editTaskValues.routineCompletionPoints !== undefined) d.routineCompletionPoints = editTaskValues.routineCompletionPoints
     }
     if (deployFromTemplateId) d.deployFromTemplateId = deployFromTemplateId
     // Reset interaction ref BEFORE writing — this is a legitimate identity-change
@@ -2516,12 +2552,13 @@ export function TaskCreationModal({
             style={inputStyle}
           >
             <option value="none">None</option>
-            <option value="stars">Stars</option>
-            <option value="points">Points</option>
             <option value="money">Money</option>
             <option value="privilege">Special Privilege</option>
             <option value="custom">Custom</option>
           </select>
+          {/* PRD-24 Point Economy Addendum §5.1: points are a value any task
+              carries (the field below), not a "reward type" — the old
+              Stars/Points dropdown options are retired in favor of it. */}
         </div>
 
         {/* KIDS-REWARDS-PAGE Q5/Q7: custom rewards (privilege / custom) are
@@ -2795,7 +2832,135 @@ export function TaskCreationModal({
             />
             Count toward gamification points
           </label>
+          {/* PRD-24 Point Economy Addendum §5.1 (rider 1): per-task points
+              override, writes tasks.points_override. Exact symmetry with the
+              allowance "Weight (points)" input above. Only meaningful for
+              non-routine tasks — routines set their points economy in the
+              Points block below instead. */}
+          {data.countsForGamification && data.taskType !== 'routine' && (
+            <div
+              style={{
+                marginLeft: '1.5rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                fontSize: 'var(--font-size-sm)',
+              }}
+            >
+              <label
+                htmlFor="points-override-input"
+                title="Points this task awards on completion. Leave blank to use the assignee's default (set in their Gamification Settings)."
+                style={{
+                  color: 'var(--color-text-primary)',
+                  cursor: 'help',
+                }}
+              >
+                Points for this task
+              </label>
+              <input
+                id="points-override-input"
+                type="number"
+                min={0}
+                max={1000}
+                step={1}
+                placeholder="defaults to 10"
+                data-testid="points-override-input"
+                value={data.pointsOverride ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  update('pointsOverride', raw === '' ? null : Number(raw))
+                }}
+                style={{
+                  width: '5rem',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: 'var(--vibe-radius-input, 6px)',
+                  border: '1px solid var(--color-border-default, var(--color-border))',
+                  background: 'var(--color-bg-card)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-sm)',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 'var(--font-size-xs)',
+                  color: 'var(--color-text-muted)',
+                }}
+              >
+                (blank uses the assignee's default)
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* PRD-24 Point Economy Addendum §5.2 (ruling 2): per-ROUTINE points
+            economy. Template-level, not per-task — mirrors the founder's
+            exact scenario ("a point every step" for schoolwork vs. "one
+            point for the whole thing" for grooming). Default 'none'. */}
+        {data.taskType === 'routine' && (
+          <div style={{ marginBottom: '0.75rem' }}>
+            <label style={{ display: 'block', color: 'var(--color-text-primary)', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '0.5rem' }}>
+              Points for this routine
+            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                <input
+                  type="radio"
+                  name="routinePointsMode"
+                  data-testid="routine-points-mode-none"
+                  checked={(data.routinePointsMode ?? 'none') === 'none'}
+                  onChange={() => update('routinePointsMode', 'none')}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                None — this routine doesn't earn points
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                <input
+                  type="radio"
+                  name="routinePointsMode"
+                  data-testid="routine-points-mode-per-step"
+                  checked={data.routinePointsMode === 'per_step'}
+                  onChange={() => update('routinePointsMode', 'per_step')}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                Each step —
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={data.routineStepPoints ?? ''}
+                  disabled={data.routinePointsMode !== 'per_step'}
+                  onChange={(e) => update('routineStepPoints', e.target.value === '' ? null : Number(e.target.value))}
+                  style={{ width: '4rem', padding: '0.125rem 0.375rem', borderRadius: 'var(--vibe-radius-input, 6px)', border: '1px solid var(--color-border-default, var(--color-border))', background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}
+                />
+                point(s) every time a step is checked off
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+                <input
+                  type="radio"
+                  name="routinePointsMode"
+                  data-testid="routine-points-mode-per-completion"
+                  checked={data.routinePointsMode === 'per_completion'}
+                  onChange={() => update('routinePointsMode', 'per_completion')}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                Whole routine —
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  step={1}
+                  value={data.routineCompletionPoints ?? ''}
+                  disabled={data.routinePointsMode !== 'per_completion'}
+                  onChange={(e) => update('routineCompletionPoints', e.target.value === '' ? null : Number(e.target.value))}
+                  style={{ width: '4rem', padding: '0.125rem 0.375rem', borderRadius: 'var(--vibe-radius-input, 6px)', border: '1px solid var(--color-border-default, var(--color-border))', background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', fontSize: 'var(--font-size-sm)' }}
+                />
+                point(s) when everything scheduled today is done
+              </label>
+            </div>
+            <HelperText>Set per-step reward pictures/privileges in each section below.</HelperText>
+          </div>
+        )}
 
         {/* Bonus config — visible only when reward is set */}
         {data.reward.rewardType && (

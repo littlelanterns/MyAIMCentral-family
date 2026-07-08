@@ -29,6 +29,8 @@ const SOURCE_TYPE_META: Record<ContractSourceType, { icon: React.ReactNode; labe
   scheduled_occurrence_active: { icon: <Calendar size={16} />, label: 'Scheduled Occurrence' },
   opportunity_claimed: { icon: <Gift size={16} />, label: 'Opportunity Claimed' },
   randomizer_drawn: { icon: <Shuffle size={16} />, label: 'Randomizer Drawn' },
+  // PRD-24 Point Economy Addendum §5.6 (rider 2, migration 100296)
+  daily_points_goal_met: { icon: <Star size={16} />, label: 'Daily Points Goal Met' },
 }
 
 const GODMOTHER_META: Record<GodmotherType, { icon: React.ReactNode; label: string }> = {

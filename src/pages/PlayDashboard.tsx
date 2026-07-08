@@ -35,6 +35,8 @@ import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamilyToday } from '@/hooks/useFamilyToday'
 import { useMemberStreak } from '@/hooks/useMemberStreak'
+import { useMemberPointsToday } from '@/hooks/useMemberPointsToday'
+import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
 import { PlayDashboardHeader } from '@/components/play-dashboard/PlayDashboardHeader'
 import { EarningProgressPill } from '@/components/play-dashboard/EarningProgressPill'
@@ -150,6 +152,10 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
   const { data: memberStreak } = useMemberStreak(memberId)
   const streak = memberStreak?.currentStreak ?? 0
   const memberName = (memberData?.display_name as string) ?? 'Friend'
+  // PRD-24 Point Economy Addendum §5.6 (rider 2): daily points goal.
+  const { data: gamificationConfig } = useGamificationConfig(memberId)
+  const dailyGoal = gamificationConfig?.daily_points_goal ?? null
+  const { data: pointsToday } = useMemberPointsToday(dailyGoal != null ? memberId : undefined)
 
   // ── Task completion (Sub-phase C wires gamification RPC) ───────
   const completeTask = useCompleteTask()
@@ -321,6 +327,8 @@ export function PlayDashboard({ memberId, familyId, isViewAsOverlay }: PlayDashb
         streak={streak}
         creatureCount={creatures.length}
         currencyName="stars"
+        dailyGoal={dailyGoal}
+        pointsToday={pointsToday ?? 0}
       />
 
       <EarningProgressPill

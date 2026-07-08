@@ -32,6 +32,9 @@ export interface GamificationConfig {
   bonus_at_three: number
   bonus_at_five: number
   routine_points_mode: string
+  // PRD-24 Point Economy Addendum §5.4/§5.6 (migration 100296). NULL = off.
+  intention_tally_points: number | null
+  daily_points_goal: number | null
   streak_grace_days: number
   streak_schedule_aware: boolean
   streak_pause_enabled: boolean
@@ -76,6 +79,9 @@ interface UpdateGamificationConfigInput {
   base_points_per_task?: number
   currency_name?: string
   currency_icon?: string
+  // PRD-24 Point Economy Addendum §5.4/§5.6. null clears the field (off).
+  intention_tally_points?: number | null
+  daily_points_goal?: number | null
 }
 
 export function useUpdateGamificationConfig() {

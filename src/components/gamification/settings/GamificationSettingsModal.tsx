@@ -1,17 +1,21 @@
 /**
- * GamificationSettingsModal — Build M Phase 4
+ * GamificationSettingsModal — Build M Phase 4, + PRD-24 Point Economy
+ * Addendum §7.1 (Points section)
  *
  * Full gamification configuration surface. Opened from FamilyMembers.tsx
- * for any member. Contains 7 collapsible sections:
- *   1. Master Toggles (enabled, sticker book, points per task)
- *   2. My Rewards Page (KIDS-REWARDS-PAGE Slice 2 — page on/off, section
+ * for any member. Contains 8 collapsible sections:
+ *   1. Master Toggles (enabled, sticker book)
+ *   2. Points (task base, best-intention tally value, daily points goal,
+ *      currency name/icon, routine glance-list — the ONE per-kid points
+ *      surface; "Points per task" moved here from Master Toggles)
+ *   3. My Rewards Page (KIDS-REWARDS-PAGE Slice 2 — page on/off, section
  *      opt-ins, personal rewards privacy; NOT gated on gamification —
  *      finances/victories sections exist independently of it)
- *   3. Day Segments (CRUD, reorder, task assignment)
- *   4. Creature Earning Mode (4-card picker + per-mode config)
- *   5. Background/Page Earning Mode (3-card picker + per-mode config)
- *   6. Coloring Reveals (active reveals list, add/config/remove)
- *   7. Reset & Advanced (reset sticker book, reset reveals, stats)
+ *   4. Day Segments (CRUD, reorder, task assignment)
+ *   5. Creature Earning Mode (4-card picker + per-mode config)
+ *   6. Background/Page Earning Mode (3-card picker + per-mode config)
+ *   7. Coloring Reveals (active reveals list, add/config/remove)
+ *   8. Reset & Advanced (reset sticker book, reset reveals, stats)
  *
  * Zero hardcoded colors — all CSS custom properties.
  */
@@ -32,9 +36,17 @@ import {
   ImageIcon,
   Palette,
   Gift,
+  Star,
+  Gem,
+  Trophy,
+  Sparkles,
+  Award,
+  Repeat,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { Toggle } from '@/components/shared'
+import { Toggle, Tooltip } from '@/components/shared'
+import { supabase } from '@/lib/supabase/client'
 import {
   useGamificationConfig,
   useUpdateGamificationConfig,
@@ -88,6 +100,18 @@ const SUGGESTED_SEGMENT_NAMES = [
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+// PRD-24 Point Economy Addendum §7.1: currency_icon has never had editable
+// UI anywhere (verified zero consumers pre-build) — a small curated Lucide
+// set rather than a full icon-library browser, Lucide-only per platform
+// convention (no emoji).
+const CURRENCY_ICON_OPTIONS: { key: string; Icon: typeof Star; label: string }[] = [
+  { key: 'star', Icon: Star, label: 'Star' },
+  { key: 'gem', Icon: Gem, label: 'Gem' },
+  { key: 'trophy', Icon: Trophy, label: 'Trophy' },
+  { key: 'sparkles', Icon: Sparkles, label: 'Sparkles' },
+  { key: 'award', Icon: Award, label: 'Award' },
+]
+
 // ── Props ───────────────────────────────────────────────────────────
 
 interface GamificationSettingsModalProps {
@@ -115,6 +139,41 @@ export function GamificationSettingsModal({
   const { data: widgets = [] } = useWidgets(familyId, memberId)
   const { data: memberTasks = [] } = useTasks(familyId, { assigneeId: memberId })
   const { data: theme } = useGamificationTheme(stickerState?.active_theme_id)
+  // PRD-24 Point Economy Addendum §7.1: routine glance-list — this member's
+  // active routines with their points mode/amount, so the Points section
+  // never leaves mom wondering "wait, what does each routine actually earn."
+  const { data: memberRoutines = [] } = useQuery({
+    queryKey: ['member-routine-points-glance', memberId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, template_id, task_templates(title, routine_points_mode, routine_step_points, routine_completion_points)')
+        .eq('assignee_id', memberId)
+        .eq('task_type', 'routine')
+        .is('archived_at', null)
+        .not('template_id', 'is', null)
+      if (error) {
+        console.error('member-routine-points-glance query failed:', error)
+        return []
+      }
+      // Supabase's untyped .from() client infers the embedded task_templates
+      // relation as an array (it can't see the FK cardinality from this ad-hoc
+      // query); it's actually one-to-one (tasks.template_id -> task_templates.id).
+      // Cast through unknown to re-shape without fighting the inferred type.
+      return (data ?? []) as unknown as Array<{
+        id: string
+        template_id: string
+        task_templates: {
+          title: string
+          routine_points_mode: string
+          routine_step_points: number | null
+          routine_completion_points: number | null
+        } | null
+      }>
+    },
+    enabled: !!memberId,
+    staleTime: 30_000,
+  })
 
   // ── Mutations ──
   const updateConfig = useUpdateGamificationConfig()
@@ -230,31 +289,6 @@ export function GamificationSettingsModal({
                   }
                 />
 
-                <div>
-                  <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
-                    Points per task
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={config?.base_points_per_task ?? 1}
-                    onChange={(e) =>
-                      updateConfig.mutate({
-                        familyMemberId: memberId,
-                        familyId,
-                        base_points_per_task: Math.max(1, parseInt(e.target.value) || 1),
-                      })
-                    }
-                    className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
-                    style={{
-                      backgroundColor: 'var(--color-bg-primary)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-text-primary)',
-                    }}
-                  />
-                </div>
-
                 {/* Theme info */}
                 {theme && (
                   <div
@@ -301,6 +335,202 @@ export function GamificationSettingsModal({
                   </div>
                 )}
               </>
+            )}
+          </div>
+        </CollapsibleSection>
+
+        {/* ═══════════ Section: Points (PRD-24 Point Economy Addendum §7.1) ═══════════ */}
+        {/* The ONE per-kid points surface — task base value, best-intention tally
+            value, daily points goal, currency name/icon, and a glance-list of
+            this kid's routines (which set their OWN points economy in each
+            routine's editor, not here). */}
+        <CollapsibleSection
+          title="Points"
+          sectionKey="points"
+          isOpen={openSections.has('points')}
+          onToggle={toggleSection}
+          disabled={!gamificationEnabled}
+          icon={<Star size={16} />}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Points per task
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={config?.base_points_per_task ?? 1}
+                onChange={(e) =>
+                  updateConfig.mutate({
+                    familyMemberId: memberId,
+                    familyId,
+                    base_points_per_task: Math.max(1, parseInt(e.target.value) || 1),
+                  })
+                }
+                className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+              <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                The default for any task. Individual tasks can override this in the task editor's Rewards section.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Points per Best Intention tally
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                placeholder="off"
+                value={config?.intention_tally_points ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  updateConfig.mutate({
+                    familyMemberId: memberId,
+                    familyId,
+                    intention_tally_points: raw === '' ? null : Math.max(0, parseInt(raw) || 0),
+                  })
+                }}
+                className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+              <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Empty = off. When set, every personal Best Intention tally by {memberName} earns this many points.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Daily points goal
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                placeholder="off"
+                value={config?.daily_points_goal ?? ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  updateConfig.mutate({
+                    familyMemberId: memberId,
+                    familyId,
+                    daily_points_goal: raw === '' ? null : Math.max(0, parseInt(raw) || 0),
+                  })
+                }}
+                className="w-24 px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+              <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Empty = off. A target like 10 points a day — {memberName} sees warm progress, and you can attach a reward to hitting it from the Contracts page.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                Currency name
+              </label>
+              <input
+                type="text"
+                value={config?.currency_name ?? ''}
+                placeholder="Points"
+                onChange={(e) =>
+                  updateConfig.mutate({
+                    familyMemberId: memberId,
+                    familyId,
+                    currency_name: e.target.value,
+                  })
+                }
+                className="w-40 px-3 py-2 rounded-lg text-sm outline-none"
+                style={{
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                Currency icon
+              </label>
+              <div className="flex gap-2">
+                {CURRENCY_ICON_OPTIONS.map(({ key, Icon, label }) => (
+                  <Tooltip key={key} content={label}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateConfig.mutate({ familyMemberId: memberId, familyId, currency_icon: key })
+                      }
+                      className="p-2 rounded-lg"
+                      style={{
+                        border: `1.5px solid ${(config?.currency_icon ?? 'star') === key ? 'var(--color-btn-primary-bg)' : 'var(--color-border)'}`,
+                        backgroundColor: (config?.currency_icon ?? 'star') === key
+                          ? 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)'
+                          : 'var(--color-bg-primary)',
+                        color: (config?.currency_icon ?? 'star') === key ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+                      }}
+                    >
+                      <Icon size={16} />
+                    </button>
+                  </Tooltip>
+                ))}
+              </div>
+            </div>
+
+            {memberRoutines.length > 0 && (
+              <div className="pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+                <p className="text-xs font-medium mb-2" style={{ color: 'var(--color-text-secondary)' }}>
+                  Routines set their points in each routine's editor
+                </p>
+                <div className="space-y-1.5">
+                  {memberRoutines.map((r) => {
+                    const mode = r.task_templates?.routine_points_mode ?? 'none'
+                    const label =
+                      mode === 'per_step'
+                        ? `${r.task_templates?.routine_step_points ?? 0} pt/step`
+                        : mode === 'per_completion'
+                          ? `${r.task_templates?.routine_completion_points ?? 0} pt/day`
+                          : 'no points'
+                    return (
+                      <div
+                        key={r.id}
+                        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-xs"
+                        style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
+                      >
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Repeat size={12} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+                          {r.task_templates?.title ?? 'Untitled routine'}
+                        </span>
+                        <span
+                          className="shrink-0 px-2 py-0.5 rounded-full"
+                          style={{
+                            backgroundColor: mode === 'none' ? 'transparent' : 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                            color: mode === 'none' ? 'var(--color-text-secondary)' : 'var(--color-btn-primary-bg)',
+                          }}
+                        >
+                          {label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </CollapsibleSection>

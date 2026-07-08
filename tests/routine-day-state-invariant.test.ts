@@ -415,3 +415,133 @@ describe('Member-Day obligation invariant: TS recurringTaskFilter === SQL Layer 
     expect(sqlLayer1Mirror(t, ymd(2026, 5, 20))).toBe(false)
   })
 })
+
+// ============================================================================
+// Section-day-match invariant — PRD-24 Point Economy Addendum defect 4
+// (migration 100295)
+//
+// A SEPARATE, orthogonal decision from Layer 1 above: given a routine
+// SECTION's (frequency_rule, frequency_days), was it scheduled on a specific
+// calendar day? This governs which task_template_sections rows join into
+// get_member_day_obligations and which day-loop iterations count toward
+// calculate_allowance_progress's denominator.
+//
+// THE SQL FUNCTION `section_scheduled_on_day` IN MIGRATION
+// `00000000100295_point_economy_ledger_and_day_match.sql` MUST MIRROR THE
+// `sqlSectionDayMatchMirror` FUNCTION BELOW EXACTLY. If you change one,
+// change the other, and this test must still pass. This test is the
+// contract (same discipline as sqlLayer1Mirror above).
+//
+// Both mirror the CLIENT's core day-membership decision in
+// `isSectionActiveToday` (src/components/tasks/RoutineStepChecklist.tsx:
+// 787-840) — specifically its schedule-membership logic, EXCLUDING the
+// show_until_complete carry-forward branches (a separate, already-correct
+// concern each SQL caller handles with its own `show_until_complete = TRUE
+// OR <day-match>` clause). Reproduced here as a parallel pure function per
+// the same "harness choice" rationale documented at the top of this file —
+// no live Supabase client is wired into this test env.
+// ============================================================================
+
+type SectionFrequencyRule = string | null
+
+function sqlSectionDayMatchMirror(
+  frequencyRule: SectionFrequencyRule,
+  frequencyDays: string[] | null,
+  dateIso: string,
+): boolean {
+  const dow = new Date(dateIso + 'T12:00:00').getDay() // 0=Sun..6=Sat, matches Postgres EXTRACT(DOW)
+
+  if (frequencyRule === null || frequencyRule === 'daily') return true
+  if (frequencyRule === 'weekdays') return dow >= 1 && dow <= 5
+  if (
+    (frequencyRule === 'custom' || frequencyRule === 'specific_days') &&
+    frequencyDays !== null &&
+    frequencyDays.length > 0
+  ) {
+    return frequencyDays.includes(String(dow))
+  }
+  // weekly / monthly / malformed-empty-custom / any unrecognized value →
+  // match every day (client-reader parity — the fail-open fallthrough).
+  return true
+}
+
+describe('Section-day-match invariant: client isSectionActiveToday core === SQL section_scheduled_on_day', () => {
+  // One full week (2026-05-10 is a Sunday) so every DOW is exercised.
+  const weekDates = [
+    ymd(2026, 5, 10), // Sun (0)
+    ymd(2026, 5, 11), // Mon (1)
+    ymd(2026, 5, 12), // Tue (2)
+    ymd(2026, 5, 13), // Wed (3)
+    ymd(2026, 5, 14), // Thu (4)
+    ymd(2026, 5, 15), // Fri (5)
+    ymd(2026, 5, 16), // Sat (6)
+  ]
+
+  interface SectionCase {
+    label: string
+    frequencyRule: SectionFrequencyRule
+    frequencyDays: string[] | null
+    expected: (dow: number) => boolean
+  }
+
+  const cases: SectionCase[] = [
+    { label: 'null rule (default daily)', frequencyRule: null, frequencyDays: null, expected: () => true },
+    { label: 'daily, no days', frequencyRule: 'daily', frequencyDays: null, expected: () => true },
+    {
+      label: 'weekdays, no days',
+      frequencyRule: 'weekdays',
+      frequencyDays: null,
+      expected: (dow) => dow >= 1 && dow <= 5,
+    },
+    {
+      label: 'custom Mon/Wed/Fri',
+      frequencyRule: 'custom',
+      frequencyDays: ['1', '3', '5'],
+      expected: (dow) => [1, 3, 5].includes(dow),
+    },
+    {
+      label: 'specific_days Sun/Sat',
+      frequencyRule: 'specific_days',
+      frequencyDays: ['0', '6'],
+      expected: (dow) => [0, 6].includes(dow),
+    },
+    // ── The defect-4 repro shapes: production stores daily/weekly/monthly
+    // sections with frequency_days = NULL. Before the fix, the raw
+    // `= ANY(frequency_days)` predicate matched ZERO days for these. ──
+    { label: 'weekly, frequency_days=NULL (defect 4 repro)', frequencyRule: 'weekly', frequencyDays: null, expected: () => true },
+    { label: 'monthly, frequency_days=NULL (defect 4 repro)', frequencyRule: 'monthly', frequencyDays: null, expected: () => true },
+    { label: 'unrecognized future rule value', frequencyRule: 'quarterly', frequencyDays: null, expected: () => true },
+    // ── Fail-open parity: a malformed custom/specific_days section (no
+    // days configured) matches every day on the client, not zero days. ──
+    { label: 'custom with NULL days (fail-open)', frequencyRule: 'custom', frequencyDays: null, expected: () => true },
+    { label: 'custom with empty days array (fail-open)', frequencyRule: 'custom', frequencyDays: [], expected: () => true },
+    { label: 'specific_days with empty days array (fail-open)', frequencyRule: 'specific_days', frequencyDays: [], expected: () => true },
+  ]
+
+  for (const c of cases) {
+    it(`agrees on all 7 days of the week for "${c.label}"`, () => {
+      const disagreements: Array<{ date: string; dow: number; expected: boolean; sql: boolean }> = []
+      for (const dateIso of weekDates) {
+        const dow = new Date(dateIso + 'T12:00:00').getDay()
+        const expected = c.expected(dow)
+        const sql = sqlSectionDayMatchMirror(c.frequencyRule, c.frequencyDays, dateIso)
+        if (sql !== expected) {
+          disagreements.push({ date: dateIso, dow, expected, sql })
+        }
+      }
+      expect(disagreements, `disagreements for ${c.label}: ${JSON.stringify(disagreements)}`).toEqual([])
+    })
+  }
+
+  it('production bug repro: a daily-rule section with frequency_days=NULL previously matched ZERO days, now matches every day', () => {
+    // This is the exact shape of the 12 production sections found on
+    // undeployed templates (School Day Requirements, Bedroom Clean-Up,
+    // Morning Routine) at the time migration 100295 was written — verified
+    // via a pre-apply production query that all 12 still had zero active
+    // deployments immediately before the fix was applied.
+    for (const dateIso of weekDates) {
+      expect(sqlSectionDayMatchMirror('daily', null, dateIso)).toBe(true)
+      expect(sqlSectionDayMatchMirror('weekly', null, dateIso)).toBe(true)
+    }
+  })
+})

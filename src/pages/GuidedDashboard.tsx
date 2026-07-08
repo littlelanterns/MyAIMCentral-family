@@ -25,6 +25,7 @@ import { ColorRevealTallyWidget } from '@/components/coloring-reveal/ColorReveal
 import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useMemberStreak } from '@/hooks/useMemberStreak'
+import { useMemberPointsToday } from '@/hooks/useMemberPointsToday'
 import { useTasks } from '@/hooks/useTasks'
 import { DashboardSectionWrapper } from '@/components/dashboard'
 import type { SectionKey } from '@/components/dashboard'
@@ -61,6 +62,9 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
 
   // Build M Phase 5: Coloring reveal tally widgets (gamification opt-in)
   const { data: gamConfig } = useGamificationConfig(displayMemberId)
+  // PRD-24 Point Economy Addendum §5.6 (rider 2): daily points goal.
+  const dailyGoal = gamConfig?.daily_points_goal ?? null
+  const { data: pointsToday } = useMemberPointsToday(dailyGoal != null ? displayMemberId : undefined)
   const { data: colorReveals = [] } = useMemberColoringReveals(
     gamConfig?.enabled ? displayMemberId : undefined,
   )
@@ -90,6 +94,8 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
             points={points}
             streak={streak}
             readingSupport={readingSupport}
+            dailyGoal={dailyGoal}
+            pointsToday={pointsToday ?? 0}
           />
         ) : null
 

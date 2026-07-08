@@ -31,6 +31,8 @@ const SOURCE_TYPE_OPTIONS: Array<{ value: ContractSourceType; icon: React.ReactN
   { value: 'scheduled_occurrence_active', icon: <Calendar size={18} />, label: 'Scheduled Occurrence' },
   { value: 'opportunity_claimed', icon: <Gift size={18} />, label: 'Opportunity Claimed' },
   { value: 'randomizer_drawn', icon: <Shuffle size={18} />, label: 'Randomizer Drawn' },
+  // PRD-24 Point Economy Addendum §5.6 (rider 2, migration 100296)
+  { value: 'daily_points_goal_met', icon: <Star size={18} />, label: 'Daily Points Goal Met' },
 ]
 
 const IF_PATTERN_OPTIONS: Array<{ value: ContractIfPattern; label: string; description: string }> = [

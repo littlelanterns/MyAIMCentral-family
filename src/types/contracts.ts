@@ -9,6 +9,7 @@ export type ContractSourceType =
   | 'scheduled_occurrence_active'
   | 'opportunity_claimed'
   | 'randomizer_drawn'
+  | 'daily_points_goal_met'
 
 export type ContractIfPattern =
   | 'every_time'

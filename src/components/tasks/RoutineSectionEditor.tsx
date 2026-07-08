@@ -8,10 +8,11 @@
  */
 
 import { useState } from 'react'
-import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles, MessageSquareText, Link2, BookOpen, Shuffle, Repeat } from 'lucide-react'
+import { Plus, X, ChevronUp, ChevronDown, Zap, Camera, Edit2, Sparkles, MessageSquareText, Link2, BookOpen, Shuffle, Repeat, Gift } from 'lucide-react'
 import { Button, Toggle, BulkAddWithAI, Tooltip } from '@/components/shared'
 import { RoutineBrainDump } from './RoutineBrainDump'
 import { LinkedSourcePicker } from './sequential/LinkedSourcePicker'
+import { RewardImagePicker } from '@/components/rewards/RewardImagePicker'
 import type { StepType, LinkedSourceType } from '@/types/tasks'
 
 // ─── Types ───────────────────────────────────────────────────
@@ -30,7 +31,25 @@ export interface RoutineStep {
   linked_source_id: string | null
   linked_source_type: LinkedSourceType | null
   display_name_override: string | null
+  /**
+   * PRD-24 Point Economy Addendum §5.5 (RSTP scope, ruling 4). A step-level
+   * 'stars' reward replaces routine_step_points for this step only;
+   * privilege/custom/money are independent of routine_points_mode entirely
+   * — mom controls exposure by choosing which steps carry rewards. Optional
+   * (not required, unlike step_type/linked_source_*) so the several other
+   * step-constructing call sites (RoutineBrainDump, RoutineBuilderWizard,
+   * ProposalArtifactCreator) don't need updating just to compile.
+   */
+  reward_type?: StepRewardType | null
+  reward_amount?: number | null
+  reward_description?: string | null
+  reward_image_url?: string | null
+  reward_image_asset_key?: string | null
+  /** UI-only expansion state, mirrors showNotes — never sent to the RPC. */
+  showReward?: boolean
 }
+
+export type StepRewardType = 'privilege' | 'custom' | 'money' | 'stars'
 
 export interface RoutineSection {
   id: string
@@ -102,7 +121,16 @@ interface StepRowProps {
   onMoveUp: () => void
   onMoveDown: () => void
   onBreakDown: () => void
+  /** PRD-24 Point Economy Addendum §5.5: needed by RewardImagePicker's library/upload paths. */
+  familyId?: string
 }
+
+const STEP_REWARD_TYPE_OPTIONS: { value: StepRewardType; label: string }[] = [
+  { value: 'stars', label: 'Points' },
+  { value: 'money', label: 'Money' },
+  { value: 'privilege', label: 'Special Privilege' },
+  { value: 'custom', label: 'Custom' },
+]
 
 const LINKED_TYPE_ICONS: Record<LinkedSourceType, typeof BookOpen> = {
   sequential_collection: BookOpen,
@@ -116,8 +144,9 @@ const LINKED_TYPE_LABELS: Record<LinkedSourceType, string> = {
   recurring_task: 'Recurring task',
 }
 
-function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown, onBreakDown }: StepRowProps) {
+function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDown, onBreakDown, familyId }: StepRowProps) {
   const isLinked = step.step_type !== 'static'
+  const hasReward = !!step.reward_type
   const LinkedIcon = step.linked_source_type ? LINKED_TYPE_ICONS[step.linked_source_type] : Link2
 
   return (
@@ -215,6 +244,23 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
             }}
           >
             <Zap size={13} />
+          </button>
+          </Tooltip>
+          <Tooltip content="Reward this step">
+          <button
+            type="button"
+            data-testid="step-reward-toggle"
+            onClick={() => onChange({ ...step, showReward: !step.showReward })}
+            style={{
+              padding: '0.25rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: hasReward || step.showReward ? 'var(--color-btn-primary-bg)' : 'var(--color-text-secondary)',
+              borderRadius: '4px',
+            }}
+          >
+            <Gift size={13} />
           </button>
           </Tooltip>
           <Tooltip content="Require photo on completion">
@@ -389,6 +435,119 @@ function StepRow({ step, isFirst, isLast, onChange, onRemove, onMoveUp, onMoveDo
               How many separate checkboxes for this step. Leave at 1 if the note covers it.
             </span>
           </div>
+        </div>
+      )}
+
+      {/* Expandable per-step reward (PRD-24 Point Economy Addendum §5.5,
+          RSTP scope ruling 4). Independent of the routine's overall points
+          mode — mom controls exposure by choosing which steps carry
+          rewards. A 'stars' reward here replaces the routine's per-step
+          points amount for THIS step only; privilege/custom/money fire
+          regardless of routine_points_mode. */}
+      {step.showReward && (
+        <div
+          style={{
+            padding: '0.5rem 0.75rem',
+            borderTop: '1px solid var(--color-border)',
+            backgroundColor: 'var(--color-bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+            <button
+              type="button"
+              onClick={() => onChange({ ...step, reward_type: null, reward_amount: null, reward_description: null, reward_image_url: null, reward_image_asset_key: null })}
+              style={{
+                padding: '0.25rem 0.625rem',
+                borderRadius: '999px',
+                fontSize: 'var(--font-size-xs)',
+                fontWeight: 500,
+                backgroundColor: !step.reward_type ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                color: !step.reward_type ? 'var(--color-text-on-primary)' : 'var(--color-text-primary)',
+                border: `1px solid ${!step.reward_type ? 'var(--color-accent)' : 'var(--color-border-default)'}`,
+                cursor: 'pointer',
+              }}
+            >
+              None
+            </button>
+            {STEP_REWARD_TYPE_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChange({ ...step, reward_type: opt.value })}
+                style={{
+                  padding: '0.25rem 0.625rem',
+                  borderRadius: '999px',
+                  fontSize: 'var(--font-size-xs)',
+                  fontWeight: 500,
+                  backgroundColor: step.reward_type === opt.value ? 'var(--color-accent)' : 'var(--color-bg-secondary)',
+                  color: step.reward_type === opt.value ? 'var(--color-text-on-primary)' : 'var(--color-text-primary)',
+                  border: `1px solid ${step.reward_type === opt.value ? 'var(--color-accent)' : 'var(--color-border-default)'}`,
+                  cursor: 'pointer',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
+          {(step.reward_type === 'stars' || step.reward_type === 'money') && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <label style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-secondary)' }}>
+                {step.reward_type === 'stars' ? 'Points for this step' : 'Dollar amount'}
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={step.reward_type === 'money' ? 0.01 : 1}
+                value={step.reward_amount ?? ''}
+                onChange={(e) => onChange({ ...step, reward_amount: e.target.value === '' ? null : Number(e.target.value) })}
+                style={{
+                  width: '5rem',
+                  padding: '0.125rem 0.375rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: '4px',
+                  backgroundColor: 'var(--color-bg-input)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-xs, 0.75rem)',
+                }}
+              />
+            </div>
+          )}
+
+          {(step.reward_type === 'privilege' || step.reward_type === 'custom') && (
+            <>
+              <input
+                type="text"
+                value={step.reward_description ?? ''}
+                onChange={(e) => onChange({ ...step, reward_description: e.target.value })}
+                placeholder="e.g., Pick the show tonight, Extra screen time"
+                style={{
+                  width: '100%',
+                  padding: '0.375rem 0.5rem',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  backgroundColor: 'var(--color-bg-input)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-xs, 0.75rem)',
+                  outline: 'none',
+                }}
+              />
+              <RewardImagePicker
+                value={{ imageUrl: step.reward_image_url ?? null, imageAssetKey: step.reward_image_asset_key ?? null }}
+                onChange={(img) => onChange({ ...step, reward_image_url: img.imageUrl, reward_image_asset_key: img.imageAssetKey })}
+                familyId={familyId ?? ''}
+                suggestText={step.reward_description ?? ''}
+              />
+            </>
+          )}
+          <span style={{ fontSize: 'var(--font-size-xs, 0.75rem)', color: 'var(--color-text-tertiary, var(--color-text-secondary))', fontStyle: 'italic' }}>
+            {step.reward_type === 'stars'
+              ? "Replaces this routine's per-step points for this step only."
+              : 'Any assignee who completes an instance earns this — immediately, every time.'}
+          </span>
         </div>
       )}
     </div>
@@ -710,6 +869,7 @@ function SectionRow({ section, isFirst, isLast, onChange, onRemove, onMoveUp, on
               onMoveUp={() => moveStep(step.id, 'up')}
               onMoveDown={() => moveStep(step.id, 'down')}
               onBreakDown={() => onBreakDown(step.id)}
+              familyId={familyId}
             />
           ))}
 

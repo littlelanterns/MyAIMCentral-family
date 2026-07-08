@@ -44,6 +44,12 @@ export interface RpcStep {
   linked_source_id: string | null
   linked_source_type: string | null
   display_name_override: string | null
+  // PRD-24 Point Economy Addendum §5.5 (RSTP scope, ruling 4)
+  reward_type: string | null
+  reward_amount: number | null
+  reward_description: string | null
+  reward_image_url: string | null
+  reward_image_asset_key: string | null
 }
 
 /**
@@ -86,6 +92,11 @@ function serializeStep(step: RoutineStep): RpcStep {
     linked_source_id: step.linked_source_id ?? null,
     linked_source_type: step.linked_source_type ?? null,
     display_name_override: step.display_name_override ?? null,
+    reward_type: step.reward_type ?? null,
+    reward_amount: step.reward_amount ?? null,
+    reward_description: step.reward_description && step.reward_description.trim() !== '' ? step.reward_description : null,
+    reward_image_url: step.reward_image_url ?? null,
+    reward_image_asset_key: step.reward_image_asset_key ?? null,
   }
 }
 
