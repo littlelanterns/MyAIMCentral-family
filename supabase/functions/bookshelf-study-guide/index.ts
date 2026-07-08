@@ -19,6 +19,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { OPENROUTER_URL, openRouterHeaders as buildOpenRouterHeaders, withNoTraining } from '../_shared/openrouter-client.ts'
+import { scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -366,6 +367,17 @@ Generate guided_text and independent_text for each of the ${sectionExtractions.l
         totalOutputTokens += aiData.usage?.completion_tokens ?? 0
 
         const rawContent = aiData.choices?.[0]?.message?.content || ''
+
+        // PRD-41 Tier-0 output scan on the generated youth text (guided/
+        // independent — kid-facing). Input is published book text → no IN
+        // pre-flight; OUT + Q per section. Enqueue always; enforcing skips
+        // writing this section's youth text.
+        {
+          const outScan = await scanUtilityOutput(supabase, rawContent, { familyId: family_id, memberId: member_id, surface: 'bookshelf-study-guide' })
+          await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'bookshelf-study-guide', content: rawContent })
+          if (outScan.replaced) continue
+        }
+
         const { parsed, error: parseErr } = safeParseJSON(rawContent)
 
         if (!parsed) {

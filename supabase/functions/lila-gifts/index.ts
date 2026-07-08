@@ -10,6 +10,7 @@ import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.t
 import { logAICost } from '../_shared/cost-logger.ts'
 import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../_shared/relationship-context.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -97,6 +98,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis, mirrors its JSON path).
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-gifts', modeKey: 'gifts',
+      conversationId: conversation_id, isSafeHarbor: conv.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     const personIds = conv.guided_mode_reference_id ? [conv.guided_mode_reference_id] : []
 
     const { data: history } = await supabase.from('lila_messages').select('role, content').eq('conversation_id', conversation_id).order('created_at', { ascending: true }).limit(30)
@@ -127,7 +137,18 @@ Deno.serve(async (req) => {
     return createSSEStream(async (enqueue) => {
       const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiRes.body!, enqueue)
 
-      await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: { model: MODEL, mode: 'gifts' }, token_count: outputTokens })
+      // PRD-41 Tier-0 output scan (inert in shadow mode beyond logged_only row).
+      const ethicsScan = await scanStreamedOutput(supabase, fullText, {
+        familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-gifts', modeKey: 'gifts',
+        conversationId: conversation_id, messageTable: 'lila_messages', isSafeHarbor: conv.is_safe_harbor,
+      })
+      if (ethicsScan.emitRetractionEvent) enqueue({ type: 'ethics_retraction', category: ethicsScan.category })
+
+      const { data: savedMsg } = await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: { model: MODEL, mode: 'gifts', ...(ethicsScan.retractionMetadata ?? {}) }, token_count: outputTokens }).select('id').single()
+      await enqueueOutputScan(supabase, {
+        familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-gifts', modeKey: 'gifts',
+        conversationId: conversation_id, messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: fullText, isSafeHarbor: conv.is_safe_harbor,
+      })
       await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + 1, model_used: 'sonnet' }).eq('id', conversation_id)
       logAICost({ familyId: conv.family_id, memberId: conv.member_id, featureKey: 'lila_gifts', model: MODEL, inputTokens, outputTokens })
     })

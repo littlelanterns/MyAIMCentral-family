@@ -9,6 +9,7 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -259,6 +260,17 @@ Deno.serve(async (req: Request) => {
     const content = result.choices?.[0]?.message?.content ?? '{}'
     const inputTokens = result.usage?.prompt_tokens ?? 0
     const outputTokens = result.usage?.completion_tokens ?? 0
+
+    // PRD-41 Tier-0 output scan (input is system activity data → no IN
+    // pre-flight; OUT + Q per the matrix). Enqueue always; enforcing returns
+    // an empty suggestion set rather than a half-scrubbed payload.
+    {
+      const outScan = await scanUtilityOutput(supabase, content, { familyId: member.family_id, memberId: member.id, surface: 'scan-activity-victories' })
+      await enqueueOutputScan(supabase, { familyId: member.family_id, memberId: member.id, surface: 'scan-activity-victories', content })
+      if (outScan.replaced) {
+        return new Response(JSON.stringify({ suggestions: [], model_used: MODEL, token_count: { input: inputTokens, output: outputTokens } }), { headers: jsonHeaders })
+      }
+    }
 
     // Parse the JSON response
     let suggestions: unknown[] = []

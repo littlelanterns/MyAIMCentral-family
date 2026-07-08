@@ -304,13 +304,16 @@ Slices A–D: **no mom-UI surfaces affected** (Edge Function prompts, server cod
 
 ## Mom-UI Verification
 
+*(Phase 3 Convention #277 Claude-driven pass — `tests/e2e/features/ethics-log-eyes-on-tour.spec.ts`, EYES_ON_TOUR=1, no model calls; shots `eyes-on-tour/el-01..06`, all read + judged 2026-07-07. Reframe bubble + retraction card were verified in the Phase 1/2 tours; the child-surface notification is enforcing-mode-gated so it cannot render in the shipped shadow state — its content-free shape is proven deterministically by red-team pin 2 + planEnforcingSideEffects vitest.)*
+
 | Surface | Desktop ≥1024px | Tablet ~768px | Mobile ≤640px | Shells Tested | Evidence | Timestamp |
 |---------|-----------------|---------------|---------------|---------------|----------|-----------|
-| LiLa reframe bubble — input pre-flight response (Slice E) | | | | mom + guided kid | | |
-| Retraction card — withdrawn response, incl. kid-shell copy variant + HITM removal (Slice E) | | | | mom + guided kid | | |
-| Settings → LiLa Response Log incl. empty state, no-excerpt rule (Slice E) | | | | mom | | |
-| NotificationBell — child-surface retraction notification, no content in body (Slice E) | | | | mom | | |
-| Admin pattern-library curation screen (Slice E) | | | | admin/founder | | |
+| LiLa reframe bubble — input pre-flight response (Phase 1/2) | ✅ | ✅ | ✅ | mom + guided kid | Phase 1/2 tour (`safety-beta-gate-eyes-on-tour` — Assist reframe + MindSweep reframe box) | 2026-07-05 |
+| Retraction card — withdrawn response, kid-shell copy + HITM removal (Phase 1/2) | ✅ | — | ✅ | mom + guided kid | Phase 1/2 tour + red-team pin 3 (card renders, HITM absent, raw text never shown) | 2026-07-05 |
+| Settings → LiLa Response Log — POPULATED, plain-language labels, per-member framing, NO excerpt | ✅ el-01: 3 rows ("guilt-based framing" in Jordan's LiLa chat / "shame-based framing" in Sarah's message being written / "affection used as leverage" in Jordan's LiLa chat), timestamps, intro copy, zero conversation content | ✅ el-02 | ✅ el-03 (2 rows above the fold, mobile nav intact) | mom | el-01/02/03 read + judged | 2026-07-07 |
+| Settings → LiLa Response Log — EMPTY state | — | — | ✅ el-04 ("Nothing to show yet" + shield icon + honest description, mobile nav intact) | mom | el-04 read + judged | 2026-07-07 |
+| NotificationBell — child-surface retraction (enforcing-mode-gated; shadow = none) | n/a shadow | n/a shadow | n/a shadow | mom | Content-free shape proven by red-team pin 2 + planEnforcingSideEffects vitest (shadow returns null notification) | 2026-07-07 |
+| Admin → Ethics Patterns curation screen (founder/staff) | ✅ el-05: tab active, ops strip 0/150/0, empty candidate queue, active exemplars grouped by category (Force (30)) with direction + Retire + embedding-pending notes, Refresh | — | ✅ el-06 (responsive, no h-scroll) | admin/founder | el-05/06 read + judged | 2026-07-07 |
 
 ## Progress Log (2026-07-05, same session — founder eyes-on tour + 2 follow-up fixes)
 
@@ -389,3 +392,55 @@ Slices A–D: **no mom-UI surfaces affected** (Edge Function prompts, server cod
 | Commit | **Not done** — holding for founder's own re-check of MindSweep crisis + Homework Help | |
 
 **Zero Missing.**
+
+## Progress Log (2026-07-07, Sonnet worker — Slice E Phase 3: utility retrofit + visibility)
+
+**Status: PHASE 3 CODE COMPLETE. Ships in SHADOW MODE. Nothing committed, nothing deployed — holding for founder review + the founder-approved deploy pass.** Phases 1→2→3 all landed sequentially (this session = Phase 3). Phase 4 (calibration + enforcement flip) is explicitly NOT done and is a separate founder-gated session.
+
+**Utility-tool retrofit (19 category-2 tools + ai-parse).** New shared helpers `scanUtilityInput` (Tier-0 input reframe — LIVE in shadow, deterministic, no model call) + `scanUtilityOutput` (Tier-0 output detect; `replaced` only in enforcing; always logs `logged_only` in shadow) already existed from earlier; Phase 3 wired them into every remaining generative surface: task-breaker, curriculum-parse, homework-estimate, guided-nbt-glaze, smart-list-import, calendar-extract, spelling-coach, mindsweep-scan (OUT-only, image/URL input), mindsweep-sort (IN reframe → `{ethics_reframe:true, results:[]}` + client `reframe` status/box), celebrate-victory / scan-activity-victories / extract-insights (OUT+Q, input is system/document data → IN skipped), auto-title-thread (IN + OUT→NULL title), message-coach (IN + OUT, KEEPS `shouldCoach:true/isClean:false` client-render contract; replacement note avoids "take a breath" per founder), bookshelf-extract / bookshelf-study-guide (OUT+Q on generated extraction prose). Three surfaces wired DETECTION-ONLY (import guard + enforcing-mode early-return, no Q pollution) because their model output is not member-facing prose: describe-vs-icon (admin, no family context), bookshelf-key-points (index-array selection), bookshelf-process (OCR/classification of PUBLISHED book text — scanning would false-positive on legitimate parenting books).
+
+**ai-parse rider (#1 bypass surface).** Now prepends `buildSafetyPreamble()` server-side to EVERY caller-supplied `system_prompt` (a caller can't omit the five auto-reject categories), plus IN reframe (`{ethics_reframe:true, content:reframe}`) + OUT scan + enqueue (structured refusal blanks `content` on enforcing hit).
+
+**Full-matrix drift pin.** `tests/redteam/ethics-guard.test.ts` now dynamically enumerates every function dir and asserts: any chat-model-calling function imports ethics-guard, EXCEPT the two classifiers that emit a structured verdict (never member-facing prose) — `validate-ai-output` (the scanner) and `safety-classify` (PRD-30's Haiku safety classifier, a parallel session's function). EXEMPT (no-model / router) list made EXACT and now includes `mindsweep-auto-sweep` + `mindsweep-email-intake` (route through mindsweep-sort, no direct model call). Per-utility coverage list + ai-parse-preamble pin + message-coach-shape pin added. **redteam 63/63 (was 41).**
+
+**Migration 100290** (`ethics_log_feature_key_and_admin_curation.sql`) — applied to linked production via `db query -f` (NOT `db push`: a parallel PRD-30 session had already created `00000000100289_safety_monitoring_foundation.sql`, so I bumped mine from 100289→100290 to avoid the collision and applied it in isolation so I never dragged in their unfinished migration). Contents: `lila_ethics_log` feature_key_registry seed; 5 staff-gated SECURITY DEFINER admin curation RPCs (`admin_list_ethics_patterns` / `admin_ethics_pattern_counts` / `admin_approve_ethics_pattern` / `admin_retire_ethics_pattern` / `admin_edit_ethics_pattern`); + `ethics_admin` added to the `staff_permissions.permission_type` CHECK (makes the new Admin tab's permissionType hint a real, grantable role). Verified live: feature key present, all 5 RPCs present, constraint includes ethics_admin.
+
+**Mom Settings → LiLa Response Log** (`src/components/settings/LilaResponseLogSection.tsx` + `src/hooks/useEthicsLog.ts`), mom-only, `<PermissionGate featureKey="lila_ethics_log">`. Reads `lila_ethics_rejections` selecting ONLY non-content columns (content_excerpt/tier2_reasoning are DB-column-guarded AND never requested). Plain-language labels (guilt-based framing / shame-based framing / affection used as leverage / …), per-member + friendly-surface framing, direction-aware lead ("gently redirected" / "softened"), timestamp, paginate 20, warm empty state. **No excerpt anywhere** (no-side-door ruling).
+
+**Admin → Ethics Patterns curation screen** (`src/pages/admin/EthicsPatternsAdminPage.tsx`, route + `ADMIN_TABS` row). Candidate queue (Approve / Edit-&-Approve / Discard), active exemplars grouped per category (Retire), ops-strip counts. Calls the public-schema SECURITY DEFINER RPCs directly. Platform-governance surface (staff-only, excludes under-13 + Safe-Harbor candidates upstream) — not a mom surface, so the no-side-door mom ruling doesn't apply; curating a pattern library requires seeing the text.
+
+**Child-surface retraction notification — VERIFIED gated by enforcing mode.** `planEnforcingSideEffects` returns `{annotation:null, notification:null}` in shadow (shipped); validate-ai-output only inserts the notification when non-null. Shadow = no notification, no annotation. Content-free shape (plain label, priority 'normal', never bypasses DND) proven by red-team pin 2 + the planner vitest.
+
+**Playwright pins 5 + 6** added to `ethics-enforcement.spec.ts` (now 10 tests: pins 1-6 + 4 deity-block). Pin 5 = task-breaker structured refusal on an ethics-violating INPUT (live in shadow, no model call, DB-asserted rejection row) — DEPLOY-DEPENDENT like pins 1/4. Pin 6 = fixture-hygiene (explicit sweep + zero-ETHICSTEST-residue assertion). Spec parses (playwright --list), lint clean. Sweep extended to clean utility-tool rejections by content-excerpt prefix.
+
+**Convention #277 eyes-on tour** (`tests/e2e/features/ethics-log-eyes-on-tour.spec.ts`, EYES_ON_TOUR=1, no model calls) — 2/2 passed, 6 screenshots (`eyes-on-tour/el-01..06`) all READ + judged (Mom-UI table above). Zero ELTOUR fixture residue + temp ethics_admin staff row removed (verified 0/0). Found + fixed 3 real issues along the way: `permission_type` CHECK rejected 'ethics_admin' (added it to the migration); `staff_permissions.granted_by` is NOT NULL (supplied it); and granting the mom admin in beforeAll broke the non-admin Response Log login (scoped the grant to the admin test only).
+
+**Redteam retry wrapper** (`scripts/redteam.cjs` + `package.json` "redteam" script) — single automatic retry on a vitest collection/cold-start flake, then runs normally.
+
+**Proofs (this session):** redteam **63/63** green. tsc -b: **my files clean** — the only tsc errors are in a PARALLEL session's untracked/in-flight files (`WishCatchModal.tsx` [untracked], `RecipeCaptureModal.tsx`, `RecipeDetailModal.tsx`, `WishLists.tsx` — a concurrent meals/wishlists feature), zero errors in any file this build touched. lint: **0 errors** across all touched frontend + test files (Edge Functions excluded from eslint by config). Eyes-on tour 2/2. Playwright deploy-dependent pins (1/4/5 + safety-beta-gate live probes + the standard shared regression suites) DEFERRED to the founder-approved deploy pass per the "ask before shared suites / nothing deploys" rules.
+
+**Deferred to founder (not this worker):** deploy (~30 functions incl. validate-ai-output — present the list for ONE approved pass), running the shared Playwright suites (fixtures shared across windows), commit + selective staging (this build's files only — exclude parallel sessions' recipe-extract / safety-classify / meals-wishlists / 100289 migration), Phase 4 enforcement flip, Beta Readiness Report.
+
+## Post-Build Verification — Slice E Phase 3 (Checkpoint 5)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| Wire 19 category-2 utility tools (IN reframe + OUT scan/enqueue + refusal) | **Wired** | 16 full-scan + 3 detection-only (describe-vs-icon / bookshelf-key-points / bookshelf-process); redteam PHASE3_WIRED_UTILITIES coverage pins green |
+| ai-parse rider — buildSafetyPreamble prepend + IN/OUT/Q | **Wired** | redteam ai-parse-rider pin (buildSafetyPreamble + guardedSystemPrompt) green |
+| message-coach keeps shouldCoach:true/isClean:false shape | **Wired** | redteam message-coach-shape pin green |
+| Full-matrix static pin + EXACT exempt list (incl. mindsweep-auto-sweep / mindsweep-email-intake) | **Wired** | redteam FULL-MATRIX pin green; safety-classify + validate-ai-output classifier exceptions documented |
+| Migration: lila_ethics_log feature key + admin curation RPCs + ethics_admin role | **Wired** | 100290 applied + verified live (feature key, 5 RPCs, constraint) |
+| Mom Settings → LiLa Response Log (mom-only, PermissionGate, plain labels, no excerpt, paginate 20) | **Wired** | tsc/lint clean; eyes-on el-01..04 read + judged |
+| Admin pattern-library curation screen (queue approve/edit/discard, active retire, ops counts) | **Wired** | tsc/lint clean; eyes-on el-05/06 read + judged |
+| Child-surface retraction notification gated by enforcing mode | **Wired (verified)** | planEnforcingSideEffects shadow → null; validate-ai-output inserts only when non-null |
+| Playwright pin 5 (task-breaker structured refusal) | **Wired (deploy-dependent run)** | Spec parses; deterministic in shadow (input reframe); runs in the deploy pass like pins 1/4 |
+| Playwright pin 6 (fixture hygiene) | **Wired** | Explicit sweep + zero-residue assertion; deterministic |
+| Redteam retry wrapper | **Wired** | scripts/redteam.cjs + package.json script |
+| Convention #277 eyes-on tour + Mom-UI table | **Wired** | 6 shots read + judged; table filled |
+| redteam 63/63 | **Wired** | Full run green |
+| tsc -b (my files) + lint clean | **Wired** | Zero errors in touched files; only parallel-session untracked files error in tsc -b |
+| ENFORCEMENT_MODE stays 'shadow'; append-only; no off switch; no emoji; ADD-only | **Wired** | ENFORCEMENT_MODE unchanged; redteam shadow pin green |
+| Dad log access / non-English Tier-0 / automated probing detection | **Stubbed (pre-approved)** | Slice E pre-build summary stubs |
+| Deploy (~30 functions) / shared Playwright suites / commit / Phase 4 | **Deferred (founder-owned)** | Explicitly out of this worker's scope per GO instruction |
+
+**0 Missing on Phase 3 code/test. Deploy + shared-suite run + commit are founder-owned next steps.**

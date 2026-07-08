@@ -30,6 +30,7 @@ import {
   extractPDFMetadata,
 } from '../_shared/pdf-utils.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { detectEthicsViolation, ENFORCEMENT_MODE } from '../_shared/ethics-guard.ts'
 
 // ============================================================
 // Environment
@@ -1042,6 +1043,17 @@ Return ONLY a valid JSON object. No markdown, no explanation.`
 
   const data = await response.json()
   const content = (data.choices?.[0]?.message?.content as string) || ''
+
+  // PRD-41 Tier-0 output detection. This function OCRs/classifies PUBLISHED
+  // book text — its output is genre/metadata classification, not LiLa-
+  // generated advice, and it has no family context for a scoped audit row.
+  // Content-scanning raw book text would false-positive on legitimate books
+  // (e.g. a parenting book ABOUT avoiding these patterns), so this is
+  // detection-only for the enforcing-mode guard (shadow mode is a no-op).
+  // Wired to satisfy the "every chat function imports ethics-guard" invariant;
+  // the user-facing extraction prose is generated + scanned by
+  // bookshelf-extract / bookshelf-study-guide instead.
+  if (ENFORCEMENT_MODE === 'enforcing' && detectEthicsViolation(content, 'output').hit) return
 
   try {
     // Strip any markdown fences if present

@@ -16,6 +16,7 @@ import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -201,6 +202,18 @@ Deno.serve(async (req) => {
       })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis, mirrors the crisis
+    // JSON-response path — the model is never called on a hit).
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId, memberId, surface: 'lila-cyrano', modeKey: 'cyrano', conversationId: conversation_id,
+      isSafeHarbor: conversation.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), {
+        headers: jsonHeaders,
+      })
+    }
+
     // Load relationship context (layered: topic-filtered by user message)
     const { data: history } = await supabase
       .from('lila_messages')
@@ -257,13 +270,29 @@ Deno.serve(async (req) => {
     return createSSEStream(async (enqueue) => {
       const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiResponse.body!, enqueue)
 
+      // PRD-41 Tier-0 output scan on the completed text. Inert in shadow
+      // mode (shipped) beyond the logged_only rejection row; in enforcing
+      // mode it emits the retraction event + merges the annotation.
+      const ethicsScan = await scanStreamedOutput(supabase, fullText, {
+        familyId, memberId, surface: 'lila-cyrano', modeKey: 'cyrano', conversationId: conversation_id,
+        messageTable: 'lila_messages', isSafeHarbor: conversation.is_safe_harbor,
+      })
+      if (ethicsScan.emitRetractionEvent) enqueue({ type: 'ethics_retraction', category: ethicsScan.category })
+
       // Save assistant message
-      await supabase.from('lila_messages').insert({
+      const { data: savedMsg } = await supabase.from('lila_messages').insert({
         conversation_id,
         role: 'assistant',
         content: fullText,
-        metadata: { model: MODEL, mode: 'cyrano', skill_taught: skillToTeach },
+        metadata: { model: MODEL, mode: 'cyrano', skill_taught: skillToTeach, ...(ethicsScan.retractionMetadata ?? {}) },
         token_count: outputTokens,
+      }).select('id').single()
+
+      // Tier-1 async scan enqueue — always (Tier-0-clean output too).
+      await enqueueOutputScan(supabase, {
+        familyId, memberId, surface: 'lila-cyrano', modeKey: 'cyrano', conversationId: conversation_id,
+        messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: fullText,
+        isSafeHarbor: conversation.is_safe_harbor,
       })
 
       // Update conversation metadata

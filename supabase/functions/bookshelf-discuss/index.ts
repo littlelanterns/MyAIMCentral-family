@@ -32,6 +32,10 @@ import { assembleContext } from '../_shared/context-assembler.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import {
+  detectEthicsViolation, detectCrisisInOutput, buildReframeMessage,
+  logEthicsRejection, enqueueOutputScan, ENFORCEMENT_MODE,
+} from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -566,6 +570,28 @@ Deno.serve(async (req) => {
       )
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight. The client already saved the
+    // user message before invoking; on a hit we skip the model and return
+    // the reframe as `content` — the client saves it as the assistant reply
+    // (same shape as the crisis path). The rejection log carries the
+    // polymorphic target (message_table='bookshelf_discussion_messages');
+    // message_id is the client's to assign, so it stays null here.
+    if (message) {
+      const inputHit = detectEthicsViolation(message, 'input')
+      if (inputHit.hit) {
+        await logEthicsRejection(supabase, {
+          familyId: family_id, memberId: member_id, surface: 'bookshelf-discuss',
+          conversationId: null, messageTable: 'bookshelf_discussion_messages',
+          direction: 'input', tier: 0, category: inputHit.category, action: 'reframed',
+          matchedPattern: inputHit.matchedPattern, contentExcerpt: message,
+        })
+        return new Response(
+          JSON.stringify({ ethics_reframe: true, ethics_category: inputHit.category, content: buildReframeMessage(inputHit.category) }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
+
     // Build context in parallel — book context + layered user/family context
     const [{ context: bookContext, titles: bookTitles }, userCtx] =
       await Promise.all([
@@ -662,7 +688,42 @@ Deno.serve(async (req) => {
       outputTokens,
     })
 
-    return new Response(JSON.stringify({ content }), { headers: jsonHeaders })
+    // PRD-41 Tier-0 output scan. Non-streaming; the CLIENT persists the
+    // assistant message to bookshelf_discussion_messages, so the enqueue
+    // carries the polymorphic message_table but a null message_id (the
+    // client owns the row id — enforcing-mode async annotation reach-back on
+    // this surface is a Phase-4 refinement). In shadow mode (shipped) the
+    // content returns unchanged and only a logged_only rejection is written;
+    // in enforcing mode the ethics_retraction metadata is returned so the
+    // client can save it on the assistant row.
+    let ethicsRetraction: Record<string, unknown> | null = null
+    {
+      const outHit = detectEthicsViolation(content, 'output')
+      const outCrisis = !outHit.hit && detectCrisisInOutput(content)
+      const outCategory = outHit.hit ? outHit.category : outCrisis ? 'crisis_output' : null
+      if (outCategory) {
+        const enforcing = ENFORCEMENT_MODE === 'enforcing'
+        await logEthicsRejection(supabase, {
+          familyId: family_id, memberId: member_id, surface: 'bookshelf-discuss',
+          conversationId: null, messageTable: 'bookshelf_discussion_messages',
+          direction: 'output', tier: 0, category: outCategory,
+          action: enforcing ? 'retracted' : 'logged_only',
+          matchedPattern: outHit.hit ? outHit.matchedPattern : 'crisis_keyword', contentExcerpt: content,
+        })
+        if (enforcing) {
+          ethicsRetraction = { category: outCategory, tier: 0, retracted_at: new Date().toISOString(), rejection_id: null }
+        }
+      }
+    }
+    await enqueueOutputScan(supabase, {
+      familyId: family_id, memberId: member_id, surface: 'bookshelf-discuss',
+      conversationId: null, messageTable: 'bookshelf_discussion_messages', messageId: null, content,
+    })
+
+    return new Response(
+      JSON.stringify(ethicsRetraction ? { content, ethics_retraction: ethicsRetraction } : { content }),
+      { headers: jsonHeaders },
+    )
   } catch (err) {
     console.error('bookshelf-discuss error:', err)
     return new Response(

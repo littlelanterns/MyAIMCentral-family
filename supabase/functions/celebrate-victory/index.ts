@@ -10,6 +10,7 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -297,6 +298,19 @@ Deno.serve(async (req) => {
     const narrative = result.choices?.[0]?.message?.content || ''
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    // PRD-41 Tier-0 output scan — a celebration must NEVER carry shame framing
+    // (input here is system victory data, not user free text → no IN
+    // pre-flight; OUT + Q per the matrix). Enqueue always; enforcing returns a
+    // neutral fallback narrative.
+    const celebScan = await scanUtilityOutput(supabase, narrative, { familyId, memberId: family_member_id, surface: 'celebrate-victory' })
+    await enqueueOutputScan(supabase, { familyId, memberId: family_member_id, surface: 'celebrate-victory', content: narrative })
+    if (celebScan.replaced) {
+      return new Response(
+        JSON.stringify({ narrative: 'You did it! Way to go.', context_sources: {}, model_used: modelId, token_count: { input: inputTokens, output: outputTokens } }),
+        { headers: jsonHeaders },
+      )
+    }
 
     // Log cost (fire-and-forget)
     logAICost({

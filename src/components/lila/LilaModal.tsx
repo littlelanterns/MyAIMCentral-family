@@ -154,6 +154,11 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
         setIsStreaming(false)
         setStreamingContent('I had trouble with that. Want to try again?')
       },
+      // PRD-41 — post-hoc ethics retraction. Inert in the shipped shadow-mode
+      // enforcement state; see LilaDrawer.tsx for the full rationale.
+      () => {
+        setStreamingContent('')
+      },
     )
   }, [input, member, family, isStreaming, conversation, modeKey, referenceId, mode, createConversation, queryClient])
 
@@ -185,6 +190,9 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
           setIsStreaming(false)
           setStreamingContent('I had trouble with that. Want to try again?')
         },
+        () => {
+          setStreamingContent('')
+        },
       )
     },
     [conversation, messages, isStreaming, queryClient],
@@ -201,6 +209,9 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
   )
 
   const avatarKey = mode?.avatar_key || 'sitting'
+  // PRD-41 — Guided/Play surfaces get shorter, agency-on-LiLa retraction
+  // copy (member.dashboard_mode; independent teens get the standard copy).
+  const isKidShell = member?.dashboard_mode === 'guided' || member?.dashboard_mode === 'play'
 
   return (
     <>
@@ -305,6 +316,7 @@ export function LilaModal({ modeKey, referenceId, onClose, existingConversation 
                 hideHumanInTheMix={isConversationalMode}
                 onRegenerate={() => handleRegenerate(msg.id)}
                 onReject={() => handleReject(msg.id)}
+                isKidShell={isKidShell}
               />
             )
           })}

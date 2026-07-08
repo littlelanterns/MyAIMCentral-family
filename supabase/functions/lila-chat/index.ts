@@ -8,6 +8,15 @@ import { handleCors, jsonHeaders, sseHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
+import {
+  detectEthicsViolation,
+  detectCrisisInOutput,
+  buildReframeMessage,
+  enqueueOutputScan,
+  logEthicsRejection,
+  ENFORCEMENT_MODE,
+  type EthicsCategory,
+} from '../_shared/ethics-guard.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { buildFeatureGuidePrompt } from '../_shared/feature-guide-knowledge.ts'
 import { assembleContext, type AssembledContext } from '../_shared/context-assembler.ts'
@@ -431,6 +440,66 @@ Deno.serve(async (req) => {
       metadata: {},
     })
 
+    // PRD-41 Tier-0 ethics input pre-flight (SAFETY-BETA-GATE Slice E).
+    // Runs AFTER the crisis gate above (crisis always wins), BEFORE even
+    // the Assist routing-prescan — an ethics-shaped ask should never get
+    // routed to a different tool, it should be reframed right here. On a
+    // hit the model is NEVER called (zero cost, zero jailbreak surface):
+    // the reframe is returned as a normal assistant message via the same
+    // SSE chunk/metadata/[DONE] shape the routing-prescan block uses below,
+    // so the existing client streamLilaChat() parser needs no special case.
+    {
+      const ethicsHit = detectEthicsViolation(content, 'input')
+      if (ethicsHit.hit) {
+        const reframeText = buildReframeMessage(ethicsHit.category)
+
+        await logEthicsRejection(supabase, {
+          familyId: conversation.family_id,
+          memberId: conversation.member_id,
+          surface: 'lila-chat',
+          modeKey,
+          conversationId: conversation_id,
+          messageTable: 'lila_messages',
+          isSafeHarbor: conversation.is_safe_harbor,
+          direction: 'input',
+          tier: 0,
+          category: ethicsHit.category,
+          action: 'reframed',
+          matchedPattern: ethicsHit.matchedPattern,
+          contentExcerpt: content,
+        })
+
+        await supabase.from('lila_messages').insert({
+          conversation_id,
+          role: 'assistant',
+          content: reframeText,
+          metadata: { source: 'ethics_reframe', ethics_category: ethicsHit.category },
+          token_count: 0,
+        })
+
+        const newMessageCount = (conversation.message_count || 0) + 2
+        await supabase
+          .from('lila_conversations')
+          .update({ message_count: newMessageCount })
+          .eq('id', conversation_id)
+
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'chunk', content: reframeText })}\n\n`,
+            ))
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'metadata', ethics_reframe: true, ethics_category: ethicsHit.category })}\n\n`,
+            ))
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        })
+        return new Response(stream, { headers: sseHeaders })
+      }
+    }
+
     // Layer 1 — Assist-only routing-concierge keyword pre-scan
     // (PRD-05 Drawer Default + Routing Concierge Addendum sec 4a/4b/4c/4d).
     // Runs AFTER crisis detection (Convention #7 global crisis override
@@ -604,13 +673,86 @@ Deno.serve(async (req) => {
             }
           }
 
+          // PRD-41 Tier-0 output scan — runs on the accumulated fullText at
+          // stream end, BEFORE persistence and BEFORE [DONE]. Deltas have
+          // already reached the client (founder-accepted trade: no
+          // buffering latency) — this is a post-hoc check. Includes the
+          // Tier-0 output crisis rider (closes Convention #7's
+          // output-direction hole). In shadow mode (shipped state) the hit
+          // is logged (action='logged_only') but the message persists
+          // UNCHANGED — no SSE retraction event, no metadata annotation.
+          // The full enforcing-mode code path is written now so the
+          // Phase-4 flip is a one-constant change (ENFORCEMENT_MODE).
+          const outputEthicsHit = detectEthicsViolation(fullResponse, 'output')
+          const outputCrisisHit = !outputEthicsHit.hit && detectCrisisInOutput(fullResponse)
+          const outputCategory: EthicsCategory | 'crisis_output' | null = outputEthicsHit.hit
+            ? outputEthicsHit.category
+            : outputCrisisHit
+              ? 'crisis_output'
+              : null
+
+          let ethicsRetractionMetadata: {
+            category: EthicsCategory | 'crisis_output'
+            tier: 0
+            retracted_at: string
+            rejection_id: null
+          } | null = null
+
+          if (outputCategory) {
+            const action = ENFORCEMENT_MODE === 'enforcing' ? 'retracted' : 'logged_only'
+            await logEthicsRejection(supabase, {
+              familyId: conversation.family_id,
+              memberId: conversation.member_id,
+              surface: 'lila-chat',
+              modeKey,
+              conversationId: conversation_id,
+              messageTable: 'lila_messages',
+              isSafeHarbor: conversation.is_safe_harbor,
+              direction: 'output',
+              tier: 0,
+              category: outputCategory,
+              action,
+              matchedPattern: outputEthicsHit.hit ? outputEthicsHit.matchedPattern : 'crisis_keyword',
+              contentExcerpt: fullResponse,
+            })
+
+            if (ENFORCEMENT_MODE === 'enforcing') {
+              ethicsRetractionMetadata = {
+                category: outputCategory,
+                tier: 0,
+                retracted_at: new Date().toISOString(),
+                rejection_id: null,
+              }
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'ethics_retraction',
+                category: outputCategory,
+              })}\n\n`))
+            }
+          }
+
           // Save assistant message
-          await supabase.from('lila_messages').insert({
+          const { data: savedAssistantMessage } = await supabase.from('lila_messages').insert({
             conversation_id,
             role: 'assistant',
             content: fullResponse,
-            metadata: { model: modelId, mode: modeKey },
+            metadata: ethicsRetractionMetadata
+              ? { model: modelId, mode: modeKey, ethics_retraction: ethicsRetractionMetadata }
+              : { model: modelId, mode: modeKey },
             token_count: outputTokens,
+          }).select('id').single()
+
+          // Tier-1 async scan enqueue — ALWAYS, including Tier-0-clean
+          // outputs (Tier 1 exists precisely to catch what patterns can't).
+          await enqueueOutputScan(supabase, {
+            familyId: conversation.family_id,
+            memberId: conversation.member_id,
+            surface: 'lila-chat',
+            modeKey,
+            conversationId: conversation_id,
+            messageTable: 'lila_messages',
+            messageId: savedAssistantMessage?.id ?? null,
+            content: fullResponse,
+            isSafeHarbor: conversation.is_safe_harbor,
           })
 
           // Update conversation metadata

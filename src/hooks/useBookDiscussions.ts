@@ -153,13 +153,19 @@ export function useBookDiscussions() {
 
       const aiContent = aiResponse?.content || ''
       if (aiContent) {
+        // PRD-41: in enforcing mode the Edge Function returns ethics_retraction
+        // metadata to persist on the assistant row (inert in shadow mode —
+        // the field is absent, so metadata stays {}).
+        const aiMetadata = aiResponse?.ethics_retraction
+          ? { ethics_retraction: aiResponse.ethics_retraction }
+          : {}
         const { data: aiMsg } = await supabase
           .from('bookshelf_discussion_messages')
           .insert({
             discussion_id: discussionId,
             role: 'assistant',
             content: aiContent,
-            metadata: {},
+            metadata: aiMetadata,
           })
           .select('*')
           .single()
@@ -247,13 +253,16 @@ export function useBookDiscussions() {
 
       const aiContent = aiResponse?.content || ''
       if (aiContent) {
+        // PRD-41: preserve any returned ethics_retraction (enforcing mode).
+        const aiMetadata: Record<string, unknown> = { regenerated: true }
+        if (aiResponse?.ethics_retraction) aiMetadata.ethics_retraction = aiResponse.ethics_retraction
         const { data: aiMsg } = await supabase
           .from('bookshelf_discussion_messages')
           .insert({
             discussion_id: discussionId,
             role: 'assistant',
             content: aiContent,
-            metadata: { regenerated: true },
+            metadata: aiMetadata,
           })
           .select('*')
           .single()

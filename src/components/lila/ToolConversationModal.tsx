@@ -159,11 +159,15 @@ async function streamToolChat(
       return
     }
 
-    // Check if it's a JSON response (crisis) vs SSE stream
+    // Check if it's a JSON response (crisis / PRD-41 ethics input reframe)
+    // vs SSE stream. Both crisis and ethics-reframe short-circuit the model
+    // and return {crisis|ethics_reframe: true, response} — the reframe/
+    // resources render immediately; the persisted assistant message shows on
+    // the onDone refetch.
     const contentType = response.headers.get('content-type') || ''
     if (contentType.includes('application/json')) {
       const json = await response.json()
-      if (json.crisis) {
+      if (json.crisis || json.ethics_reframe) {
         onChunk(json.response)
       }
       onDone()
@@ -235,6 +239,8 @@ export function ToolConversationModal({
   const { data: mode } = useGuidedMode(modeKey)
   const { data: familyMembers = [] } = useFamilyMembers(family?.id)
   const notepad = useNotepadContextSafe()
+  // PRD-41 — kid shells get the shorter, agency-on-LiLa retraction copy.
+  const isKidShell = member?.dashboard_mode === 'guided' || member?.dashboard_mode === 'play'
   const [conversation, setConversation] = useState<LilaConversation | null>(existingConversation || null)
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(
     initialPersonId ? [initialPersonId] : []
@@ -1014,6 +1020,7 @@ export function ToolConversationModal({
                   isLatestAssistant={isLatestAssistant}
                   onRegenerate={() => handleRegenerate(msg.id)}
                   onReject={() => handleReject(msg.id)}
+                  isKidShell={isKidShell}
                 />
                 {/* Action chips — below the latest assistant message */}
                 {isLatestAssistant && (

@@ -20,6 +20,7 @@ import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -121,6 +122,21 @@ Deno.serve(async (req: Request) => {
         status: 403,
         headers: jsonHeaders,
       })
+    }
+
+    // PRD-41 Tier-0 ethics input pre-flight on the DRAFT. This is the ideal
+    // surface for it — a member about to send a message shaped by one of the
+    // five patterns gets a gentle before-send coaching note (never a blocker,
+    // Convention #139). Runs REGARDLESS of the coaching toggle: ethics
+    // enforcement has no off switch (unlike coaching, which is mom's
+    // preference). The response MUST keep shouldCoach:true / isClean:false so
+    // the client renders the checkpoint (documented SAFETY-BETA-GATE lesson).
+    const draftEthics = await scanUtilityInput(serviceClient, message_content, { familyId: sender.family_id, memberId: sender.id, surface: 'message-coach' })
+    if (draftEthics) {
+      return new Response(
+        JSON.stringify({ shouldCoach: true, coachingNote: draftEthics.reframe, isClean: false }),
+        { headers: jsonHeaders },
+      )
     }
 
     // ── Load coaching settings ──
@@ -253,7 +269,19 @@ RULES:
     }
 
     const result = await response.json()
-    const aiOutput = result.choices?.[0]?.message?.content?.trim() || 'CLEAN'
+    let aiOutput = result.choices?.[0]?.message?.content?.trim() || 'CLEAN'
+
+    // PRD-41 Tier-0 output scan on the coaching note itself — the coaching
+    // must never model the five patterns. On a hit (enforcing) replace it
+    // with a safe coaching note that KEEPS the shouldCoach:true/isClean:false
+    // shape (client-render contract). Enqueue always.
+    {
+      const outScan = await scanUtilityOutput(serviceClient, aiOutput, { familyId: sender.family_id, memberId: sender.id, surface: 'message-coach' })
+      await enqueueOutputScan(serviceClient, { familyId: sender.family_id, memberId: sender.id, surface: 'message-coach', content: aiOutput })
+      if (outScan.replaced) {
+        aiOutput = 'Before you send this, is there a kinder way to say what you really mean?'
+      }
+    }
 
     const isClean = aiOutput.toUpperCase() === 'CLEAN'
 

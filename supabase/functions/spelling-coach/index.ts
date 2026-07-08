@@ -8,6 +8,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -56,6 +57,21 @@ Deno.serve(async (req) => {
 
     // Service-role client for DB writes
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    // Resolve member early (also reused by the cost-logging path below).
+    const { data: memberRow } = await supabaseAdmin
+      .from('family_members')
+      .select('id, family_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface).
+    if (memberRow) {
+      const inBlock = await scanUtilityInput(supabaseAdmin, `${misspelling} ${correction}`, { familyId: memberRow.family_id, memberId: memberRow.id, surface: 'spelling-coach' })
+      if (inBlock) {
+        return new Response(JSON.stringify({ explanation: '', ethics_declined: true }), { headers: jsonHeaders })
+      }
+    }
 
     // Check if already cached (another request may have filled it)
     const { data: existing } = await supabaseAdmin
@@ -112,6 +128,15 @@ Deno.serve(async (req) => {
       )
     }
 
+    // PRD-41 Tier-0 output scan (kid-facing text). Enqueue always.
+    if (memberRow) {
+      const outScan = await scanUtilityOutput(supabaseAdmin, explanation, { familyId: memberRow.family_id, memberId: memberRow.id, surface: 'spelling-coach' })
+      await enqueueOutputScan(supabaseAdmin, { familyId: memberRow.family_id, memberId: memberRow.id, surface: 'spelling-coach', content: explanation })
+      if (outScan.replaced) {
+        return new Response(JSON.stringify({ explanation: '', ethics_declined: true }), { headers: jsonHeaders })
+      }
+    }
+
     // Write back to cache (upsert — if another concurrent request won, just update)
     await supabaseAdmin
       .from('spelling_coaching_cache')
@@ -132,13 +157,7 @@ Deno.serve(async (req) => {
         console.warn('Cache write-back failed:', err)
       })
 
-    // Log cost (fire-and-forget) — resolve user to family/member
-    const { data: memberRow } = await supabaseAdmin
-      .from('family_members')
-      .select('id, family_id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
+    // Log cost (fire-and-forget) — memberRow was resolved early above.
     if (memberRow) {
       logAICost({
         familyId: memberRow.family_id,

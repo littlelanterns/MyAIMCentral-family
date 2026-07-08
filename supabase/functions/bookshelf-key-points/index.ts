@@ -13,6 +13,7 @@ import { corsHeaders, handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { detectEthicsViolation, ENFORCEMENT_MODE } from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -143,6 +144,15 @@ ${itemTexts}`
           const content = result.choices?.[0]?.message?.content || ''
           totalInput += result.usage?.prompt_tokens || 0
           totalOutput += result.usage?.completion_tokens || 0
+
+          // PRD-41 Tier-0 output detection. This surface's model output is a
+          // key-point INDEX selection ("[0,2,5]"), not user-facing generative
+          // prose — the extraction prose it flags was already generated and
+          // scanned by bookshelf-extract/process. Detection-only (no Q
+          // enqueue, to avoid flooding the scan queue with index arrays);
+          // shadow mode (shipped) is a no-op. Wired to satisfy the "every
+          // chat function imports ethics-guard" invariant.
+          if (ENFORCEMENT_MODE === 'enforcing' && detectEthicsViolation(content, 'output').hit) continue
 
           // Parse indices from response
           const match = content.match(/\[[\d,\s]+\]/)

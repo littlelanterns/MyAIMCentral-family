@@ -28,6 +28,10 @@ import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import {
+  detectEthicsViolation, detectCrisisInOutput, buildReframeMessage,
+  logEthicsRejection, enqueueOutputScan, ENFORCEMENT_MODE,
+} from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -197,6 +201,16 @@ Deno.serve(async (req: Request) => {
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', thread_id)
 
+      // PRD-41 — the draft has now persisted as a real `messages` row, so
+      // this is where LiLa's output becomes a family record. Enqueue the
+      // Tier-1/2 async scan with the polymorphic target (message_table=
+      // 'messages' + the real id) so validate-ai-output can annotate the
+      // right table in enforcing mode. Tier-0 already ran at generate time.
+      await enqueueOutputScan(serviceClient, {
+        familyId: sender.family_id, memberId: sender.id, surface: 'lila-message-respond',
+        conversationId: null, messageTable: 'messages', messageId: savedMsg.id, content: draft_content,
+      })
+
       return new Response(JSON.stringify({ sent: true, message_id: savedMsg.id }), {
         headers: jsonHeaders,
       })
@@ -226,6 +240,38 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
         { headers: jsonHeaders },
       )
+    }
+
+    // ── PRD-41 Tier-0 ethics input pre-flight ──
+    // The invoker asked LiLa to draft something shaped by one of the five
+    // patterns (e.g. "draft something to guilt-trip my teen"). The model is
+    // never called; the reframe is returned as a PRIVATE signed draft — it
+    // rides the existing draft machinery, so the invoker can read it,
+    // discard it, or edit it into their own words. Nothing posts to the
+    // thread. Input reframes never notify (PRD §Notification).
+    {
+      const inputHit = detectEthicsViolation(user_message_content, 'input')
+      if (inputHit.hit) {
+        const reframe = buildReframeMessage(inputHit.category)
+        await logEthicsRejection(serviceClient, {
+          familyId: sender.family_id, memberId: sender.id, surface: 'lila-message-respond',
+          conversationId: null, messageTable: 'messages',
+          direction: 'input', tier: 0, category: inputHit.category, action: 'reframed',
+          matchedPattern: inputHit.matchedPattern, contentExcerpt: user_message_content,
+        })
+        const draftId = crypto.randomUUID()
+        const signature = await signDraft(thread_id, sender.id, draftId, reframe)
+        const encoder = new TextEncoder()
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'chunk', content: reframe })}\n\n`))
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'draft', draft_id: draftId, content: reframe, signature, ethics_reframe: true, ethics_category: inputHit.category })}\n\n`))
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        })
+        return new Response(stream, { headers: sseHeaders })
+      }
     }
 
     // ── Load participants ──
@@ -374,13 +420,39 @@ Deno.serve(async (req: Request) => {
             }
           }
 
+          // ── PRD-41 Tier-0 output scan on the completed draft ──
+          // The draft is ephemeral (nothing persists until send_draft), so
+          // there is no message row to annotate here and no enqueue — the
+          // Tier-1/2 async scan runs at send_draft with the real messages.id.
+          // In shadow mode (shipped) this logs a logged_only rejection if a
+          // pattern hits and leaves the draft unchanged; in enforcing mode
+          // the violating draft is REPLACED with the reframe before it is
+          // signed, so the invoker is never offered a manipulative draft.
+          let draftText = fullResponse
+          {
+            const outHit = detectEthicsViolation(fullResponse, 'output')
+            const outCrisis = !outHit.hit && detectCrisisInOutput(fullResponse)
+            const outCategory = outHit.hit ? outHit.category : outCrisis ? 'crisis_output' : null
+            if (outCategory) {
+              const enforcing = ENFORCEMENT_MODE === 'enforcing'
+              await logEthicsRejection(serviceClient, {
+                familyId: sender.family_id, memberId: sender.id, surface: 'lila-message-respond',
+                conversationId: null, messageTable: 'messages',
+                direction: 'output', tier: 0, category: outCategory,
+                action: enforcing ? 'replaced' : 'logged_only',
+                matchedPattern: outHit.hit ? outHit.matchedPattern : 'crisis_keyword', contentExcerpt: fullResponse,
+              })
+              if (enforcing && outHit.hit) draftText = buildReframeMessage(outHit.category)
+            }
+          }
+
           // ── Emit the PRIVATE draft (HITM-CLOSURE) ──
           // Nothing persists to `messages` here. The invoker reviews the draft
           // client-side and either sends it (action='send_draft', verified
           // verbatim via the HMAC signature), edits it into their own composer
           // to send as themselves, or discards it.
           const draftId = crypto.randomUUID()
-          const signature = await signDraft(thread_id, sender.id, draftId, fullResponse)
+          const signature = await signDraft(thread_id, sender.id, draftId, draftText)
 
           // ── Cost logging ──
           logAICost({
@@ -393,13 +465,15 @@ Deno.serve(async (req: Request) => {
           })
 
           // ── Send draft + done ──
-          // `content` is the server-canonical full text; the client replaces its
-          // accumulated stream with this so the signature always matches.
+          // `content` is the server-canonical full text (draftText — equal to
+          // fullResponse in shadow mode, or the reframe when enforcing mode
+          // replaced a violating draft); the client replaces its accumulated
+          // stream with this so the signature always matches.
           controller.enqueue(
             encoder.encode(`data: ${JSON.stringify({
               type: 'draft',
               draft_id: draftId,
-              content: fullResponse,
+              content: draftText,
               signature,
               input_tokens: inputTokens,
               output_tokens: outputTokens,

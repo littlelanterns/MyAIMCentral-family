@@ -15,6 +15,7 @@ import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -200,6 +201,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis, mirrors its JSON path).
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId, memberId, surface: 'lila-higgins-navigate', modeKey: 'higgins_navigate', conversationId: conversation_id,
+      isSafeHarbor: conversation.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     // Load history first for layered context detection
     const { data: history } = await supabase
       .from('lila_messages')
@@ -240,12 +250,25 @@ Deno.serve(async (req) => {
     return createSSEStream(async (enqueue) => {
       const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiResponse.body!, enqueue)
 
-      await supabase.from('lila_messages').insert({
+      // PRD-41 Tier-0 output scan (inert in shadow mode beyond logged_only row).
+      const ethicsScan = await scanStreamedOutput(supabase, fullText, {
+        familyId, memberId, surface: 'lila-higgins-navigate', modeKey: 'higgins_navigate', conversationId: conversation_id,
+        messageTable: 'lila_messages', isSafeHarbor: conversation.is_safe_harbor,
+      })
+      if (ethicsScan.emitRetractionEvent) enqueue({ type: 'ethics_retraction', category: ethicsScan.category })
+
+      const { data: savedMsg } = await supabase.from('lila_messages').insert({
         conversation_id,
         role: 'assistant',
         content: fullText,
-        metadata: { model: MODEL, mode: 'higgins_navigate' },
+        metadata: { model: MODEL, mode: 'higgins_navigate', ...(ethicsScan.retractionMetadata ?? {}) },
         token_count: outputTokens,
+      }).select('id').single()
+
+      await enqueueOutputScan(supabase, {
+        familyId, memberId, surface: 'lila-higgins-navigate', modeKey: 'higgins_navigate', conversationId: conversation_id,
+        messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: fullText,
+        isSafeHarbor: conversation.is_safe_harbor,
       })
 
       await supabase.from('lila_conversations').update({

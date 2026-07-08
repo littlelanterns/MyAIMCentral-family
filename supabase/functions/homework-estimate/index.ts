@@ -8,9 +8,13 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const MODEL = 'anthropic/claude-haiku-4.5'
+// Service-role client for PRD-41 ethics logging/enqueue.
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 const SYSTEM_PROMPT = `You are an assistant that helps homeschool families estimate how a learning session breaks down by subject.
 
@@ -78,6 +82,17 @@ Deno.serve(async (req) => {
 
     const { description, total_minutes, subjects, allocation_mode, family_id, member_id } = parsed.data
 
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface).
+    if (family_id && member_id) {
+      const inBlock = await scanUtilityInput(supabase, description, { familyId: family_id, memberId: member_id, surface: 'homework-estimate' })
+      if (inBlock) {
+        return new Response(
+          JSON.stringify({ ethics_declined: true, message: inBlock.reframe }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
+
     const subjectList = subjects.map(s => `- ${s.name} (id: ${s.id})`).join('\n')
     const userMessage = `A child spent ${total_minutes} minutes on the following activity:
 
@@ -112,6 +127,18 @@ Please estimate the subject allocation.`
 
     const result = await aiResponse.json()
     const content = (result.choices?.[0]?.message?.content || '').trim()
+
+    // PRD-41 Tier-0 output scan (structured surface → replacement). Enqueue always.
+    if (parsed.data.family_id && parsed.data.member_id) {
+      const outScan = await scanUtilityOutput(supabase, content, { familyId: parsed.data.family_id, memberId: parsed.data.member_id, surface: 'homework-estimate' })
+      await enqueueOutputScan(supabase, { familyId: parsed.data.family_id, memberId: parsed.data.member_id, surface: 'homework-estimate', content })
+      if (outScan.replaced) {
+        return new Response(
+          JSON.stringify({ ethics_declined: true, message: "I couldn't estimate that safely. Want to rephrase?" }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
 
     // Parse JSON — handle markdown fences if Haiku wraps output
     let jsonStr = content

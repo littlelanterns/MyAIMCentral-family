@@ -13,6 +13,7 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { scanUtilityInput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -98,8 +99,9 @@ const CLASSIFICATION_CATEGORIES = [
   { key: 'archive', destination: 'archives', description: 'Family information, preference, schedule detail, medical info, school info' },
   { key: 'recipe', destination: 'recipe', description: 'Recipe with ingredients and instructions' },
   { key: 'travel', destination: 'calendar', detail: { event_type: 'travel' }, description: 'Flight, hotel, reservation, travel confirmation, itinerary' },
-  { key: 'list_item', destination: 'list', description: 'Item for a list (packing, wishlist, to-do list, expenses)' },
+  { key: 'list_item', destination: 'list', description: 'Item for a list (packing, to-do list, expenses)' },
   { key: 'agenda', destination: 'agenda', description: 'Topic to discuss at a family meeting, couple meeting, parent-child meeting, or mentor meeting' },
+  { key: 'wishlist', destination: 'wishlist', description: 'Something a family member wants, wishes for, or would love to have as a gift — "R wants a bike", "put this on my wish list", "I want the LEGO set for my birthday"' },
 ]
 
 // ── Main Handler ──
@@ -139,6 +141,25 @@ Deno.serve(async (req) => {
         JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
         { headers: jsonHeaders },
       )
+    }
+
+    // PRD-41 Tier-0 ethics input pre-flight. A brain-dump item shaped by one
+    // of the five patterns short-circuits the batch with a gentle reframe
+    // (mirrors the crisis short-circuit; the narrow Tier-0 patterns match the
+    // explicit weapon-request phrasing, not vague captures). The classified
+    // output is structured destinations (no generated prose) so there is no
+    // OUT replacement; the enqueue below is the audit trail (Q).
+    {
+      const combined = extractedItems.map(i => i.text).join('\n')
+      const inBlock = await scanUtilityInput(supabase, combined, { familyId: input.family_id, memberId: input.member_id, surface: 'mindsweep-sort' })
+      // Q: enqueue the swept content for the async audit/Tier-1 pipeline.
+      await enqueueOutputScan(supabase, { familyId: input.family_id, memberId: input.member_id, surface: 'mindsweep-sort', content: combined })
+      if (inBlock) {
+        return new Response(
+          JSON.stringify({ ethics_reframe: true, response: inBlock.reframe, results: [] }),
+          { headers: jsonHeaders },
+        )
+      }
     }
 
     // ── Step 2: Embedding-first classification ──
@@ -348,7 +369,7 @@ Deno.serve(async (req) => {
     let itemsQueued = 0
     let itemsDirectRouted = 0
 
-    const queueDestinations = new Set(['task', 'list', 'agenda'])
+    const queueDestinations = new Set(['task', 'list', 'agenda', 'wishlist'])
     const directDestinations = new Set([
       'journal', 'victory', 'guiding_stars', 'best_intentions',
       'backburner', 'innerworkings', 'archives',
@@ -402,8 +423,10 @@ Deno.serve(async (req) => {
         event_id: eventId,
         results: results.map(r => ({
           ...r,
-          // Map recipe dual-routing
-          ...(r.category === 'recipe' ? { destination_detail: { dual_route: true, recipe_to: 'archives', ingredients_to: 'list' } } : {}),
+          // Map recipe dual-routing — PRD-42 KitchenCompass ruling 1: recipe
+          // body routes to the recipes table (not archives — that mapping
+          // predated the recipes table).
+          ...(r.category === 'recipe' ? { destination_detail: { dual_route: true, recipe_to: 'recipes', ingredients_to: 'list' } } : {}),
         })),
         totals: {
           items_extracted: results.length,
@@ -588,6 +611,7 @@ Destination mapping:
 - recipe -> "recipe"
 - list_item -> "list"
 - agenda -> "agenda"
+- wishlist -> "wishlist"
 
 If an item is something to discuss at a family meeting, couple meeting, parent-child meeting, or mentor meeting, set category to "agenda" and destination to "agenda". Look for phrases like "discuss with", "talk about at meeting", "bring up", "need to address", "family decision", "agenda item".
 

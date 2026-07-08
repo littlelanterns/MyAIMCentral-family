@@ -12,6 +12,7 @@ import { detectCrisis } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -109,6 +110,14 @@ Deno.serve(async (req: Request) => {
       })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight — never derive a title from
+    // ethics-shaped content; leave title NULL (same posture as crisis) so a
+    // future non-violating reply can still title the thread normally.
+    const titleInBlock = await scanUtilityInput(serviceClient, messageText, { familyId: member.family_id, memberId: member.id, surface: 'auto-title-thread' })
+    if (titleInBlock) {
+      return new Response(JSON.stringify({ title: null, ethics_declined: true, skipped: true }), { headers: jsonHeaders })
+    }
+
     // ── Call Haiku ──
     const response = await callOpenRouter(OPENROUTER_API_KEY, {
       model: MODEL,
@@ -134,7 +143,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const result = await response.json()
-    const title = result.choices?.[0]?.message?.content?.trim()?.slice(0, 100) || null
+    let title = result.choices?.[0]?.message?.content?.trim()?.slice(0, 100) || null
+
+    // PRD-41 Tier-0 output scan on the generated title. On a hit, keep the
+    // title NULL (matches the crisis posture) + log; enqueue always.
+    if (title) {
+      const outScan = await scanUtilityOutput(serviceClient, title, { familyId: member.family_id, memberId: member.id, surface: 'auto-title-thread' })
+      await enqueueOutputScan(serviceClient, { familyId: member.family_id, memberId: member.id, surface: 'auto-title-thread', content: title })
+      if (outScan.replaced) title = null
+    }
 
     // ── Save title ──
     if (title) {

@@ -6,12 +6,16 @@
 // Three detail levels apply to both modes: quick (3-5), detailed (5-10), granular (10-20).
 
 import { z } from 'https://esm.sh/zod@3.23.8'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
+// Service-role client for PRD-41 ethics logging/enqueue (no other DB use here).
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 const TEXT_MODEL = 'anthropic/claude-haiku-4.5'
 const IMAGE_MODEL = 'anthropic/claude-sonnet-4'
@@ -95,6 +99,21 @@ Deno.serve(async (req) => {
 
     const hasImage = !!image_base64
 
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface). On a hit the
+    // model is never called; the tool declines with the reframe carried in a
+    // structured (never half-scrubbed) refusal shape the client renders.
+    if (family_id && member_id) {
+      const inBlock = await scanUtilityInput(supabase, `${task_title}\n${task_description ?? ''}`, {
+        familyId: family_id, memberId: member_id, surface: 'task-breaker',
+      })
+      if (inBlock) {
+        return new Response(
+          JSON.stringify({ subtasks: [], ethics_declined: true, message: inBlock.reframe }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
+
     // Build user message text with all context
     const parts: string[] = [
       `Task: ${task_title}`,
@@ -168,6 +187,25 @@ Deno.serve(async (req) => {
     const content = (result.choices?.[0]?.message?.content || '').trim()
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    // PRD-41 Tier-0 output scan. Structured surface → REPLACEMENT (never a
+    // half-scrubbed payload). Enqueue always (audit/Tier-1). In shadow mode
+    // (shipped) the payload returns unchanged; enforcing returns a safe
+    // "couldn't generate steps" refusal.
+    if (family_id && member_id) {
+      const outScan = await scanUtilityOutput(supabase, content, {
+        familyId: family_id, memberId: member_id, surface: 'task-breaker',
+      })
+      await enqueueOutputScan(supabase, {
+        familyId: family_id, memberId: member_id, surface: 'task-breaker', content,
+      })
+      if (outScan.replaced) {
+        return new Response(
+          JSON.stringify({ subtasks: [], ethics_declined: true, message: "I couldn't generate steps for this one. Want to try describing it a different way?" }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
 
     // Parse JSON response — handle potential markdown fencing
     let subtasks: unknown[] = []

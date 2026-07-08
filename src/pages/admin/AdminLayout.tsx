@@ -19,6 +19,7 @@ export interface AdminTab {
 export const ADMIN_TABS: AdminTab[] = [
   { label: 'Approvals', path: '/admin/approvals' },
   { label: 'Personas', path: '/admin/personas', permissionType: 'persona_admin' },
+  { label: 'Ethics Patterns', path: '/admin/ethics-patterns', permissionType: 'ethics_admin' },
 ]
 
 export function AdminLayout() {

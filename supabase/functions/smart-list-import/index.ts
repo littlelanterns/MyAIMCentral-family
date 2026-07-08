@@ -14,8 +14,12 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
+// Service-role client for PRD-41 ethics logging/enqueue.
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 const MODEL = 'anthropic/claude-haiku-4.5'
 
@@ -127,6 +131,17 @@ Deno.serve(async (req) => {
       )
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface).
+    if (family_id && member_id) {
+      const inBlock = await scanUtilityInput(supabase, raw_text, { familyId: family_id, memberId: member_id, surface: 'smart-list-import' })
+      if (inBlock) {
+        return new Response(
+          JSON.stringify({ items: [], ethics_declined: true, message: inBlock.reframe }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
+
     // Build the user message
     const parts: string[] = []
 
@@ -176,6 +191,18 @@ Deno.serve(async (req) => {
     const content = (result.choices?.[0]?.message?.content || '').trim()
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    // PRD-41 Tier-0 output scan (structured surface → replacement). Enqueue always.
+    if (family_id && member_id) {
+      const outScan = await scanUtilityOutput(supabase, content, { familyId: family_id, memberId: member_id, surface: 'smart-list-import' })
+      await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'smart-list-import', content })
+      if (outScan.replaced) {
+        return new Response(
+          JSON.stringify({ items: [], ethics_declined: true, message: "I couldn't import that safely. Want to try different text?" }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
 
     // Parse JSON response — handle potential markdown fencing
     let parsedOutput: unknown

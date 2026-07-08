@@ -12,6 +12,7 @@ import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -264,6 +265,17 @@ Deno.serve(async (req) => {
       })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (facilitating harm TO another —
+    // orthogonal to the mediator's own safety-trigger which is about the
+    // USER being in danger). Runs after crisis, mirrors the JSON path.
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-mediator', modeKey: 'mediator',
+      conversationId: conversation_id, isSafeHarbor: conv.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     // Safety trigger check (Tier 2 — unsafe dynamics, not immediate crisis)
     if (!safetyTriggered) {
       const lowerContent = content.toLowerCase()
@@ -392,6 +404,14 @@ Deno.serve(async (req) => {
             full = full.replace('[SAFETY_TRIGGERED]', '').trimStart()
           }
 
+          // PRD-41 Tier-0 output scan on the finalized text (marker already
+          // stripped above). Inert in shadow mode beyond the logged_only row.
+          const ethicsScan = await scanStreamedOutput(supabase, full, {
+            familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-mediator', modeKey: 'mediator',
+            conversationId: conversation_id, messageTable: 'lila_messages', isSafeHarbor: conv.is_safe_harbor,
+          })
+          if (ethicsScan.emitRetractionEvent) controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'ethics_retraction', category: ethicsScan.category })}\n\n`))
+
           const assistantMeta: Record<string, unknown> = {
             model: MODEL,
             mode: 'mediator',
@@ -399,7 +419,12 @@ Deno.serve(async (req) => {
             safety_triggered: safetyTriggered || full.includes('[SAFETY_TRIGGERED]'),
           }
           if (resolvedPersonIds.length > 0) assistantMeta.person_ids = resolvedPersonIds
-          await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: full, metadata: assistantMeta, token_count: outTok })
+          if (ethicsScan.retractionMetadata) assistantMeta.ethics_retraction = ethicsScan.retractionMetadata.ethics_retraction
+          const { data: savedMsg } = await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: full, metadata: assistantMeta, token_count: outTok }).select('id').single()
+          await enqueueOutputScan(supabase, {
+            familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-mediator', modeKey: 'mediator',
+            conversationId: conversation_id, messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: full, isSafeHarbor: conv.is_safe_harbor,
+          })
           await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + 1, model_used: 'sonnet' }).eq('id', conversation_id)
 
           // Log AI usage (fire-and-forget)

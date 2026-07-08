@@ -308,6 +308,14 @@ export function LilaDrawer({
         // Still refetch — the user message was saved by the Edge Function
         queryClient.invalidateQueries({ queryKey: ['lila-messages', conv!.id] })
       },
+      // PRD-41 — post-hoc ethics retraction. Inert in the shipped shadow-mode
+      // enforcement state (server never emits this event); when it does fire
+      // (Phase-4 enforcing flip), clear the raw streamed text immediately so
+      // the imminent DB refetch renders the retraction card instead of a
+      // flash of the withdrawn content.
+      () => {
+        setStreamingContent('')
+      },
     )
   }, [input, member, family, isStreaming, conversation, currentMode, guidedModes, createConversation, onConversationCreated, queryClient, location.pathname])
 
@@ -338,6 +346,9 @@ export function LilaDrawer({
           console.error('LiLa drawer regenerate error:', error)
           setIsStreaming(false)
           setStreamingContent('I had trouble with that. Want to try again?')
+        },
+        () => {
+          setStreamingContent('')
         },
       )
     },
@@ -566,6 +577,7 @@ export function LilaDrawer({
             <Tooltip content="Conversation history">
             <button
               onClick={onHistoryOpen}
+              data-testid="lila-history-button"
               className="p-1.5 rounded-full"
               style={{ color: 'rgba(255,255,255,0.7)', background: 'transparent', minHeight: 'unset' }}
             >

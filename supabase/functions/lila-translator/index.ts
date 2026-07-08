@@ -9,6 +9,15 @@ import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import {
+  handleEthicsInputReframe, detectEthicsViolation, detectCrisisInOutput,
+  logEthicsRejection, enqueueOutputScan, ENFORCEMENT_MODE,
+} from '../_shared/ethics-guard.ts'
+
+// Non-streaming replacement text when an ethics-violating rewrite is produced
+// in enforcing mode. Mirrors translator's own content-safety refusal copy.
+const TRANSLATOR_REPLACEMENT =
+  "I can rewrite most things, but this content falls outside what I can work with. Try different source text."
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -89,6 +98,16 @@ Deno.serve(async (req) => {
       )
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis; the model is never
+    // called on a hit — the reframe replaces the rewrite request).
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-translator', modeKey: 'translator',
+      conversationId: conversation_id, isSafeHarbor: conv.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     // Save user message
     await supabase.from('lila_messages').insert({
       conversation_id,
@@ -118,13 +137,41 @@ Deno.serve(async (req) => {
     const inTok = aiJson.usage?.prompt_tokens || 0
     const outTok = aiJson.usage?.completion_tokens || 0
 
-    // Save assistant message
-    await supabase.from('lila_messages').insert({
+    // PRD-41 Tier-0 output scan. Non-streaming surface → REPLACEMENT, never
+    // retraction (PRD §Tier 0). In shadow mode (shipped) the rewrite is
+    // persisted/returned unchanged and only the logged_only rejection row is
+    // written; in enforcing mode the violating rewrite is replaced with a
+    // safe refusal BEFORE it ever renders. enqueueOutputScan always runs on
+    // the ORIGINAL model output (the audit/calibration corpus wants what was
+    // generated, not the replacement).
+    const outHit = detectEthicsViolation(rewrite, 'output')
+    const outCrisis = !outHit.hit && detectCrisisInOutput(rewrite)
+    const outCategory = outHit.hit ? outHit.category : outCrisis ? 'crisis_output' : null
+    let finalRewrite = rewrite
+    if (outCategory) {
+      const enforcing = ENFORCEMENT_MODE === 'enforcing'
+      await logEthicsRejection(supabase, {
+        familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-translator', modeKey: 'translator',
+        conversationId: conversation_id, messageTable: 'lila_messages', isSafeHarbor: conv.is_safe_harbor,
+        direction: 'output', tier: 0, category: outCategory, action: enforcing ? 'replaced' : 'logged_only',
+        matchedPattern: outHit.hit ? outHit.matchedPattern : 'crisis_keyword', contentExcerpt: rewrite,
+      })
+      if (enforcing) finalRewrite = TRANSLATOR_REPLACEMENT
+    }
+
+    // Save assistant message (finalRewrite == rewrite in shadow mode)
+    const { data: savedMsg } = await supabase.from('lila_messages').insert({
       conversation_id,
       role: 'assistant',
-      content: rewrite,
+      content: finalRewrite,
       metadata: { tone, mode: 'translator', model: MODEL },
       token_count: outTok,
+    }).select('id').single()
+
+    await enqueueOutputScan(supabase, {
+      familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-translator', modeKey: 'translator',
+      conversationId: conversation_id, messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: rewrite,
+      isSafeHarbor: conv.is_safe_harbor,
     })
 
     // Update conversation
@@ -141,7 +188,7 @@ Deno.serve(async (req) => {
       outputTokens: outTok,
     })
 
-    return new Response(JSON.stringify({ rewrite, tone }), { headers: jsonHeaders })
+    return new Response(JSON.stringify({ rewrite: finalRewrite, tone }), { headers: jsonHeaders })
   } catch (err) {
     console.error('Translator error:', err)
     return new Response(JSON.stringify({ error: 'Internal error' }), { status: 500, headers: jsonHeaders })

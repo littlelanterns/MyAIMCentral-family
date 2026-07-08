@@ -10,6 +10,8 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -58,11 +60,33 @@ Deno.serve(async (req) => {
       )
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight. ai-parse is the #1 bypass surface
+    // — a caller-supplied system_prompt could otherwise route arbitrary text
+    // to the model outside every prompt-side safety layer. Scan the concatenated
+    // user message content; on a hit, return the reframe (a caller reading
+    // `content` gets the gentle redirect instead of parsed output).
+    if (family_id && member_id) {
+      const combinedInput = messages.map(m => m.content).join('\n')
+      const inScan = await scanUtilityInput(supabase, combinedInput, { familyId: family_id, memberId: member_id, surface: 'ai-parse' })
+      if (inScan) {
+        return new Response(
+          JSON.stringify({ ethics_reframe: true, content: inScan.reframe }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
+
     const modelId = MODELS[model_tier || 'haiku']
+
+    // PRD-41 rider: prepend the canonical safety preamble to the caller-supplied
+    // system prompt server-side. A caller cannot omit or override the five
+    // auto-reject categories + crisis rules — they ride on top of whatever
+    // system_prompt the call site passed.
+    const guardedSystemPrompt = `${buildSafetyPreamble()}\n\n${system_prompt}`
 
     const aiResponse = await callOpenRouter(OPENROUTER_API_KEY, {
       model: modelId,
-      messages: [{ role: 'system', content: system_prompt }, ...messages],
+      messages: [{ role: 'system', content: guardedSystemPrompt }, ...messages],
       max_tokens: max_tokens || 2048,
     })
 
@@ -73,9 +97,18 @@ Deno.serve(async (req) => {
     }
 
     const result = await aiResponse.json()
-    const content = result.choices?.[0]?.message?.content || ''
+    let content = result.choices?.[0]?.message?.content || ''
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    // PRD-41 Tier-0 output scan on the parsed result + async Tier-1/2 enqueue.
+    // On a hit (enforcing) return a safe structured refusal (empty content)
+    // rather than half-parsed ethics-shaped output; shadow mode logs only.
+    if (family_id && member_id) {
+      const outScan = await scanUtilityOutput(supabase, content, { familyId: family_id, memberId: member_id, surface: 'ai-parse' })
+      await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'ai-parse', content })
+      if (outScan.replaced) content = ''
+    }
 
     if (family_id && member_id) {
       logAICost({

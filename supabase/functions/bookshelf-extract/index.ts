@@ -31,6 +31,7 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { OPENROUTER_URL, openRouterHeaders as buildOpenRouterHeaders, withNoTraining } from '../_shared/openrouter-client.ts'
+import { scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -1215,7 +1216,16 @@ Deno.serve(async (req) => {
         outputTokens: aiData.usage?.completion_tokens ?? 0,
       })
 
-      const rawContent = aiData.choices?.[0]?.message?.content || ''
+      let rawContent = aiData.choices?.[0]?.message?.content || ''
+      // PRD-41 Tier-0 output scan on generated extraction prose (input is
+      // published book text → no IN pre-flight; OUT + Q per section). Enqueue
+      // always; enforcing blanks the content so the existing parse-failure
+      // path skips writing this section's extractions (no half-scrubbed data).
+      {
+        const outScan = await scanUtilityOutput(supabase, rawContent, { familyId: family_id, memberId: member_id, surface: 'bookshelf-extract' })
+        await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'bookshelf-extract', content: rawContent })
+        if (outScan.replaced) rawContent = ''
+      }
       const finishReason = aiData.choices?.[0]?.finish_reason || 'unknown'
       console.log(
         `[bookshelf-extract] combined_section section="${section_title}" raw response length: ${rawContent.length}, finish_reason: ${finishReason}`,
@@ -1353,7 +1363,15 @@ Deno.serve(async (req) => {
       outputTokens: aiData.usage?.completion_tokens ?? 0,
     })
 
-    const rawContent = aiData.choices?.[0]?.message?.content || ''
+    let rawContent = aiData.choices?.[0]?.message?.content || ''
+    // PRD-41 Tier-0 output scan on generated extraction prose. Enqueue always;
+    // enforcing blanks the content so the parse-failure path skips this
+    // section's extractions.
+    {
+      const outScan = await scanUtilityOutput(supabase, rawContent, { familyId: family_id, memberId: member_id, surface: 'bookshelf-extract' })
+      await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'bookshelf-extract', content: rawContent })
+      if (outScan.replaced) rawContent = ''
+    }
     console.log(
       `[bookshelf-extract] ${extraction_type} section="${section_title}" raw response length: ${rawContent.length}`,
     )

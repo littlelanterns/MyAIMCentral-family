@@ -7,6 +7,7 @@ import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts';
 import { logAICost } from '../_shared/cost-logger.ts';
 import { callOpenRouter } from '../_shared/openrouter-client.ts';
 import { authenticateRequest } from '../_shared/auth.ts';
+import { scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -256,6 +257,17 @@ serve(async (req: Request) => {
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
+
+    // PRD-41 Tier-0 output scan — generated insights are tone-sensitive. Input
+    // is an uploaded document (like bookshelf) → no IN pre-flight; OUT + Q.
+    // Enqueue always; enforcing returns an empty insight set.
+    {
+      const outScan = await scanUtilityOutput(supabase, content, { familyId: targetMember.family_id, memberId: pathMemberId, surface: 'extract-insights' });
+      await enqueueOutputScan(supabase, { familyId: targetMember.family_id, memberId: pathMemberId, surface: 'extract-insights', content });
+      if (outScan.replaced) {
+        return new Response(JSON.stringify({ insights: [], ethics_declined: true }), { headers: jsonHeaders });
+      }
+    }
 
     // Log AI cost (fire-and-forget)
     const inputTokens = data.usage?.prompt_tokens || 0;

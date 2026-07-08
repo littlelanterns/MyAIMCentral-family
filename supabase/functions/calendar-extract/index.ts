@@ -32,9 +32,13 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
+// Service-role client for PRD-41 ethics logging/enqueue.
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 interface RequestBody {
   content?: string
@@ -68,6 +72,14 @@ Deno.serve(async (req) => {
         JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
         { headers: jsonHeaders },
       )
+    }
+
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface).
+    if (body.family_id && body.member_id) {
+      const inBlock = await scanUtilityInput(supabase, content, { familyId: body.family_id, memberId: body.member_id, surface: 'calendar-extract' })
+      if (inBlock) {
+        return new Response(JSON.stringify({ ethics_declined: true, message: inBlock.reframe }), { headers: jsonHeaders })
+      }
     }
 
     const truncated = content.slice(0, 2000)
@@ -128,6 +140,15 @@ Rules:
         status: 502,
         headers: jsonHeaders,
       })
+    }
+
+    // PRD-41 Tier-0 output scan (structured surface → replacement). Enqueue always.
+    if (body.family_id && body.member_id) {
+      const outScan = await scanUtilityOutput(supabase, raw, { familyId: body.family_id, memberId: body.member_id, surface: 'calendar-extract' })
+      await enqueueOutputScan(supabase, { familyId: body.family_id, memberId: body.member_id, surface: 'calendar-extract', content: raw })
+      if (outScan.replaced) {
+        return new Response(JSON.stringify({ ethics_declined: true, message: "I couldn't read that event safely." }), { headers: jsonHeaders })
+      }
     }
 
     // Parse the model's JSON (strip accidental code fences defensively)

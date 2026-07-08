@@ -3,9 +3,18 @@
 # Pre-push hook — MyAIM Central
 #
 # Orchestration Checkpoint 4: verifies state file hygiene before push.
+# PRD-41 gate: the ethics red-team suite must be green before push, so a
+# Tier-0 regression (a weakened pattern, a dropped category, broken reframe
+# copy) cannot ship silently. See PRD-41 §Red-Team Suite Specification
+# "Enforcement point" + Founder Decision Record item 8.
 #
 # Checks:
 # - No uncommitted changes to orchestration state files
+# - npm run redteam passes (tests/redteam/ — deterministic, no-network vitest
+#   suite; the Playwright pins in tests/e2e/features/ethics-enforcement.spec.ts
+#   are deploy-dependent and run separately as part of the Edge Function
+#   deploy checklist, not here — a pre-push hook can't assume a deployed
+#   validate-ai-output function or a live model exists)
 #
 # Override: git push --no-verify
 #
@@ -42,6 +51,24 @@ if [ -n "$DIRTY" ]; then
   echo "  Override: git push --no-verify"
   echo ""
   exit 1
+fi
+
+if [ -f "tests/redteam/ethics-guard.test.ts" ]; then
+  echo ""
+  echo "🔒 PRE-PUSH CHECK — PRD-41 ethics red-team suite"
+  echo ""
+  if ! npm run redteam; then
+    echo ""
+    echo "⚠️  Red-team suite failed. This blocks push because it is the"
+    echo "  regression pin for the five auto-reject categories (force,"
+    echo "  coercion, manipulation, shame_based_control, withholding_affection)"
+    echo "  — a silent regression here is a safety gate failure, not a"
+    echo "  cosmetic test failure."
+    echo ""
+    echo "  Override: git push --no-verify"
+    echo ""
+    exit 1
+  fi
 fi
 
 exit 0

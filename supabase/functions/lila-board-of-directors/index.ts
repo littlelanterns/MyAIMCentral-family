@@ -27,6 +27,7 @@ import { logAICost } from '../_shared/cost-logger.ts'
 import { embedText } from '../_shared/embedding.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -1145,6 +1146,17 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis, mirrors its JSON
+    // path). handleEthicsInputReframe persists the user message + reframe, so
+    // we return before the normal user-message save below.
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-board-of-directors', modeKey: 'board_of_directors',
+      conversationId: conversation_id, isSafeHarbor: conv.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     // Save user message
     await supabase.from('lila_messages').insert({
       conversation_id, role: 'user', content,
@@ -1377,9 +1389,24 @@ Deno.serve(async (req) => {
               }
             }
 
+            // PRD-41 per-advisor Tier-0 output scan — each advisor's completed
+            // text is scanned + enqueued individually, so a violating advisor
+            // retracts alone (its own metadata.persona_id seat attribution).
+            // Inert in shadow mode beyond the logged_only rejection row.
+            const advisorEthicsScan = await scanStreamedOutput(supabase, advisorFull, {
+              familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-board-of-directors', modeKey: 'board_of_directors',
+              conversationId: conversation_id, messageTable: 'lila_messages', isSafeHarbor: conv.is_safe_harbor,
+            })
+            if (advisorEthicsScan.emitRetractionEvent) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                type: 'ethics_retraction', category: advisorEthicsScan.category,
+                persona_id: persona.id, persona_name: persona.persona_name,
+              })}\n\n`))
+            }
+
             // Save advisor message to DB
             const isFirstNonPersonal = needsDisclaimer && i === personas.findIndex(p2 => p2.persona_type !== 'personal_custom')
-            await supabase.from('lila_messages').insert({
+            const { data: savedAdvisorMsg } = await supabase.from('lila_messages').insert({
               conversation_id, role: 'assistant', content: advisorFull,
               metadata: {
                 mode: 'board_of_directors',
@@ -1387,7 +1414,14 @@ Deno.serve(async (req) => {
                 persona_name: persona.persona_name,
                 is_prayer_seat_reflection: false,
                 show_disclaimer: isFirstNonPersonal,
+                ...(advisorEthicsScan.retractionMetadata ?? {}),
               },
+            }).select('id').single()
+
+            await enqueueOutputScan(supabase, {
+              familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-board-of-directors', modeKey: 'board_of_directors',
+              conversationId: conversation_id, messageTable: 'lila_messages', messageId: savedAdvisorMsg?.id ?? null, content: advisorFull,
+              isSafeHarbor: conv.is_safe_harbor,
             })
 
             // Mark disclaimer as shown

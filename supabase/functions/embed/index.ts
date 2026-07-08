@@ -82,6 +82,12 @@ const TABLE_CONFIG: Record<string, TableConfig> = {
     embeddingColumn: 'embedding',
     activeFilter: 'none',
   },
+  // === PRD-42 KitchenCompass ===
+  recipes: {
+    textColumns: ['title', 'description'],
+    embeddingColumn: 'embedding',
+    activeFilter: 'archived_at',
+  },
 }
 
 // ============================================================
@@ -312,6 +318,52 @@ async function processBookChunks(limit: number): Promise<{ processed: number; fa
 }
 
 // ============================================================
+// Handle platform_intelligence.ethics_pattern_library via RPC
+// (not accessible via PostgREST — different schema). PRD-41 Phase 1.
+// ============================================================
+async function processEthicsPatterns(limit: number): Promise<{ processed: number; failed: number }> {
+  let processed = 0
+  let failed = 0
+
+  const { data, error } = await supabase.rpc('get_unembedded_ethics_patterns', { p_limit: limit })
+
+  if (error) {
+    // RPC not available yet — skip silently
+    if (error.message.includes('does not exist')) return { processed: 0, failed: 0 }
+    console.error('Error fetching ethics_pattern_library:', error.message)
+    return { processed: 0, failed: 0 }
+  }
+
+  if (!data?.length) return { processed: 0, failed: 0 }
+
+  for (const row of data) {
+    try {
+      const text = row.pattern_text
+      if (!text?.trim()) continue
+
+      const embedding = await getEmbedding(text)
+
+      const { error: updateError } = await supabase.rpc('update_ethics_pattern_embedding', {
+        p_id: row.id,
+        p_embedding: JSON.stringify(embedding),
+      })
+
+      if (updateError) {
+        console.error(`Failed to update ethics_pattern embedding for ${row.id}:`, updateError.message)
+        failed++
+      } else {
+        processed++
+      }
+    } catch (err) {
+      console.error(`Error embedding ethics_pattern ${row.id}:`, (err as Error).message)
+      failed++
+    }
+  }
+
+  return { processed, failed }
+}
+
+// ============================================================
 // Main handler
 // ============================================================
 Deno.serve(async (req) => {
@@ -400,6 +452,15 @@ Deno.serve(async (req) => {
       const bchResult = await processBookChunks(budgetLeft)
       totalProcessed += bchResult.processed
       totalFailed += bchResult.failed
+    }
+
+    // Process ethics_pattern_library separately (platform_intelligence
+    // schema) — PRD-41 Phase 1.
+    budgetLeft = batchSize - totalProcessed
+    if (budgetLeft > 0) {
+      const epResult = await processEthicsPatterns(budgetLeft)
+      totalProcessed += epResult.processed
+      totalFailed += epResult.failed
     }
 
     // Log aggregate embedding cost (fire-and-forget). Embedding cost is per-token input only.

@@ -12,11 +12,16 @@ import { authenticateRequest } from '../_shared/auth.ts'
 import { detectCrisis, CRISIS_RESPONSE } from '../_shared/crisis-detection.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const HAIKU_MODEL = 'anthropic/claude-haiku-4.5'
 // Vision requires Sonnet — Haiku does not support image inputs on OpenRouter
 const VISION_MODEL = 'anthropic/claude-sonnet-4'
+// Service-role client for PRD-41 ethics logging/enqueue. IN pre-flight is
+// skipped here — the input is an image/URL, not user text (matrix note).
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 Deno.serve(async (req) => {
   const cors = handleCors(req)
@@ -126,6 +131,15 @@ async function handleScan(body: {
       JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
       { headers: jsonHeaders },
     )
+  }
+
+  // PRD-41 Tier-0 output scan on the extracted text. Enqueue always.
+  if (family_id && member_id) {
+    const outScan = await scanUtilityOutput(supabase, extractedText, { familyId: family_id, memberId: member_id, surface: 'mindsweep-scan' })
+    await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'mindsweep-scan', content: extractedText })
+    if (outScan.replaced) {
+      return new Response(JSON.stringify({ text: '', ethics_declined: true }), { headers: jsonHeaders })
+    }
   }
 
   return new Response(
@@ -254,6 +268,15 @@ async function handleLink(body: {
       inputTokens: usage.prompt_tokens || 0,
       outputTokens: usage.completion_tokens || 0,
     })
+  }
+
+  // PRD-41 Tier-0 output scan on the generated summary. Enqueue always.
+  if (family_id && member_id) {
+    const outScan = await scanUtilityOutput(supabase, summary, { familyId: family_id, memberId: member_id, surface: 'mindsweep-scan' })
+    await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'mindsweep-scan', content: summary })
+    if (outScan.replaced) {
+      return new Response(JSON.stringify({ text: '', ethics_declined: true }), { headers: jsonHeaders })
+    }
   }
 
   return new Response(

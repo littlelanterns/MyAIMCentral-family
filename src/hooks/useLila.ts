@@ -399,13 +399,22 @@ export function useToolPermissions(memberId: string | undefined) {
 // Streaming AI Chat
 // ============================================================
 
-/** Call the lila-chat Edge Function with streaming response */
+/** Call the lila-chat Edge Function with streaming response.
+ *
+ * `onRetraction` is an optional PRD-41 hook: fires when lila-chat emits a
+ * `{type: 'ethics_retraction', category}` SSE event — a post-hoc Tier-0
+ * output hit on the response that just finished streaming. In the shipped
+ * shadow-mode enforcement state (ENFORCEMENT_MODE='shadow' in
+ * `_shared/ethics-guard.ts`) the server never emits this event — the full
+ * client code path exists so the Phase-4 enforcement flip requires zero
+ * client changes. Callers that omit `onRetraction` are unaffected. */
 export async function streamLilaChat(
   conversationId: string,
   content: string,
   onChunk: (chunk: string) => void,
   onDone: (fullResponse: string, metadata?: Record<string, unknown>) => void,
   onError: (error: Error) => void,
+  onRetraction?: (category: string) => void,
 ) {
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -456,6 +465,8 @@ export async function streamLilaChat(
               onChunk(parsed.content)
             } else if (parsed.type === 'metadata') {
               metadata = parsed
+            } else if (parsed.type === 'ethics_retraction') {
+              onRetraction?.(parsed.category)
             }
           } catch {
             // Non-JSON line, treat as raw content

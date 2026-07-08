@@ -12,6 +12,7 @@ import { buildSafetyPreamble } from '../_shared/safety-preamble.ts'
 import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -147,6 +148,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis, mirrors its JSON path).
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-perspective-shifter', modeKey: 'perspective_shifter',
+      conversationId: conversation_id, isSafeHarbor: conv.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     // Load lens system_prompt_addition
     let lensAddition = ''
     let lensDisplayName = ''
@@ -223,11 +233,23 @@ Deno.serve(async (req) => {
     return createSSEStream(async (enqueue) => {
       const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiRes.body!, enqueue)
 
+      // PRD-41 Tier-0 output scan (inert in shadow mode beyond logged_only row).
+      const ethicsScan = await scanStreamedOutput(supabase, fullText, {
+        familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-perspective-shifter', modeKey: 'perspective_shifter',
+        conversationId: conversation_id, messageTable: 'lila_messages', isSafeHarbor: conv.is_safe_harbor,
+      })
+      if (ethicsScan.emitRetractionEvent) enqueue({ type: 'ethics_retraction', category: ethicsScan.category })
+
       // Save assistant message with custom metadata
       const assistantMeta: Record<string, unknown> = { model: MODEL, mode: 'perspective_shifter' }
       if (lens_key) { assistantMeta.active_lens = lens_key; assistantMeta.lens_display_name = lensDisplayName }
       if (person_id) assistantMeta.person_id = person_id
-      await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: assistantMeta, token_count: outputTokens })
+      if (ethicsScan.retractionMetadata) assistantMeta.ethics_retraction = ethicsScan.retractionMetadata.ethics_retraction
+      const { data: savedMsg } = await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: assistantMeta, token_count: outputTokens }).select('id').single()
+      await enqueueOutputScan(supabase, {
+        familyId: conv.family_id, memberId: conv.member_id, surface: 'lila-perspective-shifter', modeKey: 'perspective_shifter',
+        conversationId: conversation_id, messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: fullText, isSafeHarbor: conv.is_safe_harbor,
+      })
       await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + 1, model_used: 'sonnet' }).eq('id', conversation_id)
       logAICost({ familyId: conv.family_id, memberId: conv.member_id, featureKey: 'lila_perspective_shifter', model: MODEL, inputTokens, outputTokens })
     })

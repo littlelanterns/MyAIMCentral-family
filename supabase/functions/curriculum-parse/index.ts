@@ -18,8 +18,12 @@ import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
+// Service-role client for PRD-41 ethics logging/enqueue.
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 const MODEL = 'anthropic/claude-haiku-4.5'
 
@@ -127,6 +131,17 @@ Deno.serve(async (req) => {
 
     const { raw_text, list_type, context, family_id, member_id } = parsed.data
 
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface).
+    if (family_id && member_id) {
+      const inBlock = await scanUtilityInput(supabase, raw_text, { familyId: family_id, memberId: member_id, surface: 'curriculum-parse' })
+      if (inBlock) {
+        return new Response(
+          JSON.stringify({ items: [], detected_metadata: null, ethics_declined: true, message: inBlock.reframe }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
+
     // Build the user message with context hints
     const parts: string[] = []
     parts.push(`List type: ${list_type}`)
@@ -162,6 +177,19 @@ Deno.serve(async (req) => {
     const content = (result.choices?.[0]?.message?.content || '').trim()
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    // PRD-41 Tier-0 output scan (structured surface → replacement, never a
+    // half-scrubbed payload). Enqueue always. Shadow mode leaves it unchanged.
+    if (family_id && member_id) {
+      const outScan = await scanUtilityOutput(supabase, content, { familyId: family_id, memberId: member_id, surface: 'curriculum-parse' })
+      await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'curriculum-parse', content })
+      if (outScan.replaced) {
+        return new Response(
+          JSON.stringify({ items: [], detected_metadata: null, ethics_declined: true, message: "I couldn't parse that safely. Want to try different source text?" }),
+          { headers: jsonHeaders },
+        )
+      }
+    }
 
     // Parse JSON response — handle potential markdown fencing
     let parsedOutput: unknown

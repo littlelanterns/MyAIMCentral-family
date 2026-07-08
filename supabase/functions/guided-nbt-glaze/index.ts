@@ -4,12 +4,16 @@
 // "Next Best Thing" suggestion card.
 
 import { z } from 'https://esm.sh/zod@3.23.8'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { authenticateRequest } from '../_shared/auth.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { scanUtilityInput, scanUtilityOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
+// Service-role client for PRD-41 ethics logging/enqueue.
+const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
 const MODEL = 'anthropic/claude-haiku-4.5'
 
@@ -49,6 +53,14 @@ Deno.serve(async (req) => {
     }
     const { taskTitle, timeOfDay, memberName, streakCount, currencyName, suggestionType, pointValue, family_id, member_id } = parsed.data
 
+    // PRD-41 Tier-0 ethics input pre-flight (utility surface).
+    if (family_id && member_id) {
+      const inBlock = await scanUtilityInput(supabase, taskTitle, { familyId: family_id, memberId: member_id, surface: 'guided-nbt-glaze' })
+      if (inBlock) {
+        return new Response(JSON.stringify({ glazeText: '', ethics_declined: true }), { headers: jsonHeaders })
+      }
+    }
+
     const userMessage = [
       `Task: ${taskTitle}`,
       `Type: ${suggestionType}`,
@@ -78,6 +90,16 @@ Deno.serve(async (req) => {
     const glazeText = (result.choices?.[0]?.message?.content || '').trim()
     const inputTokens = result.usage?.prompt_tokens || 0
     const outputTokens = result.usage?.completion_tokens || 0
+
+    // PRD-41 Tier-0 output scan — a kid-facing celebration must never carry
+    // shame framing. Enqueue always; enforcing replaces with a neutral glaze.
+    if (family_id && member_id) {
+      const outScan = await scanUtilityOutput(supabase, glazeText, { familyId: family_id, memberId: member_id, surface: 'guided-nbt-glaze' })
+      await enqueueOutputScan(supabase, { familyId: family_id, memberId: member_id, surface: 'guided-nbt-glaze', content: glazeText })
+      if (outScan.replaced) {
+        return new Response(JSON.stringify({ glazeText: '', ethics_declined: true }), { headers: jsonHeaders })
+      }
+    }
 
     if (family_id && member_id) {
       logAICost({

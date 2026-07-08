@@ -20,6 +20,7 @@
  */
 import { handleCors, jsonHeaders } from '../_shared/cors.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { detectEthicsViolation, ENFORCEMENT_MODE } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -133,6 +134,18 @@ No commentary, no markdown fences, no extra fields.`
 
     const data = await response.json()
     const rawContent = data.choices?.[0]?.message?.content || ''
+
+    // PRD-41 Tier-0 output detection. Admin-only platform-icon tool with no
+    // family context — no family-scoped audit row is possible, so this does
+    // detection-only for the enforcing-mode replacement. Shadow mode (shipped)
+    // is a no-op. Wired to satisfy the "every chat function imports
+    // ethics-guard" invariant (it is NOT on the exempt list).
+    if (ENFORCEMENT_MODE === 'enforcing' && detectEthicsViolation(rawContent, 'output').hit) {
+      return new Response(
+        JSON.stringify({ error: 'Could not describe this image safely.' }),
+        { status: 502, headers: jsonHeaders },
+      )
+    }
 
     // Parse JSON from response — strip markdown fences if present
     let parsed: Description

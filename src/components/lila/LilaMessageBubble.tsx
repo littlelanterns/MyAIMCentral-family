@@ -1,11 +1,29 @@
 import { useState } from 'react'
-import { Copy, FileEdit, ArrowRightLeft, ListTodo, Trophy, Check } from 'lucide-react'
+import { Copy, FileEdit, ArrowRightLeft, ListTodo, Trophy, Check, Undo2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Tooltip } from '@/components/shared'
 import { LilaAvatar } from './LilaAvatar'
 import { HumanInTheMix } from '@/components/HumanInTheMix'
 import { useNotepadContextSafe } from '@/components/notepad'
 import type { LilaMessage } from '@/hooks/useLila'
+
+// PRD-41 retraction copy — mirrors supabase/functions/_shared/ethics-guard.ts
+// RETRACTION_NOTICE / RETRACTION_NOTICE_KID verbatim. Duplicated on the
+// client because Deno Edge Function shared modules aren't importable into
+// the Vite build — same precedent as CRISIS_RESPONSE, which is already
+// duplicated between useLila.ts and crisis-detection.ts in this codebase.
+// Keep both copies in sync if the wording ever changes.
+const ETHICS_RETRACTION_NOTICE =
+  "That last reply wasn't advice I should have given — the approach it suggested could hurt more than it helps. Let me try again, or ask me a different way."
+const ETHICS_RETRACTION_NOTICE_KID =
+  "LiLa took that answer back — it wasn't a good one. Ask me again!"
+
+interface EthicsRetractionMetadata {
+  category: string
+  tier: number
+  retracted_at: string
+  rejection_id: string | null
+}
 
 /**
  * Message Bubble — PRD-05
@@ -36,6 +54,10 @@ interface LilaMessageBubbleProps {
    *  carrying metadata.routing. Receives the chosen target or null for
    *  "Stay here". Per PRD-05 Drawer Default + Routing Concierge Addendum. */
   onRoutingHandoff?: (target: RoutingHandoffTarget | null) => void
+  /** PRD-41 — Guided/Play surfaces get shorter, agency-on-LiLa retraction
+   *  copy. Never true from LilaDrawer (mom-only). LilaModal passes it from
+   *  the effective member's dashboard_mode. */
+  isKidShell?: boolean
 }
 
 export function LilaMessageBubble({
@@ -47,6 +69,7 @@ export function LilaMessageBubble({
   onRegenerate,
   onReject,
   onRoutingHandoff,
+  isKidShell = false,
 }: LilaMessageBubbleProps) {
   // Routing-handoff chips (PRD-05 addendum sec 4d). Assist pre-scan writes
   // metadata.routing with action='ask' + targets[]. Auto-switch (action='help')
@@ -58,6 +81,14 @@ export function LilaMessageBubble({
   const isAssistant = message.role === 'assistant'
   const [copied, setCopied] = useState(false)
   const navigate = useNavigate()
+
+  // PRD-41 — a retracted assistant message renders the withdrawal card
+  // instead of its content. In the shipped shadow-mode enforcement state
+  // this metadata key is never actually set server-side (see
+  // ethics-guard.ts ENFORCEMENT_MODE) — this branch exists so the Phase-4
+  // flip requires zero client changes.
+  const ethicsRetraction = (message.metadata as { ethics_retraction?: EthicsRetractionMetadata } | null)?.ethics_retraction
+  const isRetracted = isAssistant && !!ethicsRetraction
 
   // Safe notepad context access (may not be available in all shells —
   // returns null when used outside a NotepadProvider tree).
@@ -78,6 +109,49 @@ export function LilaMessageBubble({
         </div>
       )}
 
+      {isRetracted && (
+        <div className={`max-w-[85%] ${isUser ? '' : 'flex-1'}`}>
+          {/* PRD-41 retraction card — replaces content entirely. HITM
+              buttons are removed (the platform already rejected this on
+              the user's behalf); Regenerate remains as a fresh "Ask again"
+              affordance. */}
+          <div
+            data-testid={`ethics-retraction-${message.id}`}
+            className="px-3.5 py-2.5 text-sm leading-relaxed flex items-start gap-2"
+            style={{
+              backgroundColor: 'var(--color-bg-card, #fff)',
+              color: 'var(--color-text-primary)',
+              border: '1px solid var(--color-border-default, var(--color-border))',
+              borderRadius: '16px 16px 16px 4px',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+            }}
+          >
+            <Undo2 size={16} className="shrink-0 mt-0.5" style={{ color: 'var(--color-text-secondary)' }} />
+            <div>
+              <p className="font-semibold mb-1" style={{ color: 'var(--color-text-heading)' }}>
+                LiLa took this response back
+              </p>
+              <p className="whitespace-pre-wrap" style={{ color: 'var(--color-text-secondary)' }}>
+                {isKidShell ? ETHICS_RETRACTION_NOTICE_KID : ETHICS_RETRACTION_NOTICE}
+              </p>
+              {onRegenerate && (
+                <button
+                  onClick={() => onRegenerate()}
+                  className="mt-2 px-3 py-1 rounded-full text-xs font-medium hover:opacity-90 transition-opacity"
+                  style={{
+                    backgroundColor: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-text)',
+                  }}
+                >
+                  Ask again
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isRetracted && (
       <div className={`max-w-[85%] ${isUser ? '' : 'flex-1'}`}>
         {/* Message content */}
         <div
@@ -206,6 +280,7 @@ export function LilaMessageBubble({
           />
         )}
       </div>
+      )}
     </div>
   )
 }

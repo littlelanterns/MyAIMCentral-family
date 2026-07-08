@@ -11,6 +11,7 @@ import { createSSEStream, processOpenRouterStream } from '../_shared/streaming.t
 import { logAICost } from '../_shared/cost-logger.ts'
 import { loadRelationshipContext, formatRelationshipContextForPrompt } from '../_shared/relationship-context.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -104,6 +105,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }), { headers: jsonHeaders })
     }
 
+    // PRD-41 Tier-0 ethics input pre-flight (after crisis, mirrors its JSON path).
+    const ethicsReframe = await handleEthicsInputReframe(supabase, content, {
+      familyId: conversation.family_id, memberId: conversation.member_id, surface: 'lila-quality-time', modeKey: 'quality_time',
+      conversationId: conversation_id, isSafeHarbor: conversation.is_safe_harbor,
+    })
+    if (ethicsReframe) {
+      return new Response(JSON.stringify({ ethics_reframe: true, category: ethicsReframe.category, response: ethicsReframe.response }), { headers: jsonHeaders })
+    }
+
     const personIds = conversation.guided_mode_reference_id ? [conversation.guided_mode_reference_id] : []
 
     // Load history first for layered context detection
@@ -135,7 +145,18 @@ Deno.serve(async (req) => {
     return createSSEStream(async (enqueue) => {
       const { fullText, inputTokens, outputTokens } = await processOpenRouterStream(aiResponse.body!, enqueue)
 
-      await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: { model: MODEL, mode: 'quality_time' }, token_count: outputTokens })
+      // PRD-41 Tier-0 output scan (inert in shadow mode beyond logged_only row).
+      const ethicsScan = await scanStreamedOutput(supabase, fullText, {
+        familyId: conversation.family_id, memberId: conversation.member_id, surface: 'lila-quality-time', modeKey: 'quality_time',
+        conversationId: conversation_id, messageTable: 'lila_messages', isSafeHarbor: conversation.is_safe_harbor,
+      })
+      if (ethicsScan.emitRetractionEvent) enqueue({ type: 'ethics_retraction', category: ethicsScan.category })
+
+      const { data: savedMsg } = await supabase.from('lila_messages').insert({ conversation_id, role: 'assistant', content: fullText, metadata: { model: MODEL, mode: 'quality_time', ...(ethicsScan.retractionMetadata ?? {}) }, token_count: outputTokens }).select('id').single()
+      await enqueueOutputScan(supabase, {
+        familyId: conversation.family_id, memberId: conversation.member_id, surface: 'lila-quality-time', modeKey: 'quality_time',
+        conversationId: conversation_id, messageTable: 'lila_messages', messageId: savedMsg?.id ?? null, content: fullText, isSafeHarbor: conversation.is_safe_harbor,
+      })
       await supabase.from('lila_conversations').update({ message_count: (history?.length || 0) + 1, model_used: 'sonnet' }).eq('id', conversation_id)
       logAICost({ familyId: conversation.family_id, memberId: conversation.member_id, featureKey: 'lila_quality_time', model: MODEL, inputTokens, outputTokens })
     })
