@@ -228,7 +228,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 221 rows
+### `feature_key_registry` — 222 rows
 
 | # | Column |
 |---|---|
@@ -239,7 +239,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 385 rows
+### `feature_access_v2` — 390 rows
 
 | # | Column |
 |---|---|
@@ -396,7 +396,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 708 rows
+### `ai_usage_tracking` — 709 rows
 
 | # | Column |
 |---|---|
@@ -806,7 +806,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2085 rows
+### `routine_step_completions` — 2100 rows
 
 | # | Column |
 |---|---|
@@ -1786,7 +1786,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 1 rows
+### `notifications` — 15 rows
 
 | # | Column |
 |---|---|
@@ -2751,7 +2751,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 0 rows
+### `ai_output_scans` — 4 rows
 
 | # | Column |
 |---|---|
@@ -4031,6 +4031,51 @@
 | 16 | `created_at` |
 | 17 | `updated_at` |
 
+### `reward_shop_items` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `created_by` |
+| 4 | `name` |
+| 5 | `description` |
+| 6 | `image_url` |
+| 7 | `image_asset_key` |
+| 8 | `point_cost` |
+| 9 | `requires_approval` |
+| 10 | `audience_member_ids` |
+| 11 | `limit_per_member` |
+| 12 | `limit_period` |
+| 13 | `unlock_rule` |
+| 14 | `notes_to_kid` |
+| 15 | `sort_order` |
+| 16 | `is_active` |
+| 17 | `archived_at` |
+| 18 | `created_at` |
+| 19 | `updated_at` |
+
+### `reward_shop_purchases` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `store_item_id` |
+| 4 | `family_member_id` |
+| 5 | `item_name` |
+| 6 | `points_cost` |
+| 7 | `status` |
+| 8 | `decline_note` |
+| 9 | `processed_by` |
+| 10 | `processed_at` |
+| 11 | `spend_transaction_id` |
+| 12 | `refund_transaction_id` |
+| 13 | `earned_prize_id` |
+| 14 | `acted_by` |
+| 15 | `created_at` |
+| 16 | `updated_at` |
+
 ### `rhythm_completions` — 36 rows
 
 | # | Column |
@@ -4130,7 +4175,7 @@
 | 5 | `notification_channels` |
 | 6 | `created_at` |
 
-### `safety_pattern_summaries` — 0 rows
+### `safety_pattern_summaries` — 14 rows
 
 | # | Column |
 |---|---|
@@ -4497,7 +4542,7 @@
 
 ---
 
-> **Summary:** 133 API-exposed tables in domain sections | 94 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 133 API-exposed tables in domain sections | 96 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
