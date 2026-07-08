@@ -2,7 +2,7 @@
 // Horizontally-swipeable member columns with collapsible sections.
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen, GripVertical, Plus } from 'lucide-react'
+import { ChevronDown, ChevronRight, Calendar, Check, Star, Trophy, Target, Zap, BarChart3, RefreshCw, BookOpen, GripVertical, Plus, ShieldAlert, AlertOctagon, AlertTriangle, Info } from 'lucide-react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
@@ -38,7 +38,9 @@ import {
   type OpportunityBoard,
 } from '@/hooks/useFamilyOverviewData'
 import { useUnclaimOpportunity } from '@/hooks/useOpportunityLists'
-import { useSearchParams } from 'react-router-dom'
+import { useIsSafetyRecipient, useSafetyFlagCountsForMembers, type MemberSafetySummary } from '@/hooks/useSafetyMonitoring'
+import { SEVERITY_DISPLAY_LABEL, type SafetySeverity } from '@/lib/safety/categoryLabels'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useActivePeriod, useLiveAllowanceProgress, type GraceDayEntry } from '@/hooks/useFinancial'
 import { useCompleteTask, useTasksWithPendingApprovals, type Task } from '@/hooks/useTasks'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
@@ -124,6 +126,7 @@ const SECTION_META: Record<FamilyOverviewSectionKey, { label: string; icon: Reac
   trackers: { label: 'Active Trackers', icon: <BarChart3 size={14} /> },
   weekly_completion: { label: 'Weekly Completion', icon: <Target size={14} /> },
   victories: { label: 'Victories', icon: <Trophy size={14} /> },
+  safety_monitoring: { label: 'Safety Monitoring', icon: <ShieldAlert size={14} /> },
 }
 
 // ─── Column Section Header ───────────────────────────────────────────────────
@@ -852,6 +855,47 @@ function VictoriesSection({
   )
 }
 
+// ─── Section: Safety Monitoring (PRD-30 Screen 5) ────────────────────────────
+// Only ever rendered when the viewer is an active safety recipient AND this
+// member is actively monitored (renderSection returns null otherwise, so no
+// header even shows for unmonitored members).
+
+const SAFETY_SEVERITY_ICON: Record<SafetySeverity, typeof AlertOctagon> = {
+  critical: AlertOctagon,
+  warning: AlertTriangle,
+  concern: Info,
+}
+
+function SafetyMonitoringFOSection({ memberId, summary }: { memberId: string; summary?: MemberSafetySummary }) {
+  if (!summary || summary.newCount === 0) {
+    return (
+      <div className="px-2 pb-2 flex items-center gap-1.5 text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+        <Check size={12} style={{ color: 'var(--color-btn-primary-bg)' }} /> No flags
+      </div>
+    )
+  }
+  const Icon = summary.highestSeverity ? SAFETY_SEVERITY_ICON[summary.highestSeverity] : Info
+  const color = summary.highestSeverity === 'critical'
+    ? 'var(--color-error, #dc2626)'
+    : summary.highestSeverity === 'warning'
+      ? 'var(--color-warning, #d97706)'
+      : 'var(--color-text-secondary)'
+  return (
+    <Link
+      to={`/safety-flags?member=${memberId}`}
+      className="px-2 pb-2 flex items-center justify-between gap-2 text-xs"
+      data-testid={`fo-safety-review-${memberId}`}
+    >
+      <span className="flex items-center gap-1.5" style={{ color }}>
+        <Icon size={12} />
+        {summary.newCount} new flag{summary.newCount === 1 ? '' : 's'}
+        {summary.highestSeverity ? ` (${SEVERITY_DISPLAY_LABEL[summary.highestSeverity]})` : ''}
+      </span>
+      <span className="font-medium" style={{ color: 'var(--color-btn-primary-bg)' }}>Review →</span>
+    </Link>
+  )
+}
+
 // ─── Section: Weekly Completion (FO-COMMAND-CENTER — wired, was stub) ────────
 // PRD-14C Section 5: completion percentage + on-track payout. Reads the live
 // allowance progress RPC (PRD-28) for the member's default pool active period.
@@ -966,6 +1010,8 @@ function MemberColumn({
   onOpenEvent,
   onOpenSegments,
   onCreateInSection,
+  safetySummary,
+  viewerIsSafetyRecipient,
 }: {
   member: FamilyMember
   sectionOrder: string[]
@@ -998,6 +1044,10 @@ function MemberColumn({
   onOpenSegments?: () => void
   /** Mom-only: per-section [+ create] — opens the category's creation modal for this member */
   onCreateInSection?: (sectionKey: FamilyOverviewSectionKey) => void
+  /** PRD-30 — this member's safety flag summary, undefined if unmonitored */
+  safetySummary?: MemberSafetySummary
+  /** PRD-30 — is the viewer an active safety_notification_recipient */
+  viewerIsSafetyRecipient?: boolean
 }) {
   const color = member.calendar_color || getMemberColor(member)
 
@@ -1043,6 +1093,13 @@ function MemberColumn({
       return <StubSection key={key} label={key} />
     }
 
+    // PRD-30 Screen 5 — recipients-only AND hidden for unmonitored members.
+    // Renders nothing at all (no header) rather than an empty state, per the
+    // PRD's "hidden for unmonitored members" instruction.
+    if (sectionKey === 'safety_monitoring' && (!viewerIsSafetyRecipient || !safetySummary?.monitored)) {
+      return null
+    }
+
     const collapsed = isSectionCollapsed(sectionKey)
 
     // Count for badge
@@ -1068,6 +1125,8 @@ function MemberColumn({
         oppBoards
           .filter((b) => isBoardEligibleFor(b, member.id))
           .reduce((sum, b) => sum + b.items.filter((i) => !i.claimed).length, 0)
+    } else if (sectionKey === 'safety_monitoring') {
+      count = safetySummary?.newCount
     }
 
     // Sections with a creation flow (founder asks 2026-06-10). Only
@@ -1142,6 +1201,8 @@ function MemberColumn({
         )
       case 'victories':
         return <VictoriesSection memberId={member.id} victories={victories} />
+      case 'safety_monitoring':
+        return <SafetyMonitoringFOSection memberId={member.id} summary={safetySummary} />
       default:
         return <StubSection label={key} />
     }
@@ -1515,6 +1576,14 @@ export default function FamilyOverview() {
   const { data: oppBoards = [] } = useOpportunityBoardsWithItems(family?.id)
   const unclaimOpportunity = useUnclaimOpportunity()
 
+  // PRD-30 Screen 5 — safety_monitoring column section. Recipients-only
+  // (mom + granted dad); hidden per-column for unmonitored members
+  // (MemberColumn returns null for the section in both cases).
+  const { isRecipient: viewerIsSafetyRecipient } = useIsSafetyRecipient(
+    member ? { id: member.id, family_id: member.family_id, role: member.role } : null,
+  )
+  const { data: safetyByMember } = useSafetyFlagCountsForMembers(family?.id, selectedMemberIds)
+
   // Map iteration counts per intention
   const iterationCounts = useMemo(() => {
     const map = new Map<string, number>()
@@ -1864,6 +1933,8 @@ export default function FamilyOverview() {
                     onOpenEvent={canActOnMember ? (ev) => setEditEvent(ev as unknown as CalendarEvent & { event_attendees?: EventAttendee[] }) : undefined}
                     onOpenSegments={isPrimaryParent ? () => setSegmentsMember(m) : undefined}
                     onCreateInSection={isPrimaryParent ? (section) => setCreateTarget({ member: m, section }) : undefined}
+                    safetySummary={safetyByMember?.get(m.id)}
+                    viewerIsSafetyRecipient={viewerIsSafetyRecipient}
                   />
                 )
               })

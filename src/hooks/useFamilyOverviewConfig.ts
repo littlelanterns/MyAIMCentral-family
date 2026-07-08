@@ -11,6 +11,10 @@ import { supabase } from '@/lib/supabase/client'
 // founder-approved Q5: timeline-bound sections rank higher; Best Intentions
 // sits right above Trackers.
 
+// PRD-30 (2026-07-07): added 'safety_monitoring' (Screen 5). Recipients-only
+// (mom + granted dad) and hidden per-column for unmonitored members — the
+// section renders `null` entirely rather than an empty state when either
+// condition fails, per Convention #275's read-time graft pattern.
 export const FAMILY_OVERVIEW_SECTION_KEYS = [
   'events',
   'tasks',
@@ -21,6 +25,7 @@ export const FAMILY_OVERVIEW_SECTION_KEYS = [
   'trackers',
   'weekly_completion',
   'victories',
+  'safety_monitoring',
 ] as const
 
 export type FamilyOverviewSectionKey = (typeof FAMILY_OVERVIEW_SECTION_KEYS)[number]

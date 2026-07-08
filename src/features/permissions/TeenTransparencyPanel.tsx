@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, X, Share2, Lock, Info, Wrench } from 'lucide-react'
+import { Check, X, Share2, Lock, Info, Wrench, ShieldAlert } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { FeatureGuide } from '@/components/shared'
 import { isKeyActive } from '@/lib/permissions/keyWiringStatus'
+import { useOwnMonitoringStatus } from '@/hooks/useSafetyMonitoring'
 
 /**
  * PRD-02 Screen 4 — Teen-facing transparency panel.
@@ -102,6 +103,35 @@ function ShareButton({ onClick, loading }: { onClick: () => void; loading: boole
   )
 }
 
+// ─── Safety disclosure row (PRD-30 J5/D4) ──────────────────────────────────────
+// A standing, general-wording disclosure — never per-flag, never showing
+// what was said — present only when monitoring is active for this teen.
+// Replaces the backburnered PRD-20 AI Literacy Module as the "this is not
+// hidden surveillance" channel.
+
+function SafetyDisclosureRow({ familyId, memberId }: { familyId: string; memberId: string }) {
+  const { data: isMonitored } = useOwnMonitoringStatus(familyId, memberId)
+  if (!isMonitored) return null
+
+  return (
+    <div
+      className="flex items-start gap-2.5 rounded-xl p-3.5"
+      style={{
+        backgroundColor: 'color-mix(in srgb, var(--color-golden-honey, #d6a461) 10%, transparent)',
+        border: '1px solid color-mix(in srgb, var(--color-golden-honey, #d6a461) 30%, transparent)',
+      }}
+      data-testid="teen-safety-disclosure-row"
+    >
+      <ShieldAlert size={16} className="mt-0.5 shrink-0" style={{ color: 'var(--color-golden-honey, #d6a461)' }} />
+      <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-primary)' }}>
+        <span className="font-medium">Safety monitoring is on for you.</span> If you ever tell LiLa something that
+        sounds like you might be in danger, the app quietly lets your mom know — never anything else you say, just
+        that kind of moment. This isn't about reading your chats; it's a safety net.
+      </p>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function TeenTransparencyPanel() {
@@ -156,6 +186,8 @@ export function TeenTransparencyPanel() {
           to share with family.
         </p>
       </div>
+
+      <SafetyDisclosureRow familyId={member.family_id} memberId={member.id} />
 
       <TransparencyGrid
         teenId={member.id}
