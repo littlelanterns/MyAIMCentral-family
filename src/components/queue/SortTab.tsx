@@ -25,6 +25,7 @@ import { ListPickerModal } from './ListPickerModal'
 import { MeetingPickerOverlay } from '@/components/meetings/MeetingPickerOverlay'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import { EventCreationModal } from '@/components/calendar/EventCreationModal'
+import { RecipeCaptureModal } from '@/components/meals/RecipeCaptureModal'
 import type { StudioQueueRecord } from './QueueCard'
 import type { CreateTaskData, StudioQueueItem } from '@/components/tasks/TaskCreationModal'
 import type { CalendarEvent, CalendarSubtype } from '@/types/calendar'
@@ -276,6 +277,9 @@ export function SortTab() {
   // Calendar event modal state — opens when destination='calendar'
   const [calendarItem, setCalendarItem] = useState<StudioQueueRecord | null>(null)
   const [calendarInitialEvent, setCalendarInitialEvent] = useState<(CalendarEvent & { event_attendees?: never[] }) | null>(null)
+  // PRD-42 KitchenCompass — recipe picker state, opens when destination='recipe'
+  // (§6.9: "[Review & Save] opens capture modal, Paste pane prefilled").
+  const [recipeQueueItem, setRecipeQueueItem] = useState<StudioQueueRecord | null>(null)
   // Track which batch_ids have been expanded (rendered as individual cards)
   const [expandedBatchIds, setExpandedBatchIds] = useState<Set<string>>(new Set())
 
@@ -478,6 +482,10 @@ export function SortTab() {
     }
     if (item.destination === 'calendar') {
       void openCalendarItem(item)
+      return
+    }
+    if (item.destination === 'recipe') {
+      setRecipeQueueItem(item)
       return
     }
     setBatchMode(undefined)
@@ -844,6 +852,24 @@ export function SortTab() {
               routingToast.show({ message: `"${agendaPickerItem.content.slice(0, 40)}${agendaPickerItem.content.length > 40 ? '...' : ''}" added to Touch Base` })
             }
             setAgendaPickerItem(null)
+          }}
+        />
+      )}
+
+      {/* Recipe capture — opens when destination='recipe' (§6.9), Paste pane
+          prefilled with the queue item's captured text. */}
+      {currentMember && recipeQueueItem && (
+        <RecipeCaptureModal
+          isOpen
+          onClose={() => setRecipeQueueItem(null)}
+          familyId={currentMember.family_id}
+          memberId={currentMember.id}
+          isTeen={currentMember.dashboard_mode === 'independent'}
+          initialPasteText={recipeQueueItem.content}
+          onRecipeCreated={() => {
+            processedMutation.mutate(recipeQueueItem.id)
+            routingToast.show({ message: `"${recipeQueueItem.content.slice(0, 40)}${recipeQueueItem.content.length > 40 ? '...' : ''}" saved to your Recipe Box` })
+            setRecipeQueueItem(null)
           }}
         />
       )}

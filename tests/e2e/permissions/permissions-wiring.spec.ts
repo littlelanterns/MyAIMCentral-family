@@ -375,7 +375,10 @@ test.describe('Permissions Wiring', () => {
     await page.getByRole('button', { name: /Mark/ }).first().click()
     // Family Management section with the two family-wide grants
     await expect(page.getByText('Family Management')).toBeVisible()
-    await expect(page.getByText('RewardRules')).toBeVisible()
+    // Scoped to main content — 'RewardRules' is also a sidebar nav link
+    // label, and a bare page-wide getByText matches both, which is a
+    // strict-mode violation once the sidebar renders before the Hub content.
+    await expect(page.getByRole('main').getByText('RewardRules')).toBeVisible()
 
     // Expand Jordan's per-kid block (accessible name includes the avatar
     // letter prefix, e.g. "J Jordan" — don't anchor the regex)

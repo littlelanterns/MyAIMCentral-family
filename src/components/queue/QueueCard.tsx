@@ -301,7 +301,7 @@ export function QueueCard({ item, requesterMember, onConfigure, onDismiss }: Que
             size="sm"
             onClick={() => onConfigure(item)}
           >
-            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? calendarButtonLabel(item) : item.destination === 'agenda' ? 'Add to Touch Base' : 'Configure'}
+            {item.destination === 'list' ? 'Add to list' : item.destination === 'calendar' ? calendarButtonLabel(item) : item.destination === 'agenda' ? 'Add to Touch Base' : item.destination === 'recipe' ? 'Review & Save' : 'Configure'}
           </Button>
           <Button
             variant={isRequest ? 'destructive' : 'ghost'}
