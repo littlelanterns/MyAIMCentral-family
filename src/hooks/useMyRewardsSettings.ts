@@ -47,6 +47,10 @@ export interface MyRewardsSections {
   /** FAMILY-GOALS-PRIZES: family goals this member participates in + earned
    *  unredeemed family prizes. Default ON (spec Build Item 7). */
   family: boolean
+  /** PECON-SHOP: browse/buy from the family's Reward Shop. Default ON when
+   *  gamification is enabled (addendum §7.4) — mirrors custom_rewards'
+   *  resolution (nothing to spend points on until gamification is live). */
+  shop: boolean
 }
 
 export type MyRewardsSectionKey = keyof MyRewardsSections
@@ -78,6 +82,7 @@ const EMPTY_SETTINGS: MyRewardsSettings = {
     coloring: false,
     propose: false,
     family: true,
+    shop: false,
   },
   overrides: {},
   personalRewardsPrivacy: false,
@@ -116,6 +121,9 @@ export function resolveMyRewardsSections(opts: {
     // FAMILY-GOALS-PRIZES: default ON for everyone, including Play — a family
     // goal a Play kid participates in should be visible on their Fun tab too.
     family: true,
+    // PECON-SHOP: ON when gamification is enabled (incl. Play — the picture
+    // shelf variant is the Play-appropriate rendering of the same section).
+    shop: opts.gamificationEnabled,
   }
   return { ...defaults, ...opts.overrides }
 }

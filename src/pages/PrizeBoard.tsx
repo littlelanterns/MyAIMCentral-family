@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users, ImagePlus, Undo2, History, UserRound } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Gift, Check, Loader2, DollarSign, Wallet, ChevronDown, ChevronRight, Users, ImagePlus, Undo2, History, UserRound, Store } from 'lucide-react'
 import {
   useEarnedPrizes,
   useRedeemPrize,
@@ -25,10 +26,12 @@ import { useQuery } from '@tanstack/react-query'
 import type { AllowancePeriod } from '@/types/financial'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useViewableMembers, accessLevelAtLeast } from '@/hooks/useViewableMembers'
+import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 import { LedgerView } from '@/features/financial/LedgerView'
 import { PaymentModal } from '@/features/financial/FinancialModals'
 import { FamilyGoalsStrip } from '@/components/rewards/FamilyGoalsStrip'
 import { FamilyGoalManager } from '@/components/rewards/FamilyGoalManager'
+import { ShopManagerTab } from '@/components/rewards/ShopManagerTab'
 
 /** FAMILY-GOALS-PRIZES: sentinel grouping key for ownerless Family Prizes
  *  (earned_prizes.family_member_id = NULL, migration 100284). Never collides
@@ -51,10 +54,16 @@ function loadPrizesArrangement(): PrizesArrangement {
   return 'by_kid'
 }
 
-type Tab = 'allowance' | 'prizes' | 'balance'
+type Tab = 'allowance' | 'prizes' | 'balance' | 'shop'
 
 export default function PrizeBoard() {
-  const [activeTab, setActiveTab] = useState<Tab>('allowance')
+  const [searchParams] = useSearchParams()
+  // Deep link: /prize-board?tab=shop — used by GamificationSettingsModal's
+  // "Manage the Reward Shop →" door (PECON-SHOP §7.1).
+  const requestedTab = searchParams.get('tab')
+  const [activeTab, setActiveTab] = useState<Tab>(
+    requestedTab === 'shop' || requestedTab === 'prizes' || requestedTab === 'balance' ? requestedTab : 'allowance',
+  )
   const { data: currentMember } = useFamilyMember()
   const familyId = currentMember?.family_id
 
@@ -77,6 +86,13 @@ export default function PrizeBoard() {
         ([id, level]) => id !== currentMember?.id && level === 'manage',
       ))
 
+  // PECON-SHOP: Shop tab is mom + reward_rules-granted adults (ruling 6,
+  // Convention #274 — same grant class as /contracts). Separate grant from
+  // financial_tracking, so a dad with ONLY reward_rules still reaches it
+  // (the route itself now admits either grant — see App.tsx).
+  const { rewardRulesLevel } = useManagementGrants()
+  const canSeeShopTab = isMomRole || (isAdditionalAdult && rewardRulesLevel !== 'none')
+
   // If the Allowance tab isn't available to this viewer, land on Prizes.
   useEffect(() => {
     if (!canSeeAllowanceTab && activeTab === 'allowance' && currentMember) {
@@ -84,12 +100,22 @@ export default function PrizeBoard() {
     }
   }, [canSeeAllowanceTab, activeTab, currentMember])
 
+  // Same guard for a ?tab=shop deep link reaching an ungranted viewer.
+  useEffect(() => {
+    if (!canSeeShopTab && activeTab === 'shop' && currentMember) {
+      setActiveTab('prizes')
+    }
+  }, [canSeeShopTab, activeTab, currentMember])
+
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     ...(canSeeAllowanceTab
       ? [{ key: 'allowance' as Tab, label: 'Allowance', icon: <DollarSign size={16} /> }]
       : []),
     { key: 'prizes', label: 'Prizes', icon: <Gift size={16} /> },
     { key: 'balance', label: 'Balance', icon: <Wallet size={16} /> },
+    ...(canSeeShopTab
+      ? [{ key: 'shop' as Tab, label: 'Shop', icon: <Store size={16} /> }]
+      : []),
   ]
 
   return (
@@ -119,6 +145,7 @@ export default function PrizeBoard() {
       {activeTab === 'allowance' && <AllowanceOwedSection familyId={familyId} currentMember={currentMember ?? null} />}
       {activeTab === 'prizes' && <PrizesSection familyId={familyId} currentMemberId={currentMember?.id} />}
       {activeTab === 'balance' && <BalanceSection familyId={familyId} currentMember={currentMember ?? null} />}
+      {activeTab === 'shop' && familyId && <ShopManagerTab familyId={familyId} />}
     </div>
   )
 }

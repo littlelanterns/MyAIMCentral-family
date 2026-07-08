@@ -123,9 +123,31 @@ export function usePendingCounts(familyId: string | undefined, memberId?: string
     staleTime: 60_000,
   })
 
+  // PECON-SHOP §6.3: pending Reward Shop purchases waiting on a decision.
+  // Rides the requests count — one decision inbox (Convention #66). RLS
+  // scopes rows (kid sees only their own; mom/granted-adult see all), so
+  // this is safe to query unconditionally — callers that render QueueBadge
+  // already gate it to primary_parent (Dashboard.tsx, CalendarPage.tsx).
+  const storePurchasesQuery = useQuery({
+    queryKey: ['queue-badge-store-purchases', familyId],
+    queryFn: async () => {
+      if (!familyId) return 0
+      const { count, error } = await supabase
+        .from('reward_shop_purchases')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', familyId)
+        .eq('status', 'pending')
+      if (error) return 0
+      return count ?? 0
+    },
+    enabled: !!familyId,
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+  })
+
   const sort = sortQuery.data ?? 0
   const calendar = calendarQuery.data ?? 0
-  const requests = (requestsQuery.data ?? 0) + (proposalsQuery.data ?? 0)
+  const requests = (requestsQuery.data ?? 0) + (proposalsQuery.data ?? 0) + (storePurchasesQuery.data ?? 0)
 
   return {
     sort,

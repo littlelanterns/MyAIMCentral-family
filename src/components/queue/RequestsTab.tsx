@@ -20,8 +20,11 @@ import { HandHelping, MessageCircle, Repeat2 } from 'lucide-react'
 import { EmptyState, ModalV2 } from '@/components/shared'
 import { RequestCard } from '@/components/requests/RequestCard'
 import { useRequests, useAcceptRequest, useDeclineRequest, useSnoozeRequest } from '@/hooks/useRequests'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
+import { StorePurchaseCard } from '@/components/queue/StorePurchaseCard'
+import { usePendingRewardShopPurchasesWithItem, useResolveRewardShopPurchase } from '@/hooks/useRewardShop'
+import type { RewardShopPurchase } from '@/types/reward-shop'
 import { useRoutingToast } from '@/components/shared'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
@@ -68,6 +71,47 @@ export function RequestsTab() {
   const acceptProposal = useAcceptRewardProposal()
   const counterProposal = useCounterRewardProposal()
   const declineProposal = useDeclineRewardProposal()
+
+  // PECON-SHOP §6.3: pending Reward Shop purchases — own table, own card,
+  // rendered in the same one-inbox surface (Convention #66), exactly like
+  // reward_proposals above. Approvals are mom-only v1 (ruling 6).
+  const { data: members = [] } = useFamilyMembers(currentFamily?.id)
+  const { data: storePurchases = [] } = usePendingRewardShopPurchasesWithItem(
+    isPrimaryParent ? currentFamily?.id : undefined,
+  )
+  const resolveStorePurchase = useResolveRewardShopPurchase()
+  const memberMap = new Map(members.map((m) => [m.id, m]))
+
+  const handleStorePurchaseApprove = useCallback(
+    (purchase: RewardShopPurchase) => {
+      if (!currentMember?.id || !currentFamily?.id) return
+      resolveStorePurchase.mutate({
+        purchaseId: purchase.id,
+        action: 'approve',
+        processedBy: currentMember.id,
+        familyId: currentFamily.id,
+        memberId: purchase.family_member_id,
+      })
+      routingToast.show({ message: `${purchase.item_name} approved` })
+    },
+    [currentMember, currentFamily, resolveStorePurchase, routingToast],
+  )
+
+  const handleStorePurchaseDecline = useCallback(
+    (purchase: RewardShopPurchase, note?: string) => {
+      if (!currentMember?.id || !currentFamily?.id) return
+      resolveStorePurchase.mutate({
+        purchaseId: purchase.id,
+        action: 'decline',
+        declineNote: note,
+        processedBy: currentMember.id,
+        familyId: currentFamily.id,
+        memberId: purchase.family_member_id,
+      })
+      routingToast.show({ message: `Declined — points refunded` })
+    },
+    [currentMember, currentFamily, resolveStorePurchase, routingToast],
+  )
 
   // Proposal processing state
   const [approvingProposal, setApprovingProposal] = useState<RewardProposalWithProposer | null>(null)
@@ -299,6 +343,7 @@ export function RequestsTab() {
   }
 
   const pendingRequests = requests ?? []
+  const hasAnyDecisions = pendingRequests.length > 0 || proposals.length > 0 || storePurchases.length > 0
 
   // Build a compatible StudioQueueRecord for ListPickerModal
   const listPickerItems: StudioQueueRecord[] = listModalRequest ? [{
@@ -320,7 +365,7 @@ export function RequestsTab() {
 
   return (
     <div style={{ padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {pendingRequests.length === 0 && proposals.length === 0 ? (
+      {!hasAnyDecisions ? (
         <div style={{ padding: '1.25rem 0' }}>
           <EmptyState
             icon={<HandHelping size={24} style={{ color: 'var(--color-btn-primary-bg)' }} />}
@@ -330,6 +375,19 @@ export function RequestsTab() {
         </div>
       ) : (
         <>
+          {/* PECON-SHOP §6.3: pending Reward Shop purchases (mom only) */}
+          {storePurchases.map((purchase) => (
+            <StorePurchaseCard
+              key={purchase.id}
+              purchase={purchase}
+              member={memberMap.get(purchase.family_member_id)}
+              itemImageUrl={purchase.reward_shop_items?.image_url}
+              itemImageAssetKey={purchase.reward_shop_items?.image_asset_key}
+              onApprove={handleStorePurchaseApprove}
+              onDecline={handleStorePurchaseDecline}
+            />
+          ))}
+
           {/* KIDS-REWARDS-PAGE Slice 4: kid reward proposals (mom only) */}
           {proposals.map(proposal => (
             <ProposalCard

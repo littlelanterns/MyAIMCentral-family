@@ -21,6 +21,7 @@
  */
 
 import { useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ChevronDown,
   ChevronRight,
@@ -42,6 +43,7 @@ import {
   Sparkles,
   Award,
   Repeat,
+  Store,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { ModalV2 } from '@/components/shared/ModalV2'
@@ -131,6 +133,7 @@ export function GamificationSettingsModal({
   memberName,
   familyId,
 }: GamificationSettingsModalProps) {
+  const navigate = useNavigate()
   // ── Data ──
   const { data: config } = useGamificationConfig(memberId)
   const { data: stickerState } = useStickerBookState(memberId)
@@ -532,6 +535,32 @@ export function GamificationSettingsModal({
                 </div>
               </div>
             )}
+
+            {/* PRD-24 Point Economy Addendum §7.1: family-level door to the
+                Reward Shop catalog — what points BUY, not what they earn.
+                Lives here because "I set what things earn, and what things
+                cost" is one mental model with two doors (§4). */}
+            <div className="pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+              <button
+                type="button"
+                data-testid="gamification-manage-reward-shop"
+                onClick={() => {
+                  onClose()
+                  navigate('/prize-board?tab=shop')
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-medium"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+                  color: 'var(--color-btn-primary-bg)',
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  <Store size={16} />
+                  Manage the Reward Shop
+                </span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
         </CollapsibleSection>
 
@@ -1036,6 +1065,15 @@ function MyRewardsPageSettings({
             description={`Family goals ${memberName} is working toward, and any family prizes ready to redeem`}
             checked={settings.sections.family}
             onChange={(v) => update.mutate({ memberId, sections: { family: v } })}
+          />
+
+          {/* PECON-SHOP: Reward Shop browse/buy section. Default ON when
+              gamification is enabled — nothing to spend points on otherwise. */}
+          <ToggleRow
+            label="Reward Shop"
+            description={`Browse and buy from the family's Reward Shop with points${memberName ? ` — ${memberName} sees the picture-shelf version if this is a Play member` : ''}`}
+            checked={settings.sections.shop}
+            onChange={(v) => update.mutate({ memberId, sections: { shop: v } })}
           />
         </div>
       )}

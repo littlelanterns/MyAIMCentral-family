@@ -11,6 +11,10 @@
  *   'contract_grant'                               → "a reward rule"
  *   'routine_step'                                 → task_template_steps display name
  *                                                     (PRD-24 Point Economy Addendum §5.5)
+ *   'store_purchase'                               → reward_shop_purchases.item_name
+ *                                                     snapshot (PECON-SHOP §6.2 — the
+ *                                                     purchase row IS the source, its
+ *                                                     source_id points at itself)
  *
  * Returns a Record<prizeId, label> where label is the SOURCE phrase (the UI
  * renders it as "Earned by: {label}"). Prizes whose source can't be resolved
@@ -38,6 +42,7 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
       const intentionIds = new Set<string>()
       const listItemIds = new Set<string>()
       const routineStepCompletionIds = new Set<string>()
+      const storePurchaseIds = new Set<string>()
 
       for (const p of prizes) {
         if (!p.source_id) continue
@@ -45,9 +50,10 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
         else if (p.source_type === 'intention_iteration') intentionIds.add(p.source_id)
         else if (p.source_type === 'randomizer_item') listItemIds.add(p.source_id)
         else if (p.source_type === 'routine_step') routineStepCompletionIds.add(p.source_id)
+        else if (p.source_type === 'store_purchase') storePurchaseIds.add(p.source_id)
       }
 
-      const [tasksRes, intentionsRes, itemsRes, routineStepsRes] = await Promise.all([
+      const [tasksRes, intentionsRes, itemsRes, routineStepsRes, storePurchasesRes] = await Promise.all([
         taskIds.size > 0
           ? supabase.from('tasks').select('id, title').in('id', [...taskIds])
           : Promise.resolve({ data: [] as { id: string; title: string | null }[], error: null }),
@@ -81,6 +87,11 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
               }>,
               error: null,
             }),
+        // PECON-SHOP §6.2: a store_purchase prize's source_id is the
+        // reward_shop_purchases row's OWN id (the purchase IS the source).
+        storePurchaseIds.size > 0
+          ? supabase.from('reward_shop_purchases').select('id, item_name').in('id', [...storePurchaseIds])
+          : Promise.resolve({ data: [] as { id: string; item_name: string | null }[], error: null }),
       ])
 
       const taskTitles = new Map(
@@ -91,6 +102,9 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
       )
       const itemNames = new Map(
         (itemsRes.data ?? []).map(li => [li.id, li.item_name ?? li.content ?? null]),
+      )
+      const storePurchaseNames = new Map(
+        (storePurchasesRes.data ?? []).map((sp) => [sp.id, sp.item_name ?? null]),
       )
       const routineStepLabels = new Map(
         ((routineStepsRes.data ?? []) as unknown as Array<{
@@ -117,6 +131,8 @@ export function useRewardProvenance(prizes: EarnedPrize[]) {
           label = itemNames.get(p.source_id) ?? null
         } else if (p.source_type === 'routine_step') {
           label = routineStepLabels.get(p.source_id) ?? null
+        } else if (p.source_type === 'store_purchase') {
+          label = storePurchaseNames.get(p.source_id) ?? null
         } else if (p.source_type === 'contract_grant') {
           label = 'a reward rule'
         }

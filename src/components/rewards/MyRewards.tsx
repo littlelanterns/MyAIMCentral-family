@@ -36,12 +36,16 @@ import { useState } from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  Clock,
   Flame,
   Gift,
   History,
+  Lock,
   PartyPopper,
   Sparkles,
   Star,
+  Store,
+  Undo2,
   Users,
   Wallet,
 } from 'lucide-react'
@@ -53,6 +57,16 @@ import { useMemberStreak } from '@/hooks/useMemberStreak'
 import { useMemberPointsToday } from '@/hooks/useMemberPointsToday'
 import { useRunningBalance, useMemberAllowancePools } from '@/hooks/useFinancial'
 import { useEarnedPrizes } from '@/hooks/useRewardReveals'
+import {
+  useRewardShopItemsForMember,
+  useMemberRewardShopPurchases,
+  usePurchaseRewardShopItem,
+  useCancelRewardShopPurchase,
+  useMemberCompletionPercentage,
+} from '@/hooks/useRewardShop'
+import type { RewardShopItem } from '@/types/reward-shop'
+import { ModalV2 } from '@/components/shared/ModalV2'
+import { PlatformAssetImage } from '@/components/shared/PlatformAssetImage'
 import {
   useEarnedPrizes as useFamilyEarnedPrizes,
   useRecentlyRedeemedPrizes as useFamilyRecentlyRedeemedPrizes,
@@ -115,6 +129,13 @@ export function MyRewards({ member, variant, isOwnSession }: MyRewardsProps) {
           + earned unredeemed family prizes (FD-2). */}
       {sections.family && (
         <FamilySection member={member} variant={variant} />
+      )}
+
+      {/* PECON-SHOP §7.4/§7.5: Reward Shop — Buy / progress-toward-cost /
+          gate-progress states. Play gets a picture-shelf variant with no
+          gate math shown and every purchase mom-approved. */}
+      {sections.shop && (
+        <ShopSection member={member} variant={variant} />
       )}
 
       {sections.victories && (
@@ -549,6 +570,309 @@ function FamilyGoalMemberRow({
           {goal.prize_name}
         </p>
       )}
+    </div>
+  )
+}
+
+// ── Reward Shop (PECON-SHOP §7.4/§7.5) ──────────────────────────────
+
+function ShopSection({
+  member,
+  variant,
+}: {
+  member: FamilyMember
+  variant: 'standard' | 'play'
+}) {
+  const play = variant === 'play'
+  const { data: members = [] } = useFamilyMembers(member.family_id)
+  const row = members.find((m) => m.id === member.id) as (FamilyMember & { gamification_points?: number }) | undefined
+  const balance = row?.gamification_points ?? 0
+
+  const { data: allItems = [] } = useRewardShopItemsForMember(member.id)
+  // Play NEVER shows gated items (addendum §7.5 — "no gate math shown").
+  const items = play ? allItems.filter((i) => !i.unlock_rule) : allItems
+  const { data: purchases = [] } = useMemberRewardShopPurchases(member.id)
+  const pendingPurchases = purchases.filter((p) => p.status === 'pending')
+
+  const hasGatedItem = items.some((i) => i.unlock_rule)
+  const { data: completionPct } = useMemberCompletionPercentage(member.id, hasGatedItem)
+
+  const purchaseItem = usePurchaseRewardShopItem()
+  const cancelPurchase = useCancelRewardShopPurchase()
+
+  const [confirmItem, setConfirmItem] = useState<RewardShopItem | null>(null)
+  const [resultBanner, setResultBanner] = useState<{ item: RewardShopItem; pending: boolean } | null>(null)
+
+  const handleConfirmBuy = async () => {
+    if (!confirmItem) return
+    const item = confirmItem
+    try {
+      const result = await purchaseItem.mutateAsync({ itemId: item.id, memberId: member.id, familyId: member.family_id })
+      setConfirmItem(null)
+      if (result.status === 'auto_approved' || result.status === 'pending') {
+        setResultBanner({ item, pending: result.status === 'pending' })
+        setTimeout(() => setResultBanner(null), 3500)
+      }
+    } catch {
+      setConfirmItem(null)
+    }
+  }
+
+  if (items.length === 0 && pendingPurchases.length === 0) {
+    return (
+      <SectionCard title="Reward Shop" icon={<Store size={play ? 24 : 18} />} testId="mr-section-shop" play={play}>
+        <p className="text-sm py-1" style={{ color: 'var(--color-text-secondary)' }}>
+          Nothing in the shop yet — ask a grown-up to add some rewards!
+        </p>
+      </SectionCard>
+    )
+  }
+
+  return (
+    <SectionCard title="Reward Shop" icon={<Store size={play ? 24 : 18} />} testId="mr-section-shop" play={play}>
+      {resultBanner && (
+        <div
+          data-testid="mr-shop-result-banner"
+          className="mb-3 flex items-center gap-2 px-3 py-2 rounded-lg"
+          style={{
+            backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+            color: 'var(--color-btn-primary-bg)',
+          }}
+        >
+          <PartyPopper size={play ? 20 : 16} />
+          <span className="text-sm font-semibold">
+            {resultBanner.pending ? `Sent to a grown-up — ${resultBanner.item.name} is waiting for approval!` : `You got ${resultBanner.item.name}!`}
+          </span>
+        </div>
+      )}
+
+      {pendingPurchases.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {pendingPurchases.map((p) => (
+            <div
+              key={p.id}
+              data-testid={`mr-shop-pending-${p.id}`}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg"
+              style={{ backgroundColor: 'var(--color-bg-secondary)' }}
+            >
+              <Clock size={play ? 18 : 14} style={{ color: 'var(--color-text-secondary)', flexShrink: 0 }} />
+              <span className="flex-1 text-sm" style={{ color: 'var(--color-text-primary)' }}>
+                Waiting for mom — {p.item_name} ({p.points_cost} pts set aside)
+              </span>
+              <button
+                type="button"
+                data-testid={`mr-shop-take-back-${p.id}`}
+                onClick={() => cancelPurchase.mutate({ purchaseId: p.id, familyId: member.family_id, memberId: member.id })}
+                disabled={cancelPurchase.isPending}
+                className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                <Undo2 size={12} /> Take it back
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={play ? 'grid grid-cols-2 gap-3' : 'space-y-2'}>
+        {items.map((item) => {
+          const gatePct = item.unlock_rule ? completionPct ?? 0 : null
+          const gateMet = gatePct === null || gatePct >= (item.unlock_rule?.threshold ?? 0)
+          const affordable = balance >= item.point_cost
+          const alreadyPending = pendingPurchases.some((p) => p.store_item_id === item.id)
+          return (
+            <ShopItemCard
+              key={item.id}
+              item={item}
+              play={play}
+              balance={balance}
+              affordable={affordable}
+              gateMet={gateMet}
+              gatePct={gatePct}
+              disabled={alreadyPending || purchaseItem.isPending}
+              onBuy={() => setConfirmItem(item)}
+            />
+          )
+        })}
+      </div>
+
+      {confirmItem && (
+        <ModalV2
+          id="shop-confirm-purchase"
+          isOpen={true}
+          onClose={() => setConfirmItem(null)}
+          type="transient"
+          size="sm"
+          title={play ? 'Trade for this?' : 'Confirm purchase'}
+          icon={Store}
+          footer={
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                type="button"
+                data-testid="mr-shop-confirm-buy"
+                onClick={handleConfirmBuy}
+                disabled={purchaseItem.isPending}
+                style={{
+                  flex: 1,
+                  padding: '0.625rem 1rem',
+                  minHeight: play ? '56px' : '44px',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  border: 'none',
+                  background: 'var(--surface-primary)',
+                  color: 'var(--color-text-on-primary)',
+                  fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  opacity: purchaseItem.isPending ? 0.6 : 1,
+                }}
+              >
+                {purchaseItem.isPending ? 'Trading...' : play ? "Let's do it!" : 'Buy it'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmItem(null)}
+                style={{
+                  padding: '0.625rem 1rem',
+                  minHeight: play ? '56px' : '44px',
+                  borderRadius: 'var(--vibe-radius-input, 8px)',
+                  border: '1px solid var(--color-border)',
+                  background: 'transparent',
+                  color: 'var(--color-text-secondary)',
+                  fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          }
+        >
+          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', textAlign: 'center' }}>
+            <p style={{ fontSize: play ? 'var(--font-size-lg)' : 'var(--font-size-base)', fontWeight: 700, color: 'var(--color-text-heading)' }}>
+              {confirmItem.name}
+            </p>
+            <p
+              className="flex items-center gap-1.5"
+              style={{ fontSize: play ? 'var(--font-size-lg)' : 'var(--font-size-base)', fontWeight: 700, color: 'var(--color-btn-primary-bg)' }}
+            >
+              <Star size={play ? 22 : 18} /> {confirmItem.point_cost}
+            </p>
+            {(play || confirmItem.requires_approval) && (
+              <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}>
+                A grown-up will need to say yes first.
+              </p>
+            )}
+          </div>
+        </ModalV2>
+      )}
+    </SectionCard>
+  )
+}
+
+function ShopItemCard({
+  item,
+  play,
+  balance,
+  affordable,
+  gateMet,
+  gatePct,
+  disabled,
+  onBuy,
+}: {
+  item: RewardShopItem
+  play: boolean
+  balance: number
+  affordable: boolean
+  gateMet: boolean
+  gatePct: number | null
+  disabled: boolean
+  onBuy: () => void
+}) {
+  const pointsShort = Math.max(0, item.point_cost - balance)
+
+  return (
+    <div
+      data-testid={`mr-shop-item-${item.id}`}
+      className={play ? 'flex flex-col items-center text-center gap-2 p-3 rounded-xl' : 'flex items-center gap-3 p-3 rounded-lg'}
+      style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+    >
+      {item.image_url ? (
+        <img
+          src={item.image_url}
+          alt=""
+          className={play ? 'w-full aspect-square rounded-lg object-cover' : 'w-10 h-10 rounded object-cover shrink-0'}
+        />
+      ) : item.image_asset_key ? (
+        <PlatformAssetImage
+          assetKey={item.image_asset_key}
+          size={play ? 96 : 40}
+          assetSize={128}
+          variant="B"
+          fallback={<Gift size={play ? 28 : 18} className="opacity-50" />}
+        />
+      ) : (
+        <div
+          className={play ? 'w-full aspect-square rounded-lg flex items-center justify-center' : 'w-10 h-10 rounded flex items-center justify-center shrink-0'}
+          style={{ backgroundColor: 'var(--color-bg-tertiary)' }}
+        >
+          <Gift size={play ? 28 : 18} className="opacity-50" />
+        </div>
+      )}
+
+      <div className={play ? 'w-full' : 'flex-1 min-w-0'}>
+        <p className="font-medium truncate" style={{ fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)', color: 'var(--color-text-primary)' }}>
+          {item.name}
+        </p>
+        <p className="flex items-center gap-1 justify-center-safe" style={{ fontSize: play ? 'var(--font-size-sm)' : 'var(--font-size-xs)', color: 'var(--color-btn-primary-bg)', fontWeight: 700 }}>
+          <Star size={play ? 16 : 13} /> {item.point_cost}
+        </p>
+
+        {!gateMet && !play && (
+          <div className="mt-1.5">
+            <p className="flex items-center gap-1 mb-1" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+              <Lock size={11} /> Unlocks at {item.unlock_rule?.threshold}%+ weeks — you're at {Math.round(gatePct ?? 0)}%!
+            </p>
+            <div style={{ height: 6, borderRadius: 999, backgroundColor: 'var(--color-bg-tertiary)', overflow: 'hidden' }}>
+              <div
+                style={{
+                  height: '100%',
+                  width: `${Math.min(100, Math.round(((gatePct ?? 0) / (item.unlock_rule?.threshold ?? 100)) * 100))}%`,
+                  background: 'var(--surface-primary)',
+                  borderRadius: 999,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {gateMet && !affordable && (
+          <p className="mt-1" style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-secondary)' }}>
+            {pointsShort} more to go!
+          </p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        data-testid={`mr-shop-buy-${item.id}`}
+        onClick={onBuy}
+        disabled={disabled || !gateMet || !affordable}
+        className={play ? 'w-full' : 'shrink-0'}
+        style={{
+          padding: play ? '0.75rem' : '0.5rem 0.875rem',
+          minHeight: play ? '56px' : '36px',
+          borderRadius: 'var(--vibe-radius-input, 8px)',
+          border: 'none',
+          background: !gateMet || !affordable ? 'var(--color-bg-tertiary)' : 'var(--surface-primary)',
+          color: !gateMet || !affordable ? 'var(--color-text-secondary)' : 'var(--color-text-on-primary)',
+          fontSize: play ? 'var(--font-size-base)' : 'var(--font-size-sm)',
+          fontWeight: 700,
+          cursor: disabled || !gateMet || !affordable ? 'default' : 'pointer',
+          opacity: disabled ? 0.6 : 1,
+        }}
+      >
+        {!gateMet ? 'Locked' : !affordable ? 'Not yet' : play ? 'Trade!' : 'Buy'}
+      </button>
     </div>
   )
 }

@@ -196,7 +196,27 @@ export function UniversalQueueModal({
     refetchInterval: 30_000,
   })
 
-  const requestsTabCount = requestsCount + proposalsCount
+  // PECON-SHOP §6.3: pending Reward Shop purchases waiting on mom (mom-only,
+  // ruling 6 — same enabled-gate shape as proposalsCount above). Rides the
+  // Requests tab count — one decision inbox (Convention #66).
+  const isPrimaryParentForBadge = currentMember?.role === 'primary_parent'
+  const { data: storePurchasesCount = 0 } = useQuery({
+    queryKey: ['queue-badge-store-purchases', currentMember?.family_id],
+    queryFn: async () => {
+      if (!currentMember?.family_id) return 0
+      const { count, error } = await supabase
+        .from('reward_shop_purchases')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', currentMember.family_id)
+        .eq('status', 'pending')
+      if (error) return 0
+      return count ?? 0
+    },
+    enabled: !!currentMember?.family_id && isPrimaryParentForBadge && isOpen,
+    refetchInterval: 30_000,
+  })
+
+  const requestsTabCount = requestsCount + proposalsCount + storePurchasesCount
   const totalCount = sortCount + calendarCount + requestsTabCount
   const allEmpty = totalCount === 0
 
