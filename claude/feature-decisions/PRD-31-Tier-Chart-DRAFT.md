@@ -303,7 +303,7 @@ These keys govern mom-granted authority for dads. Live seeds put them in `featur
 | `gift_planning` | dad En | Same rule |
 | `meal_planning` | dad E — **unregistered key** | Register in `feature_key_registry` + same rule |
 
-**Proposed convention sentence (Slice 1 documents it):** *Tier gating and grant gating compose as AND: the tier decides whether the grant system exists for this family; the grant decides whether THIS adult has it. Neither ever substitutes for the other.*
+**Composition rule — ✅ APPROVED (founder 2026-07-08, OD-31-B; Slice 1 documents it):** *Tier gating and grant gating compose as AND: the tier decides whether the grant system exists for this family; the grant decides whether THIS adult has it. Neither ever substitutes for the other — tier changes never auto-grant or auto-revoke anything mom granted.*
 
 ## N. Registry hygiene (Slice 1 repairs — approve the merge directions)
 

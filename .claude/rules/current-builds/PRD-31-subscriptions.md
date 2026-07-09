@@ -217,7 +217,8 @@ has landed).
 
 *(Each slice worker appends at checkpoint: what shipped, migration numbers actually taken, deviations, live reality for the next slice.)*
 
-- 2026-07-08 — Pre-build audit complete (this file + `claude/feature-decisions/PRD-31-Subscription-Tiers.md` + `claude/feature-decisions/PRD-31-Tier-Chart-DRAFT.md`). Live-DB-derived tier chart delivered for founder markup. HOLDING for founder approval of the summary + OD-31-A..D.
+- 2026-07-08 — Pre-build audit complete (this file + `claude/feature-decisions/PRD-31-Subscription-Tiers.md` + `claude/feature-decisions/PRD-31-Tier-Chart-DRAFT.md`). Live-DB-derived tier chart delivered for founder markup.
+- 2026-07-08 — **Founder approved the summary; OD-31-A..D + chart default rules ALL RESOLVED** (verbatim in the ruling record §4): Essential stays mom-only (non-mom `E`→`En` sweep); grant×tier AND-composition confirmed; allotments deferred to flip time; `safety_monitoring_basic` moved to Essential, AI layer stays FM. Chart flipped to LIVING DRAFT v1.1 — founder marks land on her schedule, never a Slice-1 blocker. Slice-1 dispatch prompt updated accordingly — **HOLDING for the coordination seat to sequence dispatch.**
 
 ## Post-Build Verification
 
