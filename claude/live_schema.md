@@ -90,6 +90,8 @@
 | 40 | `pin_failed_attempts` |
 | 41 | `pin_locked_until` |
 | 42 | `emergency_locked` |
+| 43 | `coppa_age_bracket` |
+| 44 | `is_suspended_for_deletion` |
 
 ### `special_adult_assignments` — 2 rows
 
@@ -228,7 +230,7 @@
 | 12 | `created_at` |
 | 13 | `updated_at` |
 
-### `feature_key_registry` — 222 rows
+### `feature_key_registry` — 224 rows
 
 | # | Column |
 |---|---|
@@ -239,7 +241,7 @@
 | 5 | `prd_source` |
 | 6 | `created_at` |
 
-### `feature_access_v2` — 390 rows
+### `feature_access_v2` — 392 rows
 
 | # | Column |
 |---|---|
@@ -806,7 +808,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2100 rows
+### `routine_step_completions` — 2101 rows
 
 | # | Column |
 |---|---|
@@ -1187,7 +1189,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 45 rows
+### `calendar_events` — 46 rows
 
 | # | Column |
 |---|---|
@@ -1235,7 +1237,7 @@
 | 42 | `option_group_title` |
 | 43 | `calendar_subtype` |
 
-### `event_attendees` — 86 rows
+### `event_attendees` — 95 rows
 
 | # | Column |
 |---|---|
@@ -2730,6 +2732,126 @@
 | 14 | `embedding` |
 | 15 | `assigned_to` |
 | 16 | `status` |
+
+---
+
+## COPPA Compliance & Parental Verification (PRD-40)
+
+### `coppa_consent_templates` — 1 rows
+
+| # | Column |
+|---|---|
+| 1 | `version` |
+| 2 | `published_at` |
+| 3 | `retired_at` |
+| 4 | `section_what_we_collect` |
+| 5 | `section_how_lila_uses` |
+| 6 | `section_who_sees_it` |
+| 7 | `section_your_rights` |
+| 8 | `section_parent_affirmation` |
+| 9 | `lawyer_approved_at` |
+| 10 | `lawyer_name` |
+| 11 | `notes` |
+| 12 | `created_at` |
+
+### `parent_verifications` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `parent_member_id` |
+| 4 | `verification_method` |
+| 5 | `stripe_payment_intent_id` |
+| 6 | `stripe_customer_id` |
+| 7 | `amount_charged_cents` |
+| 8 | `currency` |
+| 9 | `verified_at` |
+| 10 | `ip_address` |
+| 11 | `user_agent` |
+| 12 | `revoked_at` |
+| 13 | `created_at` |
+| 14 | `updated_at` |
+
+### `coppa_consents` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `child_member_id` |
+| 4 | `parent_member_id` |
+| 5 | `verification_id` |
+| 6 | `consent_version` |
+| 7 | `acknowledged_sections` |
+| 8 | `consented_at` |
+| 9 | `superseded_at` |
+| 10 | `revoked_at` |
+| 11 | `scheduled_deletion_at` |
+| 12 | `deletion_completed_at` |
+| 13 | `deletion_completion_notes` |
+| 14 | `revocation_reason` |
+| 15 | `ip_address` |
+| 16 | `user_agent` |
+| 17 | `created_at` |
+| 18 | `updated_at` |
+
+### `parent_verification_attempts` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `parent_member_id` |
+| 4 | `attempt_type` |
+| 5 | `status` |
+| 6 | `stripe_payment_intent_id` |
+| 7 | `failure_reason` |
+| 8 | `ip_address` |
+| 9 | `user_agent` |
+| 10 | `verification_id` |
+| 11 | `attempted_at` |
+
+### `parental_data_exports` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `child_member_id` |
+| 4 | `parent_member_id` |
+| 5 | `archive_path` |
+| 6 | `requested_at` |
+| 7 | `completed_at` |
+| 8 | `downloaded_at` |
+| 9 | `ip_address` |
+
+### `retention_deletion_log` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `child_member_id` |
+| 4 | `source_table` |
+| 5 | `deletion_trigger` |
+| 6 | `row_count` |
+| 7 | `oldest_deleted_at` |
+| 8 | `newest_deleted_at` |
+| 9 | `job_run_id` |
+| 10 | `executed_at` |
+
+### `stripe_webhook_events` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `event_id` |
+| 2 | `type` |
+| 3 | `purpose` |
+| 4 | `received_at` |
+| 5 | `processed_at` |
+| 6 | `status` |
+| 7 | `error` |
 
 ---
 
@@ -4542,7 +4664,7 @@
 
 ---
 
-> **Summary:** 133 API-exposed tables in domain sections | 96 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 140 API-exposed tables in domain sections | 96 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

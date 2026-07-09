@@ -903,3 +903,198 @@ All zero. Every probed member's `gamification_points` confirmed back to its exac
 | Residue after all 9 probe transactions | **Zero** — every table, every balance, exactly restored |
 
 **Verdict: PASS.** No CRITICAL or ERROR findings. Every mutation path on both new tables is correctly locked to its intended role; all four client-callable RPCs correctly gate on family membership (or the specific narrower rule each is designed around — mom-only for resolve, self/shadow/mom for cancel, self/shadow/adult for purchase) *before* computing or paying anything, including against a genuinely-unauthenticated caller; the one hygiene gap found (implicit `PUBLIC` EXECUTE grant) does not translate into a working exploit and is recommended for the same future platform-wide least-privilege pass already on file, not a blocker for this build.
+
+---
+
+## Migration 100305 — PRD-40 COPPA Compliance & Parental Verification (Slice 1 Foundation): schema + immutability RLS verification (2026-07-08)
+
+**Overall result: PASS — zero gaps found.** This is the first RLS pass on brand-new schema (7 tables, 0 client-callable functions — Slice 1 is schema-only, no Edge Functions/RPCs exist yet) for a build whose entire design premise is an immutable audit trail (`parent_verifications`, most of `coppa_consents`, all of `retention_deletion_log`, all of `parent_verification_attempts`, all of `parental_data_exports`) plus one fully-locked internal-plumbing table (`stripe_webhook_events`). Given the append-only/immutable framing repeated throughout the migration's own comments (explicitly modeled on the `lila_ethics_rejections`/`safety_flags` INSERT-only precedent, migrations 100286/100289), this verification focused hard on proving those claims live rather than trusting the migration text — including deliberately trying to break immutability from the **staff/admin** role, not just from mom, since "immutable audit trail... including admin" is a much stronger and more easily-violated claim than "mom can't edit her own rows." All 81 probes ran inside a single `BEGIN...ROLLBACK` transaction against the linked production database (project ref `vjfbzpliqialqmabfnxs`) using the established `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim-impersonation methodology from this file, with a `CREATE TEMP TABLE probe_log` + role-switching capture pattern (temp table and its implicit `SERIAL` sequence both explicitly `GRANT`ed to `authenticated`/`anon` so impersonated roles could log their own results) so every role across all 7 tables could be exercised and captured in one atomic pass. Every setup row (2 `parent_verifications`, 2 `coppa_consents`, 2 `parent_verification_attempts`, 2 `parental_data_exports`, 2 `retention_deletion_log`, 1 `stripe_webhook_events`, 1 temporary `staff_permissions` grant, 2 probe `coppa_consent_templates` versions) and every mutation attempt (successful or blocked) was rolled back — a final independent read-only residue check (below) confirms every one of the 7 tables is back to its exact pre-probe row count, with `coppa_consent_templates` holding only the original seeded `1.0.0` row.
+
+### Test roster
+
+Same two-family roster used throughout this file (OurFamily `4bc86323-545b-4faf-b31f-3926fdd8c5a6`, The Testworth Family `1f6200a7-df82-4ac4-bce3-3edcafe66bc5`), covering all five platform roles plus a genuinely-anonymous caller and a temporarily-granted staff/admin caller:
+
+| Member | Family | Role | dashboard_mode | fm_id | user_id |
+|---|---|---|---|---|---|
+| Tenise | OurFamily | primary_parent (mom) | adult | `fcac562b-b7f2-412b-8e25-33a1e94cc13b` | `7434224b-ebb4-4138-8bd8-9fbc62259c42` |
+| Jerrod | OurFamily | additional_adult (dad) | adult | `0aea47e9-e6fa-4300-b4a7-6da097c26f9e` | `44a07ad8-94ca-4dd4-84d8-42ae103cf1a6` |
+| Helam | OurFamily | member (independent teen) | independent | `b266cf06-d2b4-4c7b-a6bd-559224367005` | `75a9aa25-e980-4ed0-8a75-257fec7f9e8f` |
+| Mosiah | OurFamily | member (guided kid, the consent SUBJECT for the OF test row) | guided | `476f5e1f-cdd9-4490-8409-59a4440ebd79` | `bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4` |
+| Sarah | Testworth | primary_parent (mom, cross-family) | adult | `606aad81-7c59-45af-8770-2df484e4418f` | `81246f0f-ab60-4932-8914-2a48b97b274c` |
+| Mark | Testworth | additional_adult (dad) — also temporarily granted `staff_permissions` (`coppa_admin`) for the admin-path tests, revoked automatically by the transaction ROLLBACK | adult | `5f314a51-7c4d-41e3-801d-0aa7e45e54da` | `62d73914-8ff1-44b2-a7f7-92bd586aeb95` |
+| Amy | Testworth | special_adult | adult | `008408a7-aefe-43d5-925a-32b0e054c6a0` | `764df3bc-0a13-47c0-877e-d29082105715` |
+| Jordan | Testworth | member (guided kid, the consent SUBJECT for the TW test row) | guided | `01ef28d2-b9eb-49aa-9eab-868258723f15` | `94537147-7cce-420b-9647-5d77f94f5d1d` |
+| — | — | genuinely anonymous (`SET LOCAL ROLE anon` + explicit `SET LOCAL request.jwt.claims TO ''`, per the anon-impersonation lesson already on file from the PECON-SHOP §8 methodology correction) | — | — | — |
+
+Sarah/Mark/Amy/Jordan (Testworth) and Tenise/Jerrod/Helam/Mosiah (OurFamily) have zero relationship — different families, no shared membership, no `member_permissions` grant — used throughout as the cross-family attacker/victim pair. Amy (`special_adult`) was directly tested only against `parent_verifications` (T2e), since the SELECT policy on tables 2-6 is a flat `role = 'primary_parent'` predicate with no per-role branching — `special_adult` falls through it identically to `additional_adult`/`member`, exactly like `additional_adult` and `member` do, so a single confirmed non-primary-parent role is structurally representative of all four non-mom family roles on every one of these tables. No `staff_permissions` rows existed in production before this test (confirmed via a pre-check read) — the single `coppa_admin` grant used here was created and destroyed entirely inside the rolled-back transaction.
+
+### Policy inventory
+
+| Table | Policies | Notes |
+|---|---|---|
+| `coppa_consent_templates` | `cct_select_all` (SELECT, `TO authenticated`, `USING (true)`), `cct_admin_write` (INSERT, staff only), `cct_admin_update` (UPDATE, staff only) | **No DELETE policy at all** — for anyone, including staff. The only one of the 7 tables readable by every authenticated user regardless of family/role. |
+| `parent_verifications` | `pv_select_mom` (SELECT: `family_id IN (... role='primary_parent')` OR staff) | **No INSERT/UPDATE/DELETE policy exists for any role** — fully immutable audit trail, confirmed live including for staff/admin. |
+| `coppa_consents` | `cc_select_mom` (SELECT, same primary_parent-or-staff shape), `cc_update_mom_own_family` (UPDATE, RLS scopes to mom's own family) layered under a column-level `REVOKE UPDATE ... FROM authenticated; GRANT UPDATE (revoked_at, scheduled_deletion_at, revocation_reason) ... TO authenticated` | **No INSERT policy exists at all** (not explicitly flagged in the migration's own comments the way tables 4/5/6 are — confirmed live as a genuine finding, see Observation A). **No DELETE policy at all.** |
+| `parent_verification_attempts` | `pva_select_mom` (SELECT, same shape) | No INSERT/UPDATE/DELETE policy for any role. |
+| `parental_data_exports` | `pde_select_mom` (SELECT, same shape) | No INSERT/UPDATE/DELETE policy for any role. |
+| `retention_deletion_log` | `rdl_select_admin` (SELECT: staff only, no family_id restriction of any kind — any staff member sees every family) | No INSERT/UPDATE/DELETE policy for any role, including staff. Mom (even non-staff, even her own family) gets zero rows — by design, "mom never reads this table directly." |
+| `stripe_webhook_events` | Zero policies of any kind. RLS enabled + `REVOKE ALL ON public.stripe_webhook_events FROM authenticated, anon` | Strongest posture of the 7 — access is denied at the table-privilege layer (`permission denied for table`) before RLS is ever evaluated, for every command type. |
+
+### 1. `coppa_consent_templates` — the one universally-readable table (10 sub-tests, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T1a | Tenise (mom) | SELECT `1.0.0` | >=1 | 1 | PASS |
+| T1b | Jerrod (dad) | SELECT `1.0.0` | >=1 | 1 | PASS — confirms `TO authenticated` policy is genuinely role-blind |
+| T1c | Helam (teen) | SELECT `1.0.0` | >=1 | 1 | PASS |
+| T1d | Mosiah (guided kid) | SELECT `1.0.0` | >=1 | 1 | PASS |
+| T1e | Anon (`SET LOCAL ROLE anon`, cleared claims) | SELECT `1.0.0` | 0 — policy is scoped `TO authenticated`, not `TO public` | 0 | **PASS — confirms the disclosure-text policy does NOT leak to unauthenticated callers**, even though the text itself is not secret |
+| T1f | Tenise (mom, **non-staff**) | INSERT a new probe template version | BLOCKED | `42501: new row violates row-level security policy for table "coppa_consent_templates"` | **PASS — BLOCKED** |
+| T1g | Mark (**as staff**, `coppa_admin`) | INSERT a new probe template version | SUCCEEDED | SUCCEEDED | PASS |
+| T1h | Tenise (mom, non-staff) | UPDATE the REAL `1.0.0` row (`notes`) | 0 rows / BLOCKED | 0 rows affected | PASS — the production disclosure text cannot be silently altered by a non-staff session |
+| T1i | Mark (as staff) | UPDATE the probe row they just inserted (`notes`, `lawyer_approved_at`) | 1 row / SUCCEED | 1 row affected | PASS |
+| T1j | Mark (as staff) | DELETE the probe row | 0 rows / BLOCKED | 0 rows affected | **PASS — confirms no DELETE policy exists even for staff/admin** — template versions are retire-only (`retired_at`), never removable |
+
+### 2. `parent_verifications` — immutable audit trail (13 sub-tests, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T2a | Tenise (mom, OF) | SELECT own-family row / cross-family row | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T2b | Jerrod (dad, OF, **not** primary_parent) | SELECT own-family rows | 0 | 0 | **PASS — a non-mom family member gets ZERO rows even for his own family**, because the policy predicate requires `auth.uid()` to itself belong to a `role='primary_parent'` row, not merely to share a `family_id` |
+| T2c | Helam (teen, OF) | SELECT own-family rows | 0 | 0 | PASS |
+| T2d | Mosiah (guided kid, OF) | SELECT own-family rows | 0 | 0 | PASS |
+| T2e | Amy (special_adult, TW) | SELECT own-family rows | 0 | 0 | PASS |
+| T2f | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS — no cross-family leakage |
+| T2g | Mark (as staff) | SELECT across both families | 2 | 2 | PASS — cross-family admin read confirmed |
+| T2h | Anon | SELECT | 0 | 0 | PASS |
+| T2i | Tenise (mom, own row) | UPDATE `revoked_at` | 0 rows / BLOCKED | 0 rows affected | **PASS — mom cannot mutate even her own verification row; no UPDATE policy exists at all** |
+| T2j | Tenise (mom, own row) | DELETE | 0 rows / BLOCKED | 0 rows affected | **PASS — same, for DELETE** |
+| T2k | Mark (**as staff/admin**) | UPDATE OurFamily's row | 0 rows / BLOCKED | 0 rows affected | **PASS — confirms the migration's "including admin" claim live**: even an authenticated admin session cannot edit this table by direct SQL; only a service-role connection (the Stripe webhook handler, Slice 2) can |
+| T2l | Tenise (mom) | Direct INSERT bypassing the (not-yet-built) Stripe webhook | BLOCKED | `42501: new row violates row-level security policy` | PASS — confirms mom's client can never forge a verification event herself |
+| T2m | Sarah (cross-family stranger) | UPDATE OurFamily's row | 0 rows / BLOCKED | 0 rows affected | PASS — blocked by the absent UPDATE policy regardless of the (also-failing) cross-family check |
+
+### 3. `coppa_consents` — SELECT scoped, UPDATE column-restricted, INSERT/DELETE fully closed (16 sub-tests, all PASS)
+
+This is the table with the most surface area (RLS row-scoping stacked with column-level privilege restriction) and got the deepest probing, including a genuinely adversarial "mixed statement" attack (one legal column + one illegal column in the same `UPDATE`) to confirm Postgres rejects the whole statement atomically rather than silently applying the legal half.
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T3a | Tenise (mom, OF) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T3b | Jerrod (dad, OF, non-primary) | SELECT own-family rows | 0 | 0 | PASS |
+| T3c | Mosiah (guided kid, **the consent subject himself**, OF) | SELECT own consent record | 0 | 0 | **PASS — the child whose consent record it is cannot read their own row**, exactly matching the primary_parent-only SELECT gate |
+| T3d | Helam (teen, OF, unrelated sibling) | SELECT family consent rows | 0 | 0 | PASS |
+| T3e | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T3f | Mark (as staff) | SELECT across both families | 2 | 2 | PASS |
+| T3g | Anon | SELECT | 0 | 0 | PASS |
+| T3h | Tenise (mom) | UPDATE the 3 allowed columns (`revoked_at`, `scheduled_deletion_at`, `revocation_reason`) on her own child's row | 1 row / SUCCEED | 1 row affected; post-update read confirms `revoked_at` set + `revocation_reason='RLS probe test'` | PASS — the column-level GRANT correctly permits exactly the revocation workflow it was designed for |
+| T3i | Tenise (mom) | UPDATE a disallowed column (`consented_at`) on the same row | BLOCKED | `42501: permission denied for table coppa_consents` | PASS |
+| T3i2 | Tenise (mom) | UPDATE `consent_version` (disallowed) | BLOCKED | `42501: permission denied for table coppa_consents` | PASS |
+| T3i3 | Tenise (mom) | UPDATE `acknowledged_sections` (disallowed) | BLOCKED | `42501: permission denied for table coppa_consents` | PASS |
+| T3i4 | Tenise (mom) | Mixed UPDATE: `revocation_reason` (allowed) + `consent_version` (disallowed) in ONE statement | BLOCKED entirely | `42501: permission denied for table coppa_consents`; follow-up read confirms `revocation_reason` is still `'RLS probe test'` (the T3h value), NOT `'mixed attempt'` | **PASS — the column-privilege check is evaluated across the whole statement before any column is written; there is no partial-apply leak** |
+| T3j | Sarah (cross-family stranger) | UPDATE OurFamily's row, allowed columns only | 0 rows / BLOCKED | 0 rows affected | PASS — row-level scoping still gates the request even when the column privileges would otherwise permit it |
+| T3k | Jerrod (dad, OF, same family, non-primary) | UPDATE allowed column on Mosiah's row | 0 rows / BLOCKED | 0 rows affected | PASS — confirms `cc_update_mom_own_family`'s `role='primary_parent'` requirement, not just family membership |
+| T3l | Tenise (mom) | DELETE her own child's consent row | 0 rows / BLOCKED | 0 rows affected | PASS — "never hard-deleted" holds even for mom |
+| T3m | Tenise (mom) | Direct INSERT of a brand-new consent row (bypassing the not-yet-built consent flow) | BLOCKED | `42501: new row violates row-level security policy` | **PASS — genuine finding, see Observation A: `coppa_consents` has NO INSERT policy for any role, including mom, even though the migration's inline comments don't call this out as explicitly as they do for tables 4-6** |
+
+### 4. `parent_verification_attempts` — rate-limit log (10 sub-tests, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T4a | Tenise (mom, OF) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T4b | Jerrod (dad, OF, non-primary) | SELECT own-family rows | 0 | 0 | PASS |
+| T4c | Mosiah (guided kid, OF) | SELECT own-family rows | 0 | 0 | PASS |
+| T4d | Helam (teen, OF) | SELECT own-family rows | 0 | 0 | PASS |
+| T4e | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T4f | Mark (as staff) | SELECT across both families | 2 | 2 | PASS |
+| T4g | Anon | SELECT | 0 | 0 | PASS |
+| T4h | Tenise (mom) | Direct INSERT (forging a "succeeded" attempt) | BLOCKED | `42501: new row violates row-level security policy` | PASS |
+| T4i | Tenise (mom) | UPDATE own-family row (`failure_reason`) | 0 rows / BLOCKED | 0 rows affected | PASS |
+| T4j | Tenise (mom) | DELETE own-family row | 0 rows / BLOCKED | 0 rows affected | PASS |
+
+### 5. `parental_data_exports` — export job records (9 sub-tests, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T5a | Tenise (mom, OF) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T5b | Jerrod (dad, OF, non-primary) | SELECT own-family rows | 0 | 0 | PASS |
+| T5c | Mosiah (guided kid, **the export subject**, OF) | SELECT own-family rows | 0 | 0 | PASS — the child whose data is being exported cannot see the export job record either |
+| T5d | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 own / 0 cross | PASS |
+| T5e | Mark (as staff) | SELECT across both families | 2 | 2 | PASS |
+| T5f | Anon | SELECT | 0 | 0 | PASS |
+| T5g | Tenise (mom) | Direct INSERT bypassing the (Slice-4) rate-limited request RPC | BLOCKED | `42501: new row violates row-level security policy` | PASS — confirms mom cannot self-trigger unlimited exports by direct write, only via the future rate-limited path |
+| T5h | Tenise (mom) | UPDATE own-family row (forge `completed_at`/`archive_path`, i.e. fake a ready download) | 0 rows / BLOCKED | 0 rows affected | PASS |
+| T5i | Tenise (mom) | DELETE own-family row | 0 rows / BLOCKED | 0 rows affected | PASS |
+
+### 6. `retention_deletion_log` — admin-only, family-unscoped (9 sub-tests, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T6a | Tenise (mom, OF, **non-staff**) | SELECT own family's log entry | 0 | 0 | **PASS — confirms "mom never reads this table directly," even for her own family, even for her own child's row** |
+| T6b | Jerrod (dad, OF, non-staff) | SELECT own family's log entry | 0 | 0 | PASS |
+| T6c | Mosiah (guided kid, **the deletion subject**, OF) | SELECT own family's log entry | 0 | 0 | PASS |
+| T6d | Sarah (mom, TW, cross-family, non-staff) | SELECT any row | 0 | 0 | PASS |
+| T6e | Mark (as staff) | SELECT across both families | 2 | 2 | **PASS — confirms the admin SELECT policy is genuinely family-unscoped** (no `family_id` predicate at all in `rdl_select_admin`), matching its purpose as a platform-wide compliance-audit surface |
+| T6f | Anon | SELECT | 0 | 0 | PASS |
+| T6g | Mark (as staff) | Direct INSERT (bypassing the not-yet-built daily retention crons) | BLOCKED | `42501: new row violates row-level security policy` | **PASS — service-role only, even for admin** |
+| T6h | Mark (as staff) | UPDATE (forge `row_count`) | 0 rows / BLOCKED | 0 rows affected | PASS |
+| T6i | Mark (as staff) | DELETE | 0 rows / BLOCKED | 0 rows affected | PASS |
+
+### 7. `stripe_webhook_events` — fully closed internal plumbing (7 sub-tests, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T7a | Tenise (mom) | SELECT | BLOCKED | `42501: permission denied for table stripe_webhook_events` | PASS |
+| T7b | Mark (**as staff/admin**) | SELECT | BLOCKED | `42501: permission denied for table stripe_webhook_events` | **PASS — confirms staff has no special-cased access to this table**; the `REVOKE ALL FROM authenticated` applies unconditionally regardless of `staff_permissions` membership, since no staff-aware policy was ever defined for it |
+| T7c | Anon | SELECT | BLOCKED | `42501: permission denied for table stripe_webhook_events` | PASS |
+| T7d | Tenise (mom) | INSERT (forge a webhook event) | BLOCKED | `42501: permission denied for table stripe_webhook_events` | PASS |
+| T7e | Tenise (mom) | UPDATE | BLOCKED | `42501: permission denied for table stripe_webhook_events` | PASS |
+| T7f | Tenise (mom) | DELETE | BLOCKED | `42501: permission denied for table stripe_webhook_events` | PASS |
+| T7g | — (read as `postgres`) | `pg_policies` row count for this table | 0 | 0 | **PASS — confirms literally zero policies are defined**; the "permission denied for table" errors above (not "row-level security policy" errors) confirm this table is denied at the coarser table-privilege layer, which is evaluated before RLS — a strictly stronger posture than a table with RLS-enabled-but-zero-matching-policies, because it can never be accidentally opened by a future `GRANT` on the table without someone also consciously writing a policy |
+
+### 8. `staff_permissions.permission_type` CHECK constraint extension
+
+| # | Check | Expected | Actual | Result |
+|---|---|---|---|---|
+| CHK1 | Constraint definition includes `'coppa_admin'` | Present in the `ANY (ARRAY[...])` list | `CHECK ((permission_type = ANY (ARRAY['super_admin'::text, 'vault_admin'::text, 'moderation_admin'::text, 'system_admin'::text, 'analytics_admin'::text, 'feedback_admin'::text, 'persona_admin'::text, 'ethics_admin'::text, 'coppa_admin'::text])))` | PASS |
+
+### 9. Residue check — zero permanent trace, confirmed independently after the probe transaction
+
+Every probe (setup, mutation attempts, temporary staff grant) ran inside a single `BEGIN...ROLLBACK` transaction. As a belt-and-suspenders check, a second, fully independent read-only query was run afterward against production to confirm no row survived:
+
+```sql
+SELECT
+  (SELECT COUNT(*) FROM parent_verifications WHERE id::text LIKE '00000000-0001%')          AS pv_residue,          -- 0
+  (SELECT COUNT(*) FROM coppa_consents WHERE id::text LIKE '00000000-0002%')                AS cc_residue,          -- 0
+  (SELECT COUNT(*) FROM parent_verification_attempts WHERE id::text LIKE '00000000-0003%')  AS pva_residue,         -- 0
+  (SELECT COUNT(*) FROM parental_data_exports WHERE id::text LIKE '00000000-0004%')         AS pde_residue,         -- 0
+  (SELECT COUNT(*) FROM retention_deletion_log WHERE id::text LIKE '00000000-0005%')        AS rdl_residue,         -- 0
+  (SELECT COUNT(*) FROM stripe_webhook_events WHERE event_id LIKE 'RLSPROBE%')              AS swe_residue,         -- 0
+  (SELECT COUNT(*) FROM coppa_consent_templates WHERE version LIKE 'RLSPROBE%')             AS cct_residue,         -- 0
+  (SELECT COUNT(*) FROM staff_permissions WHERE user_id = '62d73914-8ff1-44b2-a7f7-92bd586aeb95') AS staff_grant_residue; -- 0
+```
+
+All zero. Every table's total row count was also confirmed back to its pre-probe baseline: `coppa_consent_templates` = 1 (only the real seeded `1.0.0` row), and all 6 other new tables = 0 (Slice 1 is schema-only — no application code has written to them yet, so their correct post-verification state is empty).
+
+### Observations (design confirmations, not gaps)
+
+- **Observation A (T3m):** `coppa_consents` has **no INSERT policy for any role, including mom** — confirmed live. The migration's own inline comments explicitly flag this for `parent_verification_attempts`, `parental_data_exports`, and `retention_deletion_log` ("INSERT: service role only"), but do not say it as plainly for `coppa_consents` itself (the comment block only calls out the missing DELETE policy). This is architecturally consistent — the actual consent-creation flow (Slice 3, tied to a successful `parent_verifications` row) is meant to be a service-role RPC/Edge Function, never a bare client INSERT — but it is worth the founder's explicit awareness that the "mom fills in the consent screen" UI in Slice 3 will need a service-role code path (mirroring how `purchase_reward_shop_item` etc. are SECURITY DEFINER functions rather than raw table writes) rather than a direct Supabase client `.insert()` call, or every consent attempt will silently fail with `42501`.
+- **Observation B (T2k, T6g-i, T1j):** the "immutable even for admin" framing in the migration's comments holds up under direct adversarial testing, not just by policy inspection — a `staff_permissions` (`coppa_admin`) session cannot UPDATE or DELETE `parent_verifications`, cannot INSERT/UPDATE/DELETE `retention_deletion_log`, and cannot DELETE `coppa_consent_templates`. The only two writes staff/admin CAN perform are `coppa_consent_templates` INSERT (new versions) and UPDATE (editing an unpublished version or setting `lawyer_approved_at`/`retired_at`) — precisely the two actions the Admin COPPA Verification Log screen (Screen 10, Slice 6) is meant to support.
+- **Observation C (T7b):** `stripe_webhook_events` is the one table where being staff/admin grants **zero** additional access — a deliberate, correctly-implemented "nobody but service-role, full stop" posture for pure internal plumbing that no human should ever need to read through the app.
+- **Observation D (T1e):** `coppa_consent_templates` is simultaneously the most-open table of the 7 (readable by every authenticated family member regardless of role) and correctly closed to anonymous/unauthenticated callers — the `TO authenticated` policy target does what it says, confirmed live rather than assumed from the DDL.
+- **Observation E:** the migration's own R-10 comment block (View-As cannot be distinguished from "mom acting as herself" at the RLS layer, since `auth.uid()` is unchanged inside a View-As modal) is architecturally correct and was not re-tested here — it is explicitly a Slice-3 frontend-layer concern per the migration's own header, not something Slice 1's RLS can or should attempt to solve. Flagged here only so Slice 3's verification pass doesn't assume RLS already covers it.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| `coppa_consent_templates` (universal authenticated read, anon blocked, staff-only write, zero DELETE for anyone) | **PASS** — 10/10 sub-tests |
+| `parent_verifications` (primary_parent-only + staff read; cross-family isolation; zero INSERT/UPDATE/DELETE for any role including staff) | **PASS** — 13/13 sub-tests |
+| `coppa_consents` (primary_parent-only + staff read; 3-column-only UPDATE for mom incl. atomic rejection of mixed legal/illegal-column statements; zero INSERT for anyone; zero DELETE for anyone) | **PASS** — 16/16 sub-tests |
+| `parent_verification_attempts` (primary_parent-only + staff read; zero writes for any role) | **PASS** — 10/10 sub-tests |
+| `parental_data_exports` (primary_parent-only + staff read; zero writes for any role) | **PASS** — 9/9 sub-tests |
+| `retention_deletion_log` (staff-only, family-unscoped read — mom never sees it even for her own family; zero writes for any role including staff) | **PASS** — 9/9 sub-tests |
+| `stripe_webhook_events` (zero access of any kind for any authenticated or anonymous role, including staff/admin; zero policies defined) | **PASS** — 7/7 sub-tests |
+| `staff_permissions.permission_type` CHECK extension (`coppa_admin` present) | **PASS** — 1/1 |
+| Residue after the probe transaction | **Zero** — every table, every row count, exactly restored |
+
+**Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. Every one of the 7 new tables enforces exactly the access shape its own design comments claim, verified by live adversarial probing rather than policy inspection alone — including the two hardest claims to get right (a genuinely immutable audit trail that resists even an admin session, and a column-level UPDATE grant that correctly rejects mixed legal/illegal-column statements atomically). No non-mom role can read any COPPA data on 6 of the 7 tables (the 7th, `coppa_consent_templates`, is intentionally readable by all family members since it's the disclosure text itself, not personal data). No mutation of an immutable field ever succeeded, for any role tested, including staff/admin. No cross-family access succeeded on any table, for any role, for any operation. Zero fixture residue confirmed by an independent post-transaction query.

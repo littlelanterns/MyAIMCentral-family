@@ -124,6 +124,11 @@ const DOMAIN_ORDER = [
   { name: 'Platform Assets', prefix: '', tables: [
     'platform_assets',
   ]},
+  { name: 'COPPA Compliance & Parental Verification', prefix: 'PRD-40', tables: [
+    'coppa_consent_templates', 'parent_verifications', 'coppa_consents',
+    'parent_verification_attempts', 'parental_data_exports', 'retention_deletion_log',
+    'stripe_webhook_events',
+  ]},
 ];
 
 /**
