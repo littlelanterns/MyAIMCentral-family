@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-08
+> Auto-generated from live Supabase on 2026-07-09
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -128,7 +128,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 532 rows
+### `view_as_sessions` — 535 rows
 
 | # | Column |
 |---|---|
@@ -140,7 +140,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 412 rows
+### `view_as_feature_exclusions` — 415 rows
 
 | # | Column |
 |---|---|
@@ -398,7 +398,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 709 rows
+### `ai_usage_tracking` — 711 rows
 
 | # | Column |
 |---|---|
@@ -808,7 +808,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2101 rows
+### `routine_step_completions` — 2120 rows
 
 | # | Column |
 |---|---|
@@ -1788,7 +1788,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 15 rows
+### `notifications` — 24 rows
 
 | # | Column |
 |---|---|
@@ -2657,7 +2657,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 334 rows
+### `activity_log_entries` — 336 rows
 
 | # | Column |
 |---|---|
@@ -2873,7 +2873,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 4 rows
+### `ai_output_scans` — 6 rows
 
 | # | Column |
 |---|---|
@@ -3890,7 +3890,7 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
-### `point_transactions` — 20 rows
+### `point_transactions` — 26 rows
 
 | # | Column |
 |---|---|
