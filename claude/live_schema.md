@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 21 rows
+### `family_members` — 20 rows
 
 | # | Column |
 |---|---|
@@ -398,7 +398,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 753 rows
+### `ai_usage_tracking` — 778 rows
 
 | # | Column |
 |---|---|
@@ -896,7 +896,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 60 rows
+### `lists` — 58 rows
 
 | # | Column |
 |---|---|
@@ -1079,7 +1079,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 24 rows
+### `dashboard_configs` — 23 rows
 
 | # | Column |
 |---|---|
@@ -1095,7 +1095,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 51 rows
+### `dashboard_widgets` — 50 rows
 
 | # | Column |
 |---|---|
@@ -1562,7 +1562,7 @@
 
 ## Archives & Context (PRD-13)
 
-### `archive_folders` — 189 rows
+### `archive_folders` — 180 rows
 
 | # | Column |
 |---|---|
@@ -1608,7 +1608,7 @@
 | 21 | `is_negative_preference` |
 | 22 | `embedding` |
 
-### `archive_member_settings` — 19 rows
+### `archive_member_settings` — 18 rows
 
 | # | Column |
 |---|---|
@@ -2873,7 +2873,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 48 rows
+### `ai_output_scans` — 73 rows
 
 | # | Column |
 |---|---|
