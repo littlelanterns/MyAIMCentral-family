@@ -262,11 +262,32 @@ async function processRow(row: PendingScanRow): Promise<'validated' | 'rejected'
     const triggeringMessage = await fetchTriggeringMessage(row)
     const tier2 = await tier2Confirm(row.content, triggeringMessage)
 
-    if (!tier2 || tier2.verdict === 'clean' || tier2.confidence < TIER2_CONFIRM_THRESHOLD) {
+    if (tier2 === null) {
+      // Tier-2 INFRASTRUCTURE FAILURE (HTTP error, timeout, JSON parse
+      // failure, schema mismatch) — NOT a genuine "clean" verdict. Treating
+      // null identically to tier2.verdict === 'clean' was a fail-OPEN bug:
+      // it silently auto-cleared a Tier-1-flagged violation with no retry,
+      // no error status, no trace. Live-proven during the 2026-07-09
+      // OpenRouter credit outage (adversarial safety-stack review): 26/75
+      // seeded violations (34.7%) were silently cleared this way, skewed
+      // toward the most explicit ones. Fail SAFE instead: retry like any
+      // other processing failure, and only park at status='error' (never
+      // 'validated') once retries are exhausted — a Tier-1-flagged row must
+      // never resolve to "clean" without an actual Tier-2 confirmation.
+      console.error(`tier2Confirm returned null for scan ${row.id} — retaining flag, retrying`)
+      const nextRetry = row.retry_count + 1
+      await supabase.from('ai_output_scans').update({
+        status: nextRetry >= MAX_RETRIES ? 'error' : 'pending',
+        retry_count: nextRetry,
+      }).eq('id', row.id)
+      return 'error'
+    }
+
+    if (tier2.verdict === 'clean' || tier2.confidence < TIER2_CONFIRM_THRESHOLD) {
       await supabase.from('ai_output_scans').update({
         status: 'validated',
-        tier2_verdict: tier2?.verdict ?? null,
-        tier2_confidence: tier2?.confidence ?? null,
+        tier2_verdict: tier2.verdict,
+        tier2_confidence: tier2.confidence,
         scanned_at: new Date().toISOString(),
       }).eq('id', row.id)
       return 'validated'

@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 20 rows
+### `family_members` — 21 rows
 
 | # | Column |
 |---|---|
@@ -128,7 +128,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 535 rows
+### `view_as_sessions` — 536 rows
 
 | # | Column |
 |---|---|
@@ -140,7 +140,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 415 rows
+### `view_as_feature_exclusions` — 416 rows
 
 | # | Column |
 |---|---|
@@ -398,7 +398,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 711 rows
+### `ai_usage_tracking` — 753 rows
 
 | # | Column |
 |---|---|
@@ -896,7 +896,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 58 rows
+### `lists` — 60 rows
 
 | # | Column |
 |---|---|
@@ -1079,7 +1079,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 23 rows
+### `dashboard_configs` — 24 rows
 
 | # | Column |
 |---|---|
@@ -1095,7 +1095,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 50 rows
+### `dashboard_widgets` — 51 rows
 
 | # | Column |
 |---|---|
@@ -1562,7 +1562,7 @@
 
 ## Archives & Context (PRD-13)
 
-### `archive_folders` — 180 rows
+### `archive_folders` — 189 rows
 
 | # | Column |
 |---|---|
@@ -1608,7 +1608,7 @@
 | 21 | `is_negative_preference` |
 | 22 | `embedding` |
 
-### `archive_member_settings` — 18 rows
+### `archive_member_settings` — 19 rows
 
 | # | Column |
 |---|---|
@@ -2873,7 +2873,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 6 rows
+### `ai_output_scans` — 48 rows
 
 | # | Column |
 |---|---|
@@ -4621,7 +4621,7 @@
 | 15 | `extraction_count` |
 | 16 | `discovered_sections` |
 
-### `platform_intelligence.ethics_pattern_library` — 150 rows
+### `platform_intelligence.ethics_pattern_library` — 151 rows
 
 | # | Column |
 |---|---|

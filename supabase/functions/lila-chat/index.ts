@@ -371,31 +371,49 @@ Deno.serve(async (req) => {
     }
     const { conversation_id, content } = parsed.data
 
-    // Crisis detection — server-side backup
+    // Crisis detection — server-side backup. The response to the member
+    // must never depend on any DB write succeeding (Convention #282 D5
+    // ordering principle) — every write below is independently try/caught
+    // so a persistence failure can never block or crash the crisis
+    // response. A prior bug here (`supabase.rpc('increment_message_count',
+    // ...).catch(...)` — a `.catch()` call on a postgREST query builder,
+    // chained onto an RPC that never existed in the function catalog) threw
+    // synchronously and took the WHOLE crisis path down with an HTTP 500:
+    // no 988 resources shown to a member in crisis, and — because nothing
+    // persisted — nothing for PRD-30's Layer-1 keyword sweep to find either.
     if (detectCrisis(content)) {
-      // Save user message
-      await supabase.from('lila_messages').insert({
-        conversation_id,
-        role: 'user',
-        content,
-        metadata: {},
-      })
+      try {
+        await supabase.from('lila_messages').insert({
+          conversation_id,
+          role: 'user',
+          content,
+          metadata: {},
+        })
+      } catch (persistErr) {
+        console.error('[lila-chat] crisis user-message persist failed (non-blocking):', persistErr)
+      }
 
-      // Save crisis response
-      await supabase.from('lila_messages').insert({
-        conversation_id,
-        role: 'system',
-        content: CRISIS_RESPONSE,
-        metadata: { type: 'crisis_resource' },
-      })
+      try {
+        await supabase.from('lila_messages').insert({
+          conversation_id,
+          role: 'system',
+          content: CRISIS_RESPONSE,
+          metadata: { type: 'crisis_resource' },
+        })
+      } catch (persistErr) {
+        console.error('[lila-chat] crisis resource-message persist failed (non-blocking):', persistErr)
+      }
 
-      // Update message count
-      await supabase.rpc('increment_message_count', { conv_id: conversation_id, count: 2 }).catch(() => {
-        // RPC may not exist yet, update directly
-        supabase.from('lila_conversations')
+      // Cosmetic message-count bump. increment_message_count is not a real
+      // RPC — direct update only, wrapped so it can never throw.
+      try {
+        await supabase
+          .from('lila_conversations')
           .update({ message_count: 2 })
           .eq('id', conversation_id)
-      })
+      } catch (countErr) {
+        console.error('[lila-chat] crisis message_count bump failed (non-blocking):', countErr)
+      }
 
       return new Response(
         JSON.stringify({ crisis: true, response: CRISIS_RESPONSE }),
