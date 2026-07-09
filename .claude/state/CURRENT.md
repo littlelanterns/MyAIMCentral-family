@@ -1,52 +1,67 @@
-# Current State — As of 2026-07-08 (post batch #3; Fable window through 2026-07-12)
+# Current State — 2026-07-09, security emergency RESOLVED + seat handoff (Opus→fresh Fable)
 
-> Any coordination session (fresh, compacted, or resumed) rebuilds the full picture from:
-> this file → `claude/dispatch-factory/MANIFEST.md` (packs + queue) →
-> `.claude/rules/current-builds/*` (in-flight) → `.claude/completed-builds/README.md` (history).
+> ✅ **EMERGENCY FULLY RESOLVED — all 5 findings closed LIVE in production.** grant_money +
+> apply_permission_profile auth gates (100311) + 3-function lockdown (100310) + lila-chat
+> crisis-500 (HTTP 500→200, 988 returned, live-verified) + validate-ai-output fail-open — all
+> deployed + live-verified 2026-07-09. TWO security commits captured LOCAL, ahead of origin,
+> NOT pushed: `7952c12` (100310) + `28c9edd` (100311 + EF fixes). They push with the next batch
+> once GDCX/FDWA/PINR commit their state files (pre-push guard correctly blocks on GDCX's
+> uncommitted STUB_REGISTRY — do NOT --no-verify, do NOT sweep other lanes). RPC-grant audit:
+> ~15 remaining exposed functions seat-verified BOUNDED (self-gated or legit-target-only) →
+> one follow-up sweep, not an emergency.
 
-## The 2026-07-07→08 sprint, fully landed (three seat-executed release batches, all pushed)
+> Rebuild the full picture from: this file → `claude/dispatch-factory/MANIFEST.md` →
+> `.claude/rules/current-builds/*` → `.claude/completed-builds/README.md`.
+> **Seat note:** this session ran on Opus (Fable's dual-use guardrails flag the adversarial
+> security content). Orchestration is handing back to a fresh FABLE seat. The exploit-analysis /
+> adversarial-authoring stays in the Opus SECURITY-EMERGENCY window; the Fable seat COORDINATES
+> (sequences, verifies remediation read-only, runs commit batches, pushes) — standard defensive
+> release management, not attack authoring.
 
-- **Batch 1 (fb594fe):** SAFETY-BETA-GATE C/B/A+E (shadow mode), schema 100286–100299, PRD-30 SM-A/B, WishLists Phase A, KitchenCompass Phase A, shared sweep.
-- **Batch 2 (0f62108):** PECON-EARN Worker A (ledger, config-as-truth, routine economics) + the godmother EXECUTE lockdown (100300 — CRITICAL: all 15 connector fns were anon-executable since Phase 3; ledger drift 0.00 = no abuse evidence).
-- **Batch 3 (this push):** PECON-SHOP Worker B (Reward Shop, migrations 100302/100304 incl. its own RPC hardening), PRD-30 SM-C (weekly digests, crisis-flag wiring, migration 100303; email DEFERRED — founder has no Resend creds yet), **the model-ID platform repair** (invalid `claude-haiku-4-5-20251001` dev-harness ID had silently broken SIX production functions: safety-classify L2+starters never worked, validate-ai-output Tier-2, message-coach notes, auto-title-thread, lila-board-of-directors over-blocking; all fixed→`anthropic/claude-haiku-4.5`, deployed, permanent guard `tests/redteam/model-id-guard.test.ts`, Silent Tooling Failure Pattern #8), PRD-40 pre-build docs + Two-Door Addendum, shared-doc appends (Conventions #280/#281/#282).
+## 🚨 ACTIVE: adversarial safety-stack review found 4 CRITICAL, 3 live in production
 
-**Slice E is LIVE IN SHADOW MODE** (37 fns deployed, 3 tiers armed — note: Tier-2 verdicts only real AFTER the model-ID fix deploy; earlier shadow data is Tier-0/1 only, recorded in the SAFETY-BETA-GATE.md Phase-4 handoff). **PRD-30 detection + digests LIVE.**
+Full report: `SAFETY_STACK_ADVERSARIAL_REVIEW.md`. All seat-verified independently. Status of each:
 
-## Builds complete — Checkpoint 5 VERIFIED + **FOUNDER SIGNED OFF 2026-07-08** — ARCHIVED
+1. **grant_money exploitable by unauthenticated internet caller** — SECURITY DEFINER, anon-executable, ZERO auth check; caller supplies family/member/amount. Seat CONFIRMED live (grants + body read). Same shape on `grant_points`, `apply_permission_profile`, `update_ethics_pattern_embedding`, `insert_ethics_pattern_candidate`. The 100300 godmother lockdown sealed the dispatch layer but missed these LEAF functions. **Split fix (seat-designed, caller-verified):**
+   - **SAFE bare-revoke → service_role only** (no legit client caller — verified): `grant_points`, `update_ethics_pattern_embedding` (only caller = embed EF, service role), `insert_ethics_pattern_candidate` (only caller = validate-ai-output EF). ✅ **DONE — migration 100310 APPLIED LIVE to production 2026-07-09 (grants verified `{postgres, service_role}` only) + committed locally `7952c12`. NOT YET PUSHED** — the pre-push state-file guard correctly blocks because GDCX has uncommitted STUB_REGISTRY work in the tree; the security commit rides to remote in the next batch when GDCX commits (hole is closed live regardless of git). Do NOT --no-verify; do NOT sweep GDCX's STUB_REGISTRY into a security push.
+   - **NEEDS AUTH GATE, not revoke** (has legit mom-facing authenticated caller): `grant_money` (src/lib/financial/grantMoney.ts) + `apply_permission_profile` (PermissionHub.tsx:1518). → owned by the SECURITY-EMERGENCY worker (below), 100298 gate pattern.
+2. **lila-chat crisis override → HTTP 500, no 988** — `lila-chat/index.ts:393`, `.catch()` on a postgREST thenable calling a nonexistent RPC. Kid types suicidal words → "Internal server error", no resources, nothing persists (PRD-30 can't even flag it). mindsweep-sort's crisis path is FINE (validated). **BLOCKS beta regardless of the flip.** No live lila-chat crisis pin existed → undetected. → SECURITY-EMERGENCY worker.
+3. **OpenRouter at zero credits — LiLa fully dark ~2 days (402 on every call).** ✅ **RESOLVED — founder topped up 2026-07-09.**
+4. **validate-ai-output fails OPEN** — `index.ts:265` treats null Tier-2 (any Haiku fail) as "clean," auto-clears the flagged violation, doesn't even bump retry_count. 34.7% of violations swallowed during the credit outage. The model-ID lesson half-learned. → SECURITY-EMERGENCY worker.
 
-Both build files (+ PECON-earn/shop) moved to `.claude/completed-builds/2026-07/`, along with a housekeeping sweep of five previously-completed-and-pushed build files (ALLOWANCE-RECONCILIATION, CLIENT-DATE-REMEDIATION, FAMILY-GOALS-PRIZES, HITM-CLOSURE, PRD-42, PRD-43) that were still auto-loading into every session. `current-builds/` now holds ONLY: SAFETY-BETA-GATE (stays until Phase-4 flip), PRD-40-coppa (Slice 1 pending), STUDIO-EXPERIENCE (ST-A+ pending), VOICE-INPUT-REPAIR (founder mic feel-pass open), IDLE.md. Ledger rows added to both READMEs.
+**SECURITY-EMERGENCY worker** — ✅ ALL 4 FIXES DONE. grant_money + apply_permission_profile in-body auth gates (migration 100311, APPLIED LIVE, both live-verified anon-rejected + mom-passes, zero fixture residue). lila-chat crisis-500 + validate-ai-output fail-open FIXED ON DISK, **NOT DEPLOYED — awaiting founder deploy of `lila-chat` + `validate-ai-output` (the crisis-500 is the last live child-safety gap).** 100311 + EF fixes uncommitted, ride the next batch with 100310.
 
-- **PRD-30 (SM-A+B+C): Checkpoint 5 PASS** — 48 Wired / 4 Stubbed / 0 Missing, all six spot-checks green (no-side-door column guard holds even vs mom; crisis path provably DB-independent). Three doc discrepancies found → all corrected by the seat same day (tier-gate STUB row added, two stale "not yet fixed" texts updated). Verdict appended to the feature decision file. On founder sign-off: archive build file to completed-builds + README index row.
-- **PECON (A+B): Checkpoint 5 PASS** — 24 Wired / 0 Missing; ledger genuinely append-only with zero platform-wide bypass; lockdown covers all 15 functions. Three non-blocking follow-ups queued (see pile): rider-3 pin strengthening (D1), refund idempotency key (D2 — one line, next PECON-adjacent session), mom manual-points-adjustment stub registered + Convention #206 corrected (D3, done). Verdict appended to PECON-shop.md. Founder feel-pass still hers: kid buys a shop item on a real device (Play shelf = human-feel class).
+**RPC-grant audit (WS2 + seat-verified 2026-07-09):** the ~15 remaining anon-executable SECURITY DEFINER functions are all BOUNDED — seat read the value/security-adjacent ones directly: `dispatch_single_grant`/`award_custom_reward_for_completion` can only act on legit, idempotent, rightful-owner targets (no attacker-chosen value/target); `admin_*` ethics + `approve_queued_persona`/`defer_queued_persona` have IN-BODY staff_permissions/admin gates (anon → 'not authorized'). None can mint arbitrary value, rewrite permissions, or poison the safety library. → **ONE follow-up sweep migration** (in-body gates or service_role lock for the bounded writers), NOT an emergency. Plus grant_money same-family amount-tamper residual (server-computed award amounts is the real fix). Fold into the SMFX/follow-up sweep; the RPC-EXECUTE-grant audit PIN below makes the class permanently visible.
 
-## Ready to dispatch (seat sequences)
+## Phase-4 flip verdict: data says GO, blockers say NOT-YET
 
-- **PRD-40 Slice 1** — pre-build APPROVED (OD-1..4), Slice-1 prompt written in `.claude/rules/current-builds/PRD-40-coppa.md`. Founder calendar items: Stripe test keys before Slice 2, attorney package = under-13 long pole.
-- **PRD-31 Fable pre-build** — seat writes the prompt (reads PRD-40 decision file §3 Stripe boundary). Target: 07-08/09.
-- **SM email follow-up** — when founder does the ~20-min Resend signup + DNS.
+Calibration (199 seeded outputs, live pipeline, threshold 0.45): Tier-1 recall 100%, **false-positive rate 0/124 = 0%** (the founder's core fear — jumpy classifier scolding a tired mom — is DISPROVEN in data), Tier-2 100% category-correct on everything it processed. **Keep 0.45.** Flip carries no false-retraction risk. NOT-YET blocked ONLY by, in order: (1) ✅ OpenRouter restored, (2) validate-ai-output fail-open, (3) lila-chat crisis-500, (4) re-run calibration w/ credits + new lila-chat crisis pin + fresh-dev-server safety-beta-gate 58-suite, (5) THEN flip. Deferred Slice-E pins 1/4/5 proved live PASS; the shared 58-suite still needs the slot + a dev server (non-interactive review couldn't run it).
 
-## This week (Fable window ends 07-12)
+## In flight (parallel Sonnet lanes)
 
-1. **Adversarial safety-stack review** — once dispatched, doubles as the shadow-log calibration data generator (family LiLa usage is low, so the review's driven conversations ARE the Phase-4 dataset). Scope includes the RPC EXECUTE-grant audit (born from the godmother incident) + deploy-dependent Slice E pins + fresh-dev-server safety-beta-gate re-confirm.
-2. **Phase-4 flip session** after the review's data lands: read shadow log → tune 0.45 threshold → flip shadow→enforcing → Beta Readiness Report → Convention #247 gate cleared.
-3. **Beta Readiness delta report** + **Fable-vs-Opus re-pin recommendation** by 07-12.
+- **FDWA + PINR** (family-device write audit → PIN-relock; approved pair) — running.
+- **GDCX** (Guided dashboard: Next Best Thing dark since 2026-05-03 + Write-drawer Messages + Homework/Coach mounts) — running; seat approved its E2E fixture question (GDCXTEST rows on Mosiah, afterAll-deleted, matches guided-dashboard-full.spec.ts precedent).
+- **SECURITY-EMERGENCY** — see above.
 
-## Standing operating rules (unchanged; see batch-1 entry in HISTORY for full list)
+## Recently landed + pushed (2026-07-08→09)
 
-Model routing + two-step /model headers · ONE shared Playwright suite at a time (tree-level results count for all lanes) · seat-executed release batches (per-lane commits + schema commit + shared sweep; live_schema staged with migrations per hook) · founder standing push-after-review authorization · deploys founder-per-instance · Convention #277 tours are load-bearing (caught 3 invisible-UI defect classes this sprint) · hook false-positives on PROSE describing banned patterns get reworded, never overridden (3rd occurrence this sprint).
+PRD-30 (SM-A/B/C) + PECON (A+B) Checkpoint-5 PASS, signed off, archived (`cd0acab`). PRD-40 Slice 1 (COPPA foundation + 175-table child-data deletion registry + CI completeness pin, migration 100305) + PRD-31 pre-build APPROVED (draft tier chart + 16-surface beta-bypass exit registry) pushed (`2edb5cf`/`7d68b3c`). Nine build files archived to `.claude/completed-builds/2026-07/`.
+
+## Standing operating rules
+
+Model routing: **security/adversarial → Opus (Fable dual-use flags it) — this is now a re-pin data point for 07-12.** Two-step /model headers on every dispatch. ONE shared Playwright suite at a time across windows (seat serializes; tree-level result counts for all lanes). Seat-executed commit batches (per-lane + schema commit staged with live_schema + shared sweep). **Founder standing push-after-review authorization.** Production migrations + Edge deploys + destructive ops = founder per-instance. Hook false-positives on PROSE describing banned patterns get reworded, never overridden. Convention #277 eyes-on tours are load-bearing.
 
 ## Founder-only open items
 
-1. Resend signup + DNS (unblocks safety emails + Out-of-Nest + PRD-15 email prefs).
-2. Attorney package → counsel (~2 wks, her clock). `MINDSWEEP_WEBHOOK_SECRET` before email intake.
-3. Stripe test-mode keys (before PRD-40 Slice 2 proof).
-4. PECON feel-pass: kid buys shop item on real device.
-5. Checkpoint 5 sign-offs for PRD-30 + PECON when verifier tables land.
-6. OpenRouter privity support ticket.
+1. **"lock them"** — the 3 safe RPC revokes (do it in whichever seat; fastest = immediately).
+2. **Stripe test keys** → unblocks PRD-40 Slice 2. **Resend signup** → safety + Out-of-Nest emails.
+3. **"repair history"** — ~17 migrations applied via one-file method aren't in Supabase's migration-history ledger; a future naive `db push` would replay them. Non-destructive reconcile, ~2 min, seat runs it.
+4. PECON kid-device feel-pass (Reward Shop) · VOICE mic feel-pass · attorney package (~2 wks).
+5. **07-12 Fable full-price revisit** — Beta Readiness delta + Fable-vs-Opus re-pin rec (now carries: adversarial/security work pins Opus permanently). PRD-31 + PRD-40 pre-builds already done.
 
-## Seat's SMFX pile
+## SMFX pile
 
-CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token) · nameless dashboard greeting · pre-commit banned-pattern grep excludes comment lines (3 false positives this sprint) · obligations Layer 2 step-fairness grace-buffer gap (flagged in PECON-earn.md — #271 next-toucher rule) · **PECON C5 follow-ups:** rider-3 pin strengthened to literal shared-per_step shape (D1) + `refund:{purchase_id}` idempotency key or FOR UPDATE in resolve/cancel (D2 — one line).
+CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token) · nameless dashboard greeting · pre-commit banned-pattern grep should exclude comment lines (multiple false positives) · obligations Layer-2 grace-buffer gap (#271 next-toucher) · PECON C5 follow-ups: rider-3 pin literal shape (D1) + refund idempotency key (D2) · **revive `tests/e2e/features/guided-dashboard-full.spec.ts`** — all 13 tests dead at login (stale `sb-<host>-auth-token` storage key; app now uses `myaim-auth` via client.ts). Small targeted fix to route it through `tests/e2e/helpers/auth.ts`, BUT watch for assertion drift from GDCX's dashboard changes — do as a deliberate standalone task, not bundled · **NEW from review: add a permanent RPC-EXECUTE-grant audit pin** (no public-schema SECURITY DEFINER function should carry anon/authenticated EXECUTE without an in-body auth gate — this class has now bitten twice: godmother lockdown + tonight's leaf functions).
 
 ---
 *Overwritten at every close-out and baton-pass. History: HISTORY.md.*
