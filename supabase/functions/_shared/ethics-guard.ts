@@ -60,7 +60,7 @@ export type EthicsViolationResult = EthicsViolationHit | EthicsViolationMiss
 // bypass. Flipping it to 'enforcing' is a Phase-4, founder-gated action —
 // do not flip it as part of Phase 1/2/3 wiring work.
 // ============================================================
-export const ENFORCEMENT_MODE: 'shadow' | 'enforcing' = 'shadow'
+export const ENFORCEMENT_MODE: 'shadow' | 'enforcing' = 'enforcing'
 
 // ============================================================
 // Tier 0 — synchronous pattern guard ($0)

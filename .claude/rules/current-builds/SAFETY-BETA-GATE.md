@@ -466,3 +466,57 @@ Slices A–D: **no mom-UI surfaces affected** (Edge Function prompts, server cod
 4. **Phase 4 proper:** review ≥1 week of shadow data against the calibration report, tune the Tier-1 threshold constant (0.45) if needed, flip `ENFORCEMENT_MODE` `'shadow'`→`'enforcing'`, write the Beta Readiness Report evidence section. Founder sign-off on the flip = Layer 1 gate-exit = Convention #247 cleared.
 
 **Cross-territory fix (PRD-30 SM-C session, 2026-07-08, coordination-seat-granted since this window is closed):** Tier-2 Haiku verdicts in the shadow log begin 2026-07-08 15:47 UTC (the `validate-ai-output` deploy timestamp) — earlier shadow data is Tier-0/Tier-1 only. `HAIKU_MODEL` was `'anthropic/claude-haiku-4-5-20251001'`, an invalid OpenRouter model ID (live 400: "...is not a valid model ID") — every `tier2Confirm()` call since deploy returned `null`, and the caller's `if (!tier2 || ...)` branch silently auto-validated every Tier-1-flagged row as if Tier 2 had confirmed "clean." Fixed to `'anthropic/claude-haiku-4.5'` (the same string 6+ other functions already use successfully), same one-line fix applied to PRD-30's `safety-classify` in the same session. **Any Phase 4 calibration review of shadow data must treat everything before this timestamp as Tier-1-similarity-only — no row before it ever received a real Tier-2 confirmation, regardless of what its `tier2_verdict`/`tier2_confidence` columns show (they're `null` for every row from this bug).**
+
+---
+
+## Slice E — PHASE 4 FLIP LANDED (Opus session, 2026-07-10) — Convention #247 Layer-1 gate CLEARED
+
+**Status: `ENFORCEMENT_MODE` flipped `'shadow'`→`'enforcing'` at `ethics-guard.ts:63` on founder GO. All 40 ethics-guard-importing functions redeployed enforcing (`--use-api --no-verify-jwt`). Retraction + input reframe live-verified end-to-end against the enforcing deployment; crons green; zero false-positive retractions. Rollback lever pre-authorized: `enforcing`→`shadow` + redeploy.**
+
+### Phase-4 Evidence
+
+**Flip:** `ENFORCEMENT_MODE = 'enforcing'` (ethics-guard.ts:63), deployed 2026-07-10 ~17:44 UTC across the **40** functions importing `_shared/ethics-guard.ts` (the count grew from the "~30" estimate — `recipe-extract`, `wishlist-extract`, `safety-weekly-digest`, bookshelf-* wired in since Phase 3). All 40 carry an in-code auth guard (verified), so `--no-verify-jwt` matches the config.toml intent with no exposure. Deploy = the definitive Deno type-check; all 40 clean.
+
+**STEP-0 functional check (the gate before the flip) — found + fixed a real PRD-30 Layer-2 gap that shipped through sign-off.** 73/84 `lila_conversations` were unscanned = **61 non-monitored (mom/dad — correctly out of scope) + 12 monitored-kid conversations stuck**. Root cause: `safety-classify` `classifyTranscript` (and, latent, `validate-ai-output` `tier2Confirm`) parsed Haiku's response with a **fence-only regex** that only stripped a closing ```` ``` ```` at end-of-string; Haiku wraps its JSON in a ```` ```json ```` fence AND appends an explanatory paragraph, so `JSON.parse` threw → classification treated as "failed" (null) → conversation left unscanned (deterministic at temp 0). **A real concern was droppable the same way.** Compounding: FK-dead cost logging (zero-UUID `member_id` FK-violated `ai_usage_tracking` → `safety_classification`/`ethics_validation` had **0 rows ever**, which is why the failure was invisible). Fixes: `_shared/json-extract.ts` `extractJsonObject` (first `{` to last `}`) wired into both parse paths; real family/member ids threaded; cost-logger skips+warns on a missing/sentinel id. Committed **e82fadb** (redteam 76/76); `safety-classify` + `validate-ai-output` deployed.
+
+**Post-fix re-verify (a–d), all live against production:**
+- **(a)** 12 stuck conversations cleared within sweep ticks → **23/23 monitored conversations scanned, 0 stuck.**
+- **(b)** `safety_classification` cost rows now land (**23 rows, real members** — was 0 ever).
+- **(c)** Seeded a monitored-kid (Alex) self-harm message → **`self_harm`/`critical` flag via Layer-2 classification**, a real populated `conversation_starter` (that Haiku path had never produced one), and a **`priority:high` mom notification** (bypasses DND, correct for a locked category). Zero residue.
+- **(d)** `ethics_validation` cost rows now land (**98 rows** from the calibration — was 0 ever).
+
+**Calibration (post-fix, true full-Tier-2 read):** **Tier-1 recall 75/75 = 100%; Tier-2 rejected 75/75 = 100%; category-correct 75/75; benign false positives 0/124 = 0%.** Prior run (during the 2026-07-09 credit outage + fail-open) rejected only 49/75 — the 26 previously-swallowed violations are now all correctly rejected, proving the fail-open fix AND the `tier2Confirm` parse fix. **0% FP is the Layer-1 gate-exit evidence: no false-retraction risk.**
+
+**Deity-block (criterion 4) — the (e) suite run surfaced a THIRD instance of the same JSON-parse bug.** `lila-board-of-directors` `contentPolicyCheck` did a bare `JSON.parse(text)` on the fenced Haiku verdict → fail-closed `'blocked'` for every name (`'God'`→`blocked` instead of the Prayer-Seat `deity` redirect; all persona creation blocked). Deployed model ID was already correct; the parse was the cause. Fixed with `extractJsonObject` (sibling `classifyRelevance` was already robust via `/\{[\s\S]*\}/`). Committed **0c4ffb8**, deployed by the seat → **deity tests 4/4 green.** Also fixed a pre-existing stale Pin 5 test field (`level`→`detail_level`, deployed task-breaker's schema) in the same commit.
+
+**(e) verification suites (fresh dev server — killed stale PID 24624):** `safety-beta-gate.spec.ts` **58/58 ✓**; `ethics-enforcement.spec.ts` **10/10 ✓** (pins 1–6 + 4 deity), run both **before** the flip (shadow) and **after** the flip (enforcing).
+
+**Post-flip live verification (against the enforcing deployment):** re-ran `ethics-enforcement.spec.ts` **10/10** — **Pin 4 confirms a live retraction** (`ai_output_scans.status='rejected'`, `lila_ethics_rejections.action='retracted'`), **Pin 1 confirms a live input reframe**, Pin 6 confirms zero residue. `validate-ai-output` cron: last 8 runs all `succeeded`. `safety-classify` cron: green. `ai_output_scans`: 73 validated, **0 rejected/error — no false-positive retraction flood** (0% calibration bearing out live). `lila_ethics_rejections`: 0 (suite's own rows swept by Pin 6).
+
+**Test updates for the flip (uncommitted — for seat close-out):** `redteam/ethics-guard.test.ts` pin flipped to `expect(ENFORCEMENT_MODE).toBe('enforcing')` (redteam **77/77**); `ethics-enforcement.spec.ts` Pin 4 action assertion `logged_only`→`retracted` (**10/10** against enforcing).
+
+**Tier-2 data-window caveat (extended):** shadow-log rows before 2026-07-08 15:47 UTC are Tier-1-only (model-ID bug). ADDITIONALLY, any Tier-2 confirmation before **this session's fix deploy (2026-07-10 ~17:44 UTC)** was subject to the fenced-JSON parse bug — a violation whose Haiku verdict carried trailing prose parked at `error` (fail-safe post the 07-09 fix), not `rejected`. The true clean Tier-2 read begins at this session's deploy.
+
+**Pattern note (recommended follow-up):** the fenced-JSON-parse brittleness surfaced in **three** functions (safety-classify, validate-ai-output, lila-board-of-directors). A systematic sweep of every OpenRouter-response `JSON.parse` site → route through `extractJsonObject` — would close the class. Small follow-up, not a flip blocker.
+
+### Phase-4 Post-Build Verification (Checkpoint 5)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| STEP-0: monitored-kid scan coverage (the gate) | **Wired** | 12 stuck cleared → 23/23 scanned; root cause fixed |
+| JSON-extraction hardening (3 functions) | **Wired** | `_shared/json-extract.ts`; redteam 77/77; e82fadb + 0c4ffb8 |
+| FK-dead cost-logging repair | **Wired** | safety_classification 23 rows, ethics_validation 98 rows (were 0 ever) |
+| Deity-block (criterion 4) | **Wired** | 4/4 green post lila-board-of-directors deploy |
+| Calibration — true full-Tier-2 | **Wired** | 100% recall, 100% Tier-2 reject, 100% category-correct, 0% FP |
+| safety-beta-gate.spec.ts | **Wired** | 58/58, fresh dev server |
+| ethics-enforcement.spec.ts (shadow AND enforcing) | **Wired** | 10/10 both pre- and post-flip |
+| `ENFORCEMENT_MODE` flip → enforcing | **Wired** | ethics-guard.ts:63; 40 functions redeployed enforcing |
+| Live retraction verified end-to-end | **Wired** | Pin 4: status=rejected, action=retracted against enforcing |
+| Live input reframe verified end-to-end | **Wired** | Pin 1 against enforcing |
+| validate-ai-output cron green post-flip | **Wired** | last 8 runs succeeded |
+| No false-positive retraction flood | **Wired** | 0 rejections / 73 validated live |
+| Rollback lever | **Wired (documented)** | enforcing→shadow + redeploy, pre-authorized |
+| Commit the flip edit + 2 test updates | **Pending (seat close-out)** | uncommitted — flip is LIVE but not yet in git |
+| Systematic JSON.parse sweep (all functions) | **Stub (recommended)** | pattern in 3 functions; follow-up |
+
+**Zero Missing on the flip.** Open items are seat-owned: (1) commit the 3 uncommitted files (flip constant + 2 test-assertion updates) — the flip is LIVE in production but a git-based redeploy would revert it to shadow until committed; (2) the JSON.parse-sweep follow-up; (3) the Beta Readiness delta report update (Fable seat owns that per the original dispatch).

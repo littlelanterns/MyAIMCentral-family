@@ -522,8 +522,8 @@ test.describe('PRD-41 ethics-enforcement pins', () => {
     expect(rejectionRow!.direction).toBe('output')
     expect(rejectionRow!.tier).toBe(2)
     expect(rejectionRow!.category).toBe('withholding_affection')
-    // Shadow mode (shipped state) — action is logged_only, never retracted.
-    expect(rejectionRow!.action).toBe('logged_only')
+    // Enforcing mode (Phase 4 flip, 2026-07-10) — a Tier-2-confirmed violation is retracted.
+    expect(rejectionRow!.action).toBe('retracted')
 
     const benignRow = await pollUntil(
       async () => {

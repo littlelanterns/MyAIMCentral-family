@@ -158,8 +158,8 @@ describe('PRD-41 red-team — static drift pins (assertion 4, Phase 1 subset)', 
     expect(src).toContain("export const ENFORCEMENT_MODE")
   })
 
-  it('ENFORCEMENT_MODE is shadow (Phase 1-3 shipped state — Phase 4 is a separate founder-gated flip)', () => {
-    expect(ENFORCEMENT_MODE).toBe('shadow')
+  it('ENFORCEMENT_MODE is enforcing (Phase 4 flip landed 2026-07-10 on founder GO — rollback lever is enforcing->shadow + redeploy)', () => {
+    expect(ENFORCEMENT_MODE).toBe('enforcing')
   })
 
   it('ethics-guard.ts has NO supabase-js URL import (keeps it vitest-importable, mirrors crisis-detection.ts)', () => {
