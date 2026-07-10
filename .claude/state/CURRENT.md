@@ -84,6 +84,10 @@ attorney package → founder declaration.** Criteria 1/2 🟡 (PRD-40 Slice 1 li
 
 ## Seat's SMFX pile (fold into an SMFX dispatch)
 
+`family-auth-two-door.spec.ts` test 7 (kill-switch) flake — now flaked in THREE separate
+batch runs (FDWA 07-09, PINR 07-09, FE-FOLLOWUP 07-10), always the same test, always passes
+in isolation; likely a timing race on the global sign-out; root-cause it instead of
+re-documenting it ·
 CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token) ·
 nameless dashboard greeting · pre-commit banned-pattern grep excludes comment lines ·
 obligations Layer-2 grace-buffer gap (#271 next-toucher) · PECON C5 follow-ups (rider-3 pin

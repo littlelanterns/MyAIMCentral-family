@@ -45,20 +45,19 @@ const TESTWORTH_FAMILY_ID = '1f6200a7-df82-4ac4-bce3-3edcafe66bc5'
 const TESTWORTH_LOGIN = 'testworthfamily'
 const TESTWORTH_PASSWORD = process.env.E2E_TESTWORTH_FAMILY_PASSWORD || 'Lanterns2026'
 const SARAH = { email: 'testmom@testworths.com', password: 'Demo2026!' }
-// SEPARATE PRE-EXISTING PRODUCTION BUG (found live while writing this test,
-// out of PINR's scope, flagged in the build file for founder/seat
-// attention): the mom-facing PIN-setting UI (FamilyMembers.tsx:600,
-// FamilySetup.tsx) hard-requires EXACTLY 4 digits before allowing save, but
-// this Supabase project's Auth minimum_password_length is 6
-// (supabase/supabase/config.toml:175) — ensure_pin_shadow_account uses the
-// raw PIN AS the shadow account's password, so it ALWAYS fails server-side
-// ("Password should be at least 6 characters") for every 4-digit PIN the
-// UI allows, meaning no kid using a mom-set 4-digit PIN gets a real
-// persisted session via handlePinSubmit's signInWithPassword. A 6-digit PIN
-// (within the Edge Function's own 4-8 digit validation) is used here so
-// THIS test can exercise PINR's actual relock feature — this constant is a
-// test-only workaround for a bug PINR did not introduce and does not fix.
-const TEST_PIN = '482163'
+// FE-FOLLOWUP item 2 (2026-07-10) FIXED the bug this constant used to
+// work around: the mom-facing PIN-setting UI hard-requires exactly 4 digits,
+// but this Supabase project's Auth minimum_password_length is 6 — and
+// ensure_pin_shadow_account used to use the raw PIN AS the shadow account's
+// password, so it always failed server-side for every 4-digit PIN. The fix
+// (mirroring the picture-password derived-secret pattern) means the shadow
+// account's password is now a server-derived HMAC secret, never the PIN
+// itself — so a realistic 4-digit PIN works end-to-end. This constant is a
+// REAL 4-digit PIN now (not a 6-digit workaround), and establishTestMemberSession
+// / completeRelockViaDirectSession below authenticate via the pin_login Edge
+// Function action (verify_member_pin + derived-secret sign-in) instead of a
+// raw password sign-in — the same mechanism FamilyLogin.handlePinSubmit uses.
+const TEST_PIN = '4821'
 const OVERRIDE_MS = 3000
 const MARKER = 'PINRTEST'
 const TEST_MEMBER_NAME = `${MARKER} Kid`
@@ -128,10 +127,18 @@ test.beforeAll(async () => {
   if (memberErr || !newMember) throw new Error(`Failed to create PINR test member: ${memberErr?.message}`)
   testMemberId = newMember.id
 
-  // ensure_pin_shadow_account requires mom's JWT (family-auth-admin.ts:28).
+  // Mirror the real mom-facing PIN-set flow exactly (FamilyMembers.tsx:600):
+  // hash_member_pin FIRST (stores pin_hash — the verify_member_pin gate
+  // pin_login now actually calls), THEN ensure_pin_shadow_account (mints the
+  // session-capable shadow account). Both require mom's JWT.
   const sarahClient = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
   const { error: sarahErr } = await sarahClient.auth.signInWithPassword(SARAH)
   if (sarahErr) throw new Error(`Sarah sign-in failed: ${sarahErr.message}`)
+  const { error: hashErr } = await sarahClient.rpc('hash_member_pin', {
+    p_member_id: testMemberId,
+    p_pin: TEST_PIN,
+  })
+  if (hashErr) throw new Error(`Failed to hash PINR test member's PIN: ${hashErr.message}`)
   const { data: pinData, error: pinErr } = await sarahClient.functions.invoke('family-auth-admin', {
     body: { action: 'ensure_pin_shadow_account', member_id: testMemberId, pin: TEST_PIN },
   })
@@ -202,41 +209,55 @@ async function withShortIndependentTimeout(page: Page, ms: number) {
 }
 
 /**
+ * Signs the test member in via the REAL mechanism the app now uses
+ * (FE-FOLLOWUP item 2): the pin_login Edge Function action verifies
+ * the PIN server-side (verify_member_pin, lockout applies) and returns
+ * access/refresh tokens for a shadow account whose password is a
+ * server-derived secret — never the PIN itself. setSession reconstructs the
+ * full session object from those tokens, matching what
+ * FamilyLogin.handlePinSubmit does in the browser.
+ */
+async function signInTestMemberViaPinLogin() {
+  const anonClient = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
+  const { data: loginData, error: loginErr } = await anonClient.functions.invoke('family-auth-admin', {
+    body: { action: 'pin_login', member_id: testMemberId, pin: TEST_PIN },
+  })
+  if (loginErr || !loginData?.success || !loginData.access_token || !loginData.refresh_token) {
+    throw new Error(`pin_login failed: ${loginErr?.message ?? JSON.stringify(loginData)}`)
+  }
+  const { data: sessionData, error: setSessionErr } = await anonClient.auth.setSession({
+    access_token: loginData.access_token,
+    refresh_token: loginData.refresh_token,
+  })
+  if (setSessionErr || !sessionData.session) {
+    throw new Error(`Failed to reconstruct session from pin_login tokens: ${setSessionErr?.message}`)
+  }
+  return sessionData.session
+}
+
+/**
  * Establishes the family layer via the REAL family-door flow (both the
  * main client's session AND the persisted familyDeviceClient session —
  * exactly what PINR needs resumable), then lands the test member on /dashboard with
  * her own real session.
  *
- * The test member's PIN-entry gate itself is NOT driven through the UI here — see the
- * TEST_PIN comment above: the login form's PIN input is hard-capped at
- * maxLength=4 (FamilyLogin.tsx), but this Supabase project's Auth policy
- * requires >=6-character passwords, so NO PIN value can satisfy both the
- * UI and the Auth policy simultaneously (a separate, pre-existing,
- * out-of-scope production bug — flagged prominently in the PINR build
- * file). Her own session is instead seeded directly with the exact
- * credentials ensure_pin_shadow_account already configured — the SAME
- * session handlePinSubmit's signInWithPassword call would produce if the
- * UI/policy mismatch weren't blocking it — which clobbers the main
- * client's storage slot exactly as a real PIN sign-in does. The family
- * device client (a SEPARATE client/storage key) is left untouched by this,
- * which is the actual behavior PINR needs to prove survives.
+ * The test member's PIN-entry gate itself is NOT driven through the UI here
+ * (the relock-gate UI interaction is what tests (a)/(b)/(d) below actually
+ * verify) — her own session is instead seeded directly via
+ * signInTestMemberViaPinLogin, which clobbers the main client's storage slot
+ * exactly as a real PIN sign-in does. The family device client (a SEPARATE
+ * client/storage key) is left untouched by this, which is the actual
+ * behavior PINR needs to prove survives.
  */
 async function establishTestMemberSession(page: Page) {
   await openFamilyDoor(page)
   await expect(page.getByText(TEST_MEMBER_NAME)).toBeVisible({ timeout: 15000 })
 
-  const testMemberClient = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: signInData, error: signInErr } = await testMemberClient.auth.signInWithPassword({
-    email: `${testMemberId}@pin.myaimcentral.app`,
-    password: TEST_PIN,
-  })
-  if (signInErr || !signInData.session) {
-    throw new Error(`Failed to establish the test member's own session: ${signInErr?.message}`)
-  }
+  const session = await signInTestMemberViaPinLogin()
 
   await page.evaluate((sessionJson) => {
     localStorage.setItem('myaim-auth', sessionJson)
-  }, JSON.stringify(signInData.session))
+  }, JSON.stringify(session))
 
   await page.goto('/dashboard')
   await page.waitForURL('**/dashboard', { timeout: 20000 })
@@ -244,25 +265,18 @@ async function establishTestMemberSession(page: Page) {
 
 /**
  * Completes the relock gate the SAME way establishTestMemberSession
- * bootstraps her initial session — direct localStorage seed, bypassing the
- * broken maxLength=4 PIN input (see TEST_PIN comment). The gate ITSELF
- * (verify_member_pin correctness, the RPC lockout logic) is unit-level
- * server behavior untouched by PINR; what PINR needs proven here is that
- * the relock SCREEN correctly renders the test member's own gate on resume — this
- * helper only stands in for "then the test member successfully re-authenticates."
+ * bootstraps her initial session — direct localStorage seed via
+ * signInTestMemberViaPinLogin. The gate ITSELF (verify_member_pin
+ * correctness, the RPC lockout logic) is unit-level server behavior
+ * untouched by PINR; what PINR needs proven here is that the relock SCREEN
+ * correctly renders the test member's own gate on resume — this helper only
+ * stands in for "then the test member successfully re-authenticates."
  */
 async function completeRelockViaDirectSession(page: Page) {
-  const testMemberClient = createClient(supabaseUrl, anonKey, { auth: { autoRefreshToken: false, persistSession: false } })
-  const { data: signInData, error: signInErr } = await testMemberClient.auth.signInWithPassword({
-    email: `${testMemberId}@pin.myaimcentral.app`,
-    password: TEST_PIN,
-  })
-  if (signInErr || !signInData.session) {
-    throw new Error(`Failed to re-establish the test member's own session: ${signInErr?.message}`)
-  }
+  const session = await signInTestMemberViaPinLogin()
   await page.evaluate((sessionJson) => {
     localStorage.setItem('myaim-auth', sessionJson)
-  }, JSON.stringify(signInData.session))
+  }, JSON.stringify(session))
   await page.goto('/dashboard')
   await page.waitForURL('**/dashboard', { timeout: 20000 })
 }
