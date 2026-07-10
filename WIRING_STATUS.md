@@ -1,7 +1,34 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-07-08 (PRD-30 SM-C Safety Monitoring).
+> Updated each build session. Last updated: 2026-07-09 (FDWA+PINR, GDCX close-out).
+
+## FDWA + PINR — Family-Device Writes + Personal-Device PIN Relock (2026-07-09)
+
+Sequencing pair (founder ruling 2026-07-04). FDWA closes the "kid action on a family tablet silently does nothing" gap for every remaining table; PINR makes personal-device timeout drop to the member's own relock gate instead of the full family door. Migrations 100306 (FDWA) + 100308/100309 (adjacent recursion fixes). Committed `d296f90` (schema in `2e4dd24`), pushed 2026-07-09. E2E `family-device-writes.spec.ts` 24/24 + `pin-relock-stickiness.spec.ts` 5/5 + independent rls-verifier pass (196 probes). Build record archived at `.claude/completed-builds/2026-07/FDWA-PINR.md`.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Family-shadow writes on 19 remaining tables/surfaces | 35 additive `util.is_family_shadow_of` policies (100262 pattern): widget_data_points, practice_log, journal_entries, guided_form_responses, dashboard_widgets/configs, guiding_stars, best_intentions, self_knowledge, reflection_responses, rhythm_completions, randomizer_draws, time_sessions, reward_proposals, messages + conversation spaces/members/threads, notepad_tabs/extracted_items, mindsweep_holding, family_requests | **Wired** | Attribution asserted on messages/notepad/mindsweep/family_requests (amended ruling 4). `gift_claims` deliberately EXCLUDED (surprise-safety RESTRICTIVE design — never add an arm) |
+| Theme/layout persistence for non-mom sessions | `update_member_appearance()` narrow SECURITY DEFINER RPC (owner/primary_parent/shadow gate, touches ONLY the two appearance columns); `useThemePersistence` + `useSidebarPersistence` rerouted with real error surfacing (`AppearanceErrorBanner` via new `AppearanceErrorContext` in ShellProvider) | **Wired** | Fixed a UNIVERSAL pre-existing silent failure — no `family_members` self-update policy ever existed, so every non-mom theme change no-op'd platform-wide |
+| `redeem_own_prize` on family devices | Shadow branch added to caller resolution (`place_member_creature` precedent shape) | **Wired** | 6/6 rls-verifier probes incl. double-redeem + cross-family rejection |
+| `conversation_space_members` INSERT/DELETE recursion (pre-existing P0s) | `util.is_space_admin()` SECURITY DEFINER helper replaces self-referencing subqueries (migrations 100308/100309) | **Wired** | Blocked kid-initiated messaging in production independent of family devices; static drift pin + live regression test |
+| Personal-device timeout → member relock | Dual persisted sessions: `familyDeviceClient.ts` (storageKey `myaim-family-auth`) + family_id marker; `useSessionTimeout` expiry passes `resumeMemberId`; FamilyLogin resume-check via `getUser()` (kill-switch-aware server round-trip) → lands on that member's own PIN/picture gate, roster never shown | **Wired** | Also fixed the pre-existing AuthGuard/signOut race that sent EVERY session-timeout to `/` instead of the family door |
+| `csm_insert_admin_or_parent` branch-1 mystery (creator-of-space INSERT still rejected) | — | Stub | PRD-15 territory (migration 100108), diagnosed not chased — in the follow-up queue |
+| 4-digit PIN vs 6-char Auth-policy conflict (PIN shadow sessions never mint) | — | Stub | FOUNDER RULED: keep 4-digit PINs; fix = picture-password derived-secret pattern (mirror `family-auth-admin` picture path). Follow-up build in the queue |
+
+## GDCX — Guided Dashboard Completion, PRD-25 Residuals (2026-07-09)
+
+4 slices, committed `cade705`, pushed 2026-07-09. Migration 100307. E2E `guided-dashboard-completion.spec.ts` 3/3 + `nbt-engine-day-scheduling.test.ts` 6/6 + Convention #277 eyes-on tour (6 screenshots read). Build record archived at `.claude/completed-builds/2026-07/GDCX-guided-completion.md`.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Next Best Thing card (PRD-25 flagship, dark since 2026-05-03) | `useNBTEngine` now applies `filterTasksForToday` + `useFamilyToday` (Convention #257); 8-level priority order intact (Convention #126) | **Wired** | Root cause: day-scheduling filter never applied — MWF routines suggested on Tuesdays. Bonus fix: "Do This" button was invisible under gradient themes (`backgroundColor:` vs `background:` on `--surface-primary`) |
+| Guided bottom nav — 5 tabs restored (Home/Tasks/Write/Victories/Progress) | Convention #124 code catch-up; Progress retargeted to `/my-rewards` (one rewards home per kid); `GuidedProgress.tsx` retired | **Wired** | View-As parity via `getSidebarSections('guided')` |
+| DailyCelebration Steps 2.5/3/4 (Reflections, Streak, Theme progress) | Un-stubbed together: reflections reuse WriteDrawer pattern w/ `source_context='daily_celebration'` (migration 100307 CHECK extension); streak via `compute_streak()`; theme via sticker-book state | **Wired** | Celebration-only framing verified for 0-day streak |
+| Write button unread badge + header gamification indicator gating | `useUnreadNotificationCount()`; indicators gate on `gamification_configs.enabled === true` | **Wired** | |
+| Messages tab redirect to `/messages` | Ratified PERMANENT design (D-GDCX-1), not a placeholder | **Wired** | |
+| Per-prompt reflection toggles | — | Stub (pre-approved) | D-GDCX-5 accepted simplification; "N prompts per day" dropdown stands |
 
 ## PRD-30 Safety Monitoring — SM-C (2026-07-08)
 

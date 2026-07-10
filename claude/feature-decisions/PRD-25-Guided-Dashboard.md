@@ -284,3 +284,28 @@ All return `true` during beta via `useCanAccess()`.
 - [ ] Zero Missing items confirmed
 - [ ] **Phase approved as complete**
 - **Completion date:**
+
+---
+
+## GDCX Close-Out Appendix (2026-07-09) — PRD-25 Residuals Complete
+
+GDCX (Guided Dashboard completion, 4 slices) shipped 2026-07-09, committed `cade705` (schema
+`2e4dd24`), pushed same day. Migration 100307. Full build record:
+`.claude/completed-builds/2026-07/GDCX-guided-completion.md`. WIRING_STATUS has the capability table.
+
+### Post-Build Verification (copied from the build file, condensed)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| Next Best Thing re-enabled, day-scheduled (Convention #126 priority intact, #257 family-today) | **Wired** | `filterTasksForToday` + `useFamilyToday` in `useNBTEngine`; `nbt-engine-day-scheduling.test.ts` 6/6 (verified to FAIL pre-fix); eyes-on screenshots |
+| Invisible "Do This" button under gradient themes (found by the tour) | **Wired** | `backgroundColor:` → `background:` on `--surface-primary` |
+| Guided bottom nav — 5 tabs per Convention #124 (Victories restored, Progress → /my-rewards) | **Wired** | `GuidedProgress.tsx` retired; View-As parity via `getSidebarSections('guided')` |
+| DailyCelebration Steps 2.5 (Reflections) / 3 (Streak) / 4 (Theme) | **Wired** | `source_context='daily_celebration'` (migration 100307); `compute_streak()`; sticker-book state; celebration-only framing verified |
+| Write button unread badge + gamification-gated header indicators | **Wired** | `useUnreadNotificationCount()`; `gamConfig?.enabled === true` gate |
+| Messages tab redirect ratified permanent (D-GDCX-1) | **Wired** | Header comment updated |
+| STUB_REGISTRY stale-row corrections (NBT, Homework Help, Communication Coach, etc.) | **Wired** | PRD-25 section rewritten in-build |
+| Per-prompt reflection toggles (D-GDCX-5) | **Stubbed (pre-approved)** | "N prompts per day" dropdown stands |
+| E2E + tour + regressions | **Wired** | `guided-dashboard-completion.spec.ts` 3/3; eyes-on tour 6 shots read; sidebar-sections 30/30; kids-rewards-slice2 test 8 fixed + green |
+
+**Zero Missing. Phase approved as complete — founder committed + pushed 2026-07-09.**
+(`guided-dashboard-full.spec.ts` login-helper debt is pre-existing, founder-directed out of GDCX scope — seat triages separately.)

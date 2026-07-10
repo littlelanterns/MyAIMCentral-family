@@ -176,3 +176,41 @@ No new feature keys required.
 - [ ] Zero Missing confirmed
 - [ ] Phase approved as complete
 - Completion date:
+
+---
+
+## FDWA + PINR Close-Out Appendix (2026-07-09)
+
+The two committed follow-ups from this build's original stub list shipped as the FDWA+PINR
+sequencing pair (founder-approved dispatch 2026-07-04, built 2026-07-09, committed `d296f90`,
+schema `2e4dd24`, pushed same day). Full build record: `.claude/completed-builds/2026-07/FDWA-PINR.md`.
+WIRING_STATUS has the capability table; STUB_REGISTRY rows flipped to Wired.
+
+### FDWA Post-Build Verification (copied from the build file)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| 35 additive `is_family_shadow_of` policies across 19 tables (ruling 1 + amended ruling 4) | **Wired** | Migration 100306 applied + verified live (35/35 via `pg_policies`) |
+| `update_member_appearance` narrow RPC (D-FDWA-1) | **Wired** | 9/9 rls-verifier probes PASS incl. cross-family rejection |
+| `redeem_own_prize` shadow branch (ruling 3) | **Wired** | 6/6 rls-verifier probes incl. double-redeem + cross-family rejection |
+| `useThemePersistence` + Sidebar reroute + error handling | **Wired** | RPC call + console.error + AppearanceErrorBanner |
+| Attribution probes (messages/notepad/mindsweep/family_requests) | **Wired** | 4 dedicated E2E tests |
+| E2E `family-device-writes.spec.ts` | **Wired** | 24/24, zero residue |
+| `conversation_space_members` INSERT + DELETE recursion (adjacent P0s) | **Wired** | Migrations 100308/100309 + regression pins |
+| `csm_insert_admin_or_parent` branch-1 mystery | **Flagged, out of scope** | PRD-15 territory — in the follow-up queue |
+| tsc -b / eslint / regression pins | **Wired** | Clean; family-auth-two-door 8/8 |
+
+### PINR Post-Build Verification (copied from the build file)
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| Option A dual persisted sessions (`familyDeviceClient.ts`) | **Wired** | New client, isolation grep-pinned to FamilyLogin.tsx only |
+| `establishFamilySession` persistence + family_id marker | **Wired** | Best-effort, non-fatal to main flow |
+| Resume-check: `getUser()` + `get_family_login_members` + `handleMemberSelect` | **Wired** | 5/5 E2E; kill-switch bounce proven by test (b) |
+| No-enumeration preserved on resume | **Wired** | Reuses the existing gated RPC |
+| `useSessionTimeout` DEV-only test seam + `resumeMemberId` via ref | **Wired** | Dead-code-eliminated from prod bundles |
+| AuthGuard/signOut race (pre-existing, every timeout path) | **Wired** | navigate-before-signOut reorder |
+| 4-digit PIN vs 6-char Auth-policy conflict | **Flagged → FOUNDER RULED 2026-07-09** | Keep 4-digit PINs; fix = picture-password derived-secret pattern (follow-up queue). CLAUDE.md #273 amended |
+| E2E `pin-relock-stickiness.spec.ts` + Convention #277 visual pass (3 viewports) | **Wired** | 5/5; screenshots read directly |
+
+**Zero Missing on both scopes. Phase approved as complete — founder committed + pushed 2026-07-09.**
