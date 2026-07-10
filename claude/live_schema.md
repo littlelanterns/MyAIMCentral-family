@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-09
+> Auto-generated from live Supabase on 2026-07-10
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -128,7 +128,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 536 rows
+### `view_as_sessions` — 539 rows
 
 | # | Column |
 |---|---|
@@ -140,7 +140,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 416 rows
+### `view_as_feature_exclusions` — 419 rows
 
 | # | Column |
 |---|---|
@@ -398,7 +398,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 778 rows
+### `ai_usage_tracking` — 899 rows
 
 | # | Column |
 |---|---|
@@ -808,7 +808,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2120 rows
+### `routine_step_completions` — 2122 rows
 
 | # | Column |
 |---|---|

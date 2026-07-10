@@ -1248,3 +1248,132 @@ Every one of the 22 table-residue counts, plus the 2 join-scaffold-id residue co
 | **Finding A** — pre-existing (not introduced by 100306), role-independent infinite-recursion bug in `csm_delete_admin_or_parent` breaks all DELETEs against `conversation_space_members` | **Documented, not blocking** — fails closed (no security leak), but is a live application-breaking defect; recommend a follow-up fix using the `SECURITY DEFINER` helper-function pattern already established for this exact bug class |
 
 **Verdict: PASS.** Migration 100306 does exactly what its own header claims: it restores family-shadow write access scoped strictly to the calling shadow account's own family, on exactly the 22 tables and exactly the commands (SELECT/INSERT/UPDATE, with DELETE only on the 15 tables that already had it for the owning member) its comments describe — verified by 181 live adversarial probes (173 table probes + 8 reverse-direction probes) plus 15 RPC sub-checks, not by reading the DDL. Both new/modified functions (`update_member_appearance`, `redeem_own_prize`) correctly reject cross-family targets with `not_allowed` and zero side effects, correctly reject same-family non-owner callers, and correctly continue to support their real (non-shadow) production call paths. The one real defect surfaced during this pass (Finding A) is a pre-existing, unrelated, fail-closed bug — not a security regression from this migration — and is documented here so it doesn't get silently rediscovered later.
+
+---
+
+## Migration 100312 -- RPC-EXECUTE sweep: remaining leaf functions (2026-07-09)
+
+**Overall result: PASS -- zero gaps found.** Migration `00000000100312_rpc_execute_sweep_remaining_leaves.sql` applied to linked production (project ref `vjfbzpliqialqmabfnxs`), a scheduled follow-up to migrations `00000000100310` (bare service_role-only revoke for 3 functions with no legitimate caller) and `00000000100311` (in-body authorization gates for `grant_money`/`apply_permission_profile`). This migration closes the remaining leaf-function gap surfaced by the 2026-07-09 adversarial safety-stack review WORKSTREAM 2, in three shapes: **Group A** -- in-body family-membership authorization gates on 2 functions with real client callers (`advance_coloring_reveal`, `award_custom_reward_for_completion`) plus a brand-new server-computed sibling for `grant_money` (`grant_money_for_task_completion`, closing the same-family amount-tamper vector migration 100311 explicitly left open); **Group B** -- bare `service_role`-only lockdown on 13 functions with zero legitimate client caller (all book-cache/godmother-dispatch internals); **Group C** -- `anon`-only revoke (authenticated stays) on 2 functions writing to the shared, family-unscoped `platform_intelligence.book_extractions` cache.
+
+### Methodology
+
+Same `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim impersonation inside a single `BEGIN...ROLLBACK` transaction against linked production, extending the established pattern from the 100298/100300/100305/100306 entries above. All fixture setup (a `member_coloring_reveals` row, 4 `tasks`/`task_rewards`/`task_completions` triples covering the privilege-reward and money-reward paths at every `require_approval`/`approval_status` combination needed) ran as the connecting superuser role (bypasses RLS), scoped to real family/member ids from the two-family roster already on file in this document (OurFamily `4bc86323-545b-4faf-b31f-3926fdd8c5a6`, The Testworth Family `1f6200a7-df82-4ac4-bce3-3edcafe66bc5` -- no new identities were needed; reused Tenise/Jerrod/Helam/Gideon (OurFamily) and Sarah (Testworth) from the roster documented under the 100298/100305 sections above). Every probe result (26 sub-tests across Groups A/B/C) was captured into a `CREATE TEMP TABLE probe_log`, GRANTed `INSERT`/`SELECT` to `authenticated`, `anon`, AND `service_role` (a first-run omission of the `service_role` grant caused one early probe to fail at the temp-table-privilege layer before ever reaching the function under test -- fixed and the full script re-run cleanly from a fresh transaction). All 26 sub-tests wrapped individually in `DO $$ ... EXCEPTION WHEN OTHERS THEN ... END $$` blocks so a caught permission/authorization error never aborts the surrounding transaction, matching the 100305/100306 capture pattern. A final, fully independent read-only query ran after `ROLLBACK` to confirm zero permanent trace.
+
+### Grant and policy inventory (post-migration, verified live via `has_function_privilege()`)
+
+| Function | anon EXECUTE | authenticated EXECUTE | service_role EXECUTE | Shape |
+|---|---|---|---|---|
+| `advance_coloring_reveal(uuid)` | false | true | true | Group A -- in-body gate, real client caller kept |
+| `award_custom_reward_for_completion(uuid)` | false | true | true | Group A -- in-body gate, real client caller kept |
+| `grant_money_for_task_completion(uuid)` | false | true | true | Group A (new) -- server-computed sibling, in-body gate from birth |
+| `award_starter_creature(uuid)` | false | false | true | Group B |
+| `dispatch_single_grant(uuid)` | false | false | true | Group B |
+| `delete_book_extractions_by_audience(uuid,text)` | false | false | true | Group B |
+| `insert_book_chunks(uuid,jsonb)` | false | false | true | Group B |
+| `insert_book_extractions(uuid,jsonb,text)` | false | false | true | Group B |
+| `insert_book_extractions_study_guide(uuid,text,jsonb)` | false | false | true | Group B |
+| `update_book_cache_embedding(uuid,text)` | false | false | true | Group B |
+| `update_book_chunk_embedding(uuid,text)` | false | false | true | Group B |
+| `update_book_extraction_embedding(uuid,text)` | false | false | true | Group B |
+| `update_book_extraction_key_points(uuid[],boolean)` | false | false | true | Group B |
+| `update_book_extraction_youth_text(uuid,text,text)` | false | false | true | Group B |
+| `set_bookshelf_item_library_id(uuid,uuid,text,integer)` | false | false | true | Group B |
+| `upsert_book_library(text,text,text,text[],text[],text,jsonb,text)` | false | false | true | Group B |
+| `create_custom_extraction(uuid,text,text,text,text,text)` | false | true | true | Group C -- shared platform cache, no per-family gate by design |
+| `update_extraction_text(uuid,text,text)` | false | true | true | Group C -- shared platform cache, no per-family gate by design |
+
+All 18 functions land in exactly the shape the migration header claims. Group A `authenticated=true` is intentional (real client callers exist); Group B `authenticated=false` closes every function with zero legitimate client/Edge-Function caller; Group C `authenticated=true` is intentional (the shared, family-unscoped book-extractions cache has no meaningful per-family boundary to enforce -- the correct boundary is "must be a real platform user," matching the `increment_vault_view_count`/migration 100113 precedent already on file).
+
+### 1. Group A -- in-body authorization gates (11 sub-tests, all PASS)
+
+Fixture data: a `member_coloring_reveals` row for Gideon (OurFamily, `5aca243a-5f2e-425d-bc25-599d79e83a4f`, 5-step `armadillo_wildflowers` sequence, `current_step=0`); a privilege-reward `tasks`/`task_rewards`/`task_completions` triple for Gideon (`require_approval=false`, `approval_status='approved'`); three money-reward `tasks`/`task_rewards`/`task_completions` triples for Helam (OurFamily, `b266cf06-d2b4-4c7b-a6bd-559224367005`) covering `require_approval=true` + `approval_status='pending'`, `require_approval=true` + `approval_status='approved'`, and `require_approval=false`.
+
+| # | Function | Caller | Target | Expected | Actual | Result |
+|---|---|---|---|---|---|---|
+| A1 | `advance_coloring_reveal` | Sarah (Testworth, authenticated, cross-family) | Gideon reveal (OurFamily) | Blocked | `P0001: Not authorized`; reveal current_step unchanged | PASS -- BLOCKED |
+| A2 | `advance_coloring_reveal` | Tenise (OurFamily mom -- NOT the reveal owner) | same reveal | Success, family-membership not identity | advanced=true, new_step=1 | PASS |
+| A3 | `advance_coloring_reveal` | service_role (bypass branch) | same reveal, advancing further | Success | advanced=true, new_step=2 | PASS -- service_role bypass functions |
+| A4 | `award_custom_reward_for_completion` | Sarah (Testworth, cross-family) | Gideon privilege completion (OurFamily) | Blocked | `P0001: Not authorized`; zero earned_prizes rows | PASS -- BLOCKED |
+| A5 | `award_custom_reward_for_completion` | Jerrod (OurFamily dad -- NOT the earner) | same completion | Success, payout credited to Gideon not Jerrod | status=awarded, prize_id=299f52b0-8b9a-46eb-a87d-189cbffb8812; earned_prizes.family_member_id = Gideon | PASS -- family-membership gate + payout-follows-completion-owner |
+| A6 | `award_custom_reward_for_completion` | Tenise (idempotency re-call) | same completion | already_awarded, no duplicate | status=already_awarded | PASS |
+| A7 | `grant_money_for_task_completion` | Sarah (Testworth, cross-family) | Helam pending-approval money completion (OurFamily) | Blocked | `P0001: Not authorized`; zero financial_transactions rows for it | PASS -- BLOCKED |
+| A8 | `grant_money_for_task_completion` -- Q7 approval-timing gate | Tenise (OurFamily mom, legitimate same-family caller) | Helam require_approval=true, approval_status=pending completion | Authorization passes, but Q7 gate returns skipped_pending_approval; zero financial_transactions row | status=skipped_pending_approval, ft_count=0 | PASS -- Q7 GATE HELD. This is the specific defect the coordinating session required fixed before this migration was allowed to apply, confirmed live and not merely present in source. |
+| A9 | `grant_money_for_task_completion` | Tenise (OurFamily mom) | Helam require_approval=true, approval_status=approved completion ($8.00) | granted, one real financial_transactions row | status=granted, amount=8.00, balance_after=8.00; 1 matching row | PASS |
+| A10 | `grant_money_for_task_completion` (service_role bypass) | service_role | Helam require_approval=false completion ($3.50) | granted | status=granted, amount=3.50, balance_after=11.50; 1 matching row | PASS |
+| A11 | `grant_money_for_task_completion` (idempotency) | Tenise, re-call on A9 already-granted completion | same completion | No duplicate row (delegates to grant_money own unique-violation catch) | status=already_awarded, error_message=duplicate transaction detected; still exactly 1 row | PASS -- NO DUPLICATE |
+
+### 2. Group B -- service-role-only lockdown (14 sub-tests, all PASS)
+
+9 negative probes across 6 representative functions (exceeding the "at least 3" bar), covering both authenticated and genuinely-anonymous anon callers:
+
+| # | Function | Caller | Args | Expected | Actual | Result |
+|---|---|---|---|---|---|---|
+| B1 | `award_starter_creature` | Sarah (Testworth, authenticated) | real OurFamily member id | Hard permission-layer block | 42501: permission denied for function award_starter_creature | PASS -- BLOCKED |
+| B2 | `award_starter_creature` | anon (genuinely unauthenticated -- SET LOCAL ROLE anon + cleared claims) | same | Blocked | 42501: permission denied for function award_starter_creature | PASS -- BLOCKED |
+| B3 | `dispatch_single_grant` | Sarah (authenticated) | fabricated uuid | Blocked | 42501: permission denied for function dispatch_single_grant | PASS -- BLOCKED |
+| B4 | `dispatch_single_grant` | anon | fabricated uuid | Blocked | 42501: permission denied for function dispatch_single_grant | PASS -- BLOCKED |
+| B5 | `insert_book_chunks` | Sarah (authenticated) | fabricated uuid + empty array | Blocked | 42501: permission denied for function insert_book_chunks | PASS -- BLOCKED |
+| B6 | `update_book_cache_embedding` | Sarah (authenticated) | fabricated uuid + dummy text | Blocked | 42501: permission denied for function update_book_cache_embedding | PASS -- BLOCKED |
+| B7 | `upsert_book_library` | Sarah (authenticated) | plausible fake-book args | Blocked | 42501: permission denied for function upsert_book_library | PASS -- BLOCKED |
+| B8 | `upsert_book_library` | anon | plausible fake-book args | Blocked | 42501: permission denied for function upsert_book_library | PASS -- BLOCKED |
+| B9 | `insert_book_extractions` | Sarah (authenticated) | fabricated uuid + empty array | Blocked | 42501: permission denied for function insert_book_extractions | PASS -- BLOCKED |
+
+Every rejection is a hard 42501 permission-layer denial (the stronger guarantee -- the function body, and any caller-supplied arguments, are never evaluated at all), matching the exact posture already proven for the 15 godmother functions in the migration 100300 section above.
+
+**B10 -- the critical legitimate-flow proof (3 sub-steps, all PASS): does the internal trigger chain that legitimately awards a starter creature still work with award_starter_creature locked to service_role-only?**
+
+The real production trigger, `trg_starter_creature` (AFTER INSERT OR UPDATE OF is_enabled, active_page_id ON member_sticker_book_state WHEN NEW.is_enabled = true AND NEW.active_page_id IS NOT NULL), fires `award_starter_creature(NEW.family_member_id)` via its own SECURITY DEFINER wrapper (`trg_award_starter_creature`). Real production data confirmed every OurFamily member already has a starter creature (member_creature_collection count = 1 for all 9), so a genuinely fresh test subject required temporarily clearing a real member collection inside the same rolled-back transaction, following the exact precedent already established in the migration 100300 section above (proof #2, an ordinary authenticated end-to-end flow proving a locked-down internal chain still delivers for a real production member).
+
+| Step | Action | Result |
+|---|---|---|
+| B10-setup | (as superuser, inside the transaction) Captured baseline -- Gideon member_creature_collection count = 1, creatures_earned_total = 1 -- then deleted from member_creature_collection where family_member_id = Gideon | Baseline captured, collection cleared |
+| B10-trigger-update | As Tenise (OurFamily mom, a REAL authenticated session, explicitly NOT service_role), performed the real end-to-end action a legitimate mom session performs: UPDATE member_sticker_book_state SET is_enabled = is_enabled WHERE family_member_id = Gideon (satisfies the trigger UPDATE OF is_enabled column list and its WHEN clause) | UPDATE OF is_enabled fired without error |
+| B10-verify | (as superuser, read-only) Re-checked Gideon collection and counter | count_after=1, creatures_earned_total_after=2 -- a starter creature WAS awarded, despite award_starter_creature itself being locked to service_role-only EXECUTE |
+
+PASS -- the legitimate flow survives the lockdown. This confirms live (not just by the theoretical "SECURITY DEFINER nested calls run as the definer" argument already documented in the migration header and proven for the godmother-dispatch chain in migration 100300) that Convention #280-class lockdowns on internal leaf functions do not break the trigger chains that legitimately call them, as long as the calling trigger function is itself SECURITY DEFINER.
+
+### 3. Group C -- anon-only revoke, shared platform cache (4 sub-tests, all PASS)
+
+| # | Function | Caller | Target | Expected | Actual | Result |
+|---|---|---|---|---|---|---|
+| C1 | `create_custom_extraction` | anon (genuinely unauthenticated) | real book_library_id | Blocked | 42501: permission denied for function create_custom_extraction | PASS -- BLOCKED |
+| C2 | `update_extraction_text` | anon | fabricated extraction id | Blocked | 42501: permission denied for function update_extraction_text | PASS -- BLOCKED |
+| C3 | `create_custom_extraction` | Sarah (Testworth, authenticated -- zero relationship to the target book) | real book_library_id (bd7d9b44-24ec-4bdb-847d-0d5b3e92e793, "Laddie" -- a shared platform book, no family_id column at all) | Success -- no per-family scoping is expected by design | new_extraction_id=3ad90129-9a39-40c8-b609-f9e09aed08e0 returned | PASS -- confirms the shared-cache architecture: any authenticated platform user, not just a related family, can extend the shared book-extraction cache |
+| C4 | `update_extraction_text` | Sarah (Testworth, authenticated) | the extraction just created in C3 | Success | update_extraction_text returned=true | PASS |
+
+This is by design, not a gap -- `platform_intelligence.book_extractions` has no family_id column at all (it is the shared, cross-family book-knowledge cache), so "any authenticated platform user" is the correct and only meaningful authorization boundary, exactly matching the `increment_vault_view_count`/migration 100113 precedent the migration header cites.
+
+### 4. Residue check -- zero permanent trace, confirmed independently after ROLLBACK
+
+A separate, fully independent read-only query (new connection, after the probe transaction ROLLBACK had already completed) confirmed every mutated row and counter is back to its exact pre-probe baseline:
+
+| Metric | Baseline (pre-probe) | Post-rollback | Match |
+|---|---|---|---|
+| member_coloring_reveals count, OurFamily | 0 | 0 | Yes |
+| tasks with title LIKE RLSPROBE100312% | 0 | 0 | Yes |
+| task_rewards joined to those tasks | 0 | 0 | Yes |
+| task_completions joined to those tasks | 0 | 0 | Yes |
+| earned_prizes for Gideon | 0 | 0 | Yes |
+| financial_transactions for Helam | 23 | 23 | Yes |
+| financial_transactions for Gideon | 22 | 22 | Yes |
+| member_creature_collection for Gideon (count) | 1 | 1 | Yes |
+| member_creature_collection for Gideon (row identity) | id 6142f8c5-cff7-422f-a9da-01d6ac1029e2 | same id confirmed (gideon_creature_row_id_matches_original = true) | Yes -- not just the count, the exact original row survived the delete-then-rollback cycle |
+| member_sticker_book_state.creatures_earned_total for Gideon | 1 | 1 | Yes |
+| platform_intelligence.book_extractions with text LIKE RLSPROBE100312% | 0 | 0 | Yes |
+| any financial_transactions.description containing RLSPROBE100312 | -- | 0 | Yes |
+
+Every temp object (probe_log, fixture_ids, baseline) was session-scoped and is guaranteed destroyed with the connection close, per the same reasoning already established in the 100298/100305 entries above -- no separate leak check was needed since each `supabase db query --linked -f` invocation is its own fresh connection.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| Group A -- advance_coloring_reveal (cross-family blocked, family-membership not identity, service_role bypass) | PASS -- 3/3 |
+| Group A -- award_custom_reward_for_completion (cross-family blocked, family-membership + payout-follows-owner, idempotent) | PASS -- 3/3 |
+| Group A -- grant_money_for_task_completion (cross-family blocked, Q7 approval-timing gate proven live, granted-after-approval, service_role bypass, idempotent) | PASS -- 5/5 |
+| Group B -- 9 negative probes across 6 representative functions (authenticated and anon both rejected at the hard permission layer) | PASS -- 9/9 |
+| Group B -- critical legitimate-flow proof: award_starter_creature still delivers via the trg_starter_creature trigger chain despite the lockdown, exercised by a real authenticated (non-service-role) mom session | PASS -- 3/3 |
+| Group C -- create_custom_extraction / update_extraction_text (anon blocked, any authenticated platform user succeeds by design on the shared, family-unscoped cache) | PASS -- 4/4 |
+| Residue after the probe transaction | Zero -- every table, every row count, and even the exact original row identity, restored |
+
+**Verdict: PASS.** All three groups behave exactly as migration 100312 own header claims, verified by 26 live adversarial and behavioral probes rather than by reading the DDL. The two Group A functions with real client callers correctly reject cross-family attackers while preserving every legitimate same-family usage pattern already proven for their siblings (family-membership not caller-identity, payout follows the completion own member not the caller, service_role bypass intact). The new grant_money_for_task_completion sibling correctly implements the Q7 approval-timing rule that was required before this migration was allowed to apply -- proven live, not just present in source. All 13 Group B functions are unreachable by any anon or authenticated caller at the hard permission layer, and the one legitimate internal trigger-chain consumer of a Group B function (award_starter_creature) is proven, live, to survive the lockdown for a real production member under a real non-service-role authenticated session. The two Group C functions correctly reject anonymous callers while preserving the shared-platform-cache design's intentional "any authenticated user" boundary. Zero fixture residue, including exact original-row-identity preservation, confirmed by an independent post-rollback query.
