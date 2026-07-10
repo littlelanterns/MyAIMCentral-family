@@ -221,3 +221,78 @@ Cross-referenced against `claude/dispatch-factory/MANIFEST.md` (build order of r
 ---
 
 *Read-only audit; no code, migrations, or convention text were changed. Evidence gathered 2026-07-06 against commit `a78e338` (main) plus in-flight working-tree state where noted.*
+
+---
+
+# DELTA ADDENDUM — 2026-07-09
+
+> **Auditor:** Fable 5 (coordination seat), evidence against `main` @ `e550cbd`.
+> Baseline above: 2026-07-06 @ `a78e338`. Three days elapsed; the gate moved more in those
+> three days than in any comparable window of this project.
+
+## Founder Summary — what changed, plain English
+
+**On 2026-07-06 the honest answer was "4–6 weeks out." Today it's roughly 2–3 weeks of build
+plus the attorney — and the entire safety sequence you gated beta on is either done or one
+session from done.**
+
+- **The safety sequence (Layer 2 → PRD-41 → PRD-30) is COMPLETE except for one flip.** Slice E
+  shipped and is running live in watch mode; PRD-30 safety monitoring shipped end-to-end and you
+  signed it off; the calibration came back **zero false positives**. The Phase-4 flip session was
+  dispatched today (Opus window) — when it goes GO, criterion 3 closes and the Convention #247
+  beta gate clears.
+- **The HITM box is checked.** Every gap the 07-06 audit found was either fixed (the three
+  missing conversation surfaces) or you formally blessed it as designed (Convention #279).
+- **COPPA went from zero code to a live foundation.** All 7 tables, age brackets backfilled,
+  the consent template seeded dormant, and a 175-table deletion registry with a CI tripwire so
+  no future table can dodge classification.
+- **An adversarial security review found 4 critical holes — including LiLa's crisis response
+  returning an error instead of the 988 hotline — and all of them were fixed live the same day.**
+  Finding these BEFORE beta is the system working. One bounded follow-up sweep remains.
+
+## Per-criterion delta
+
+| # | Criterion | 07-06 | 07-09 | What moved it |
+|---|---|---|---|---|
+| 1 | COPPA per PRD-40 (amended: dormant + cohort-1 scoping) | ❌ Not built | 🟡 **Slice 1 of 6 live** | Migration 100305: 6 PRD-40 tables + `stripe_webhook_events`, immutability RLS (81-probe rls-verifier pass), `coppa_age_bracket` backfilled (6 under-13 / 5 teen / 9 adult), template v1.0.0 seeded `lawyer_approved_at=NULL`, `coppa_admin` staff type. OD-1..4 resolved; Two-Door Addendum landed. **Slice 2 blocked only on founder Stripe test keys.** |
+| 2 | Child data handling audit | ❌ Not started | 🟡 **Foundation built** | `child_data_tables` registry: 175 member-referencing tables classified (134 hard_delete / 33 scrub / 5 preserve / 3 N/A) + `coppa-registry-completeness.test.ts` CI pin — any future child-scoped table fails CI until classified. Export ZIP / cascade execution / retention crons remain PRD-40 Slice 4. |
+| 3 | Layer-1 ethics enforcement, red-team tested | 🟡 Layer 2 only | 🟡 **Built + deployed (shadow); flip dispatched** | Slice E Phases 1→2→3 complete: `ethics-guard.ts` Tier 0, `ai_output_scans` + `validate-ai-output` cron (live, healthy), append-only `lila_ethics_rejections` w/ DB column guard (no-side-door verified), 150 exemplars embedded, mom Response Log, admin curation. Red-team suite exists now — 66/66, wired into pre-push. Live calibration: **0% false positives.** Phase-4 flip session dispatched 2026-07-09 (Opus). |
+| 4 | Deity-block adversarially tested | 🟡 No corpus | 🟡 **Corpus built + pinned** | The recommended fold-in happened: 4 deity-block bypass tests (direct names, paraphrase, blocked figures, re-ask persistence) live in `ethics-enforcement.spec.ts`; the `lila-board-of-directors` model-ID fix confirmed the gate had been failing CLOSED (over-blocking, never leaking). Full live run rides the Phase-4 verification pass. |
+| 5 | Safe Harbor | ⬜ N/A (superseded) | ⬜ N/A | Unchanged. |
+| 6 | PRD-30 Safety Monitoring core | ❌ Not started | ✅ **COMPLETE — founder signed off 2026-07-08** | SM-A+B+C: two-layer detection (keyword sweep + Haiku classification), severity tiers w/ locked categories, no-excerpt flag surfaces (DB column guard), teen disclosure row, weekly content-free digests, D5 crisis-flag wiring on the 3 non-persisted surfaces. 48 wired / 4 stubbed / 0 missing; Checkpoint 5 PASS. Email delivery deferred (Resend — founder item). **One open functional check** (assigned as Step 0 of the Phase-4 window): confirm the 73/84 unscanned `lila_conversations` are correctly out-of-scope, not a scanner gap. |
+| 7 | HITM coverage — no gaps | ❌ 3 Missing + 6 rulings | ✅ **CLOSED** | HITM-CLOSURE (2026-07-06, Convention #279): the 3 Missing surfaces fixed (BoD advisor turns, BookShelf discussions, Ask LiLa & Send now gated Send/Edit/Discard w/ HMAC-verified server-side posting); founder-declared exceptions (a)–(d) recorded; in-code rationale required for any hidden HITM going forward. Entire §4E punch list resolved. |
+| 8 | Legal review by a human lawyer | 🟡 Delivered, not sent | 🟡 **Founder-external** | ARP sits in `claude/legal-drafts/` (3 contact blanks + send). CURRENT.md tracks it at ~2 weeks expected turnaround once sent. Cohort-2 opener, not a cohort-1 blocker. |
+| 9 | Founder declaration | ⬜ Open | ⬜ Open | Last box, yours alone. |
+
+## New material findings since the baseline (not on the 07-06 checklist)
+
+1. **Adversarial safety-stack review (2026-07-09, Opus) — 4 CRITICAL, 3 live, ALL CLOSED same
+   day:** `grant_money` + `apply_permission_profile` in-body auth gates (100311); 3-function
+   leaf-RPC lockdown (100310); **lila-chat crisis-500** (crisis path returned HTTP 500 — the 988
+   resources never rendered; now live-verified returning 200 + resources); `validate-ai-output`
+   fail-open (a Tier-2 failure auto-cleared flagged rows; now retries/parks). Report:
+   `SAFETY_STACK_ADVERSARIAL_REVIEW.md`. Follow-up: one bounded RPC-EXECUTE sweep (queued, not
+   an emergency — seat-verified all ~15 remaining anon-executable fns are bounded).
+2. **Model-ID platform repair (2026-07-08):** six functions had silently-invalid Haiku model IDs
+   — meaning PRD-30 Layer-2 classification and PRD-41 Tier-2 confirmation had NEVER actually run
+   before 2026-07-08 15:47 UTC. Fixed + permanently pinned (`model-id-guard.test.ts`).
+   **Calibration/audit implication:** shadow data before that timestamp is Tier-1-only evidence.
+3. **Beta-quality items outside the gate criteria** landed in parallel: GDCX (Next Best Thing
+   re-enabled after 2+ months dark), FDWA+PINR (family-tablet writes + kid relock), PECON economy,
+   WishLists, KitchenCompass Phase A, Family Goals. The known kid-facing gap remaining: 4-digit
+   PIN sessions never mint (founder ruled the derived-secret fix; queued).
+
+## Revised critical path
+
+| # | Step | Owner | Status |
+|---|---|---|---|
+| 1 | Phase-4 flip: Step-0 scanner check → calibration re-run → 58-suite → GO → flip + deploy | Opus window (dispatched 2026-07-09) + founder GO + deploy approval | **In flight** — clears criteria 3 & 4 |
+| 2 | **Stripe test keys** → PRD-40 Slices 2–6 (Stripe → consent UX → rights/cascade → enforcement → admin+E2E) | Founder (keys) → Sonnet workers | Keys are the only blocker — clears criteria 1 & 2 |
+| 3 | **Send attorney package** (3 blanks + send) + OpenRouter privity ticket | Founder | Longest external lead — start the clock |
+| 4 | Kid-PIN derived-secret fix + RPC-EXECUTE sweep + teen invite (quality, not gate criteria) | Sonnet workers | Queued, unblocked |
+| 5 | Founder declaration + final evidence update to this report | Founder | After 1–3 |
+
+**Time shape:** Phase-4 ≈ one session; PRD-40 remaining ≈ 1–2 weeks of worker sessions;
+attorney = external. **≈ 2–3 weeks of build to cohort-1 readiness**, with the attorney
+turnaround the only piece that can't be scheduled. Gate 3 (video library) remains separately
+outstanding ahead of Gate 4 / LiLa training — unchanged, not this gate.

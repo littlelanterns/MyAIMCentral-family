@@ -34,7 +34,7 @@
 1. **Stripe test-mode keys** → unblocks PRD-40 Slice 2. **Resend signup + DNS** → safety + Out-of-Nest emails.
 2. **PECON kid-device feel-pass** (Reward Shop) · **VOICE mic feel-pass** · attorney package (~2 wks).
 3. **"repair history"** — ~20 migrations applied via one-file method aren't in Supabase's migration-history ledger; a future naive `db push` would replay them (they're idempotent, but a landmine). Non-destructive reconcile, ~2 min, seat runs it on the word.
-4. **2026-07-12 Fable full-price revisit** — Beta Readiness delta report + Fable-vs-Opus re-pin rec (carries: adversarial/security work pins Opus permanently). PRD-31 + PRD-40 pre-builds already done.
+4. **2026-07-12 Fable full-price revisit — BOTH DELIVERABLES READY (prepared 2026-07-09, decision still yours on the 12th; NOTHING re-pinned yet):** Beta Readiness delta appended to `claude/feature-decisions/Beta-Readiness-Report-2026-07.md` (headline: gate moved from ~4–6 weeks to ~2–3 weeks + attorney; criteria 6 & 7 now ✅); re-pin rec at `claude/orchestration/Model-Routing-Repin-2026-07-12.md` (recommends: judgment tier back to Opus, Fable escalation-only, security→Opus permanent; exact edits listed, seat executes on your word).
 5. OpenRouter privity support ticket (no-training-verification.md §6).
 
 ## Seat's SMFX pile (fold into an SMFX dispatch)
