@@ -30,7 +30,7 @@ process.stdin.on('end', () => {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
           permissionDecisionReason:
-            'BLOCKED by project guardrail: `supabase db push` would replay ~22 migrations that are applied to production but missing from the migration-history ledger. Apply migrations with `supabase db query --linked -f <file>` (idempotent SQL) instead. FALSE POSITIVE? (e.g., a commit message or echo merely MENTIONING the phrase): reword the prose to "db-push" (hyphenated) and retry — the hook deliberately stays broad because quoting context cannot be parsed safely. To lift the guardrail entirely: run the repair-history ledger reconcile, then remove the block-db-push hook from .claude/settings.json.',
+            'BLOCKED by project guardrail: `supabase db push` applies EVERY unapplied local migration file at once — with parallel sessions authoring migrations, that would apply other lanes\' not-yet-founder-approved migrations. Apply YOUR migration only, with `supabase db query --linked -f <file>` (idempotent SQL), then keep the ledger honest with `supabase migration repair --status applied <version> --linked`. FALSE POSITIVE? (a commit message or echo merely MENTIONING the phrase): reword the prose to "db-push" (hyphenated) and retry — the hook deliberately stays broad because quoting context cannot be parsed safely.',
         },
       }),
     );

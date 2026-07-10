@@ -72,8 +72,14 @@ attorney package → founder declaration.** Criteria 1/2 🟡 (PRD-40 Slice 1 li
    sends. **Resend signup + DNS** → safety + Out-of-Nest emails.
 2. **2026-07-12 Fable full-price decision** — both deliverables ready (see above); NOTHING
    re-pinned until she rules. **PECON kid-device feel-pass** · **VOICE mic feel-pass**.
-3. **"repair history"** migration-ledger reconcile (~2 min, seat runs on the word — now ~22
-   one-file-applied migrations incl. 100312).
+3. ~~"repair history" migration-ledger reconcile~~ **DONE 2026-07-10** (founder word, seat
+   executed): 24 versions (100289–100312) marked applied via `supabase migration repair`;
+   ledger verified at 316 recorded / latest 100312; 100313 correctly pending (Stripe Slice 2,
+   awaits founder apply). **NEW STANDING RULE:** every one-file migration apply is followed
+   immediately by its own `supabase migration repair --status applied <version> --linked`
+   one-liner so the ledger never drifts again. The db-push guardrail hook STAYS regardless —
+   its permanent rationale is that push applies ALL local files, including other lanes'
+   not-yet-approved migrations.
 4. OpenRouter privity support ticket (no-training-verification.md §6).
 
 ## Seat's SMFX pile (fold into an SMFX dispatch)
