@@ -80,6 +80,16 @@ describe('json-extract — static drift pins (both parse paths hardened)', () =>
     expect(src).not.toContain("replace(/\\s*```$/")
   })
 
+  it('lila-board-of-directors contentPolicyCheck imports + uses extractJsonObject and NO LONGER bare-parses the fenced response (deity-gate fail-closed fix)', () => {
+    const src = readFileSync(path.join(FN_DIR, 'lila-board-of-directors', 'index.ts'), 'utf-8')
+    expect(src).toContain("from '../_shared/json-extract.ts'")
+    expect(src).toContain('extractJsonObject(')
+    // contentPolicyCheck now parses the extracted candidate, not the raw
+    // fenced text (the bare-parse-on-fence was the deity-gate fail-closed
+    // cause). classifyRelevance already used JSON.parse(jsonMatch[0]).
+    expect(src).toContain('JSON.parse(candidate)')
+  })
+
   it('neither classifier cost-logs the zero-UUID sentinel any longer (FK-violation fix)', () => {
     const sc = readFileSync(path.join(FN_DIR, 'safety-classify', 'index.ts'), 'utf-8')
     const vao = readFileSync(path.join(FN_DIR, 'validate-ai-output', 'index.ts'), 'utf-8')

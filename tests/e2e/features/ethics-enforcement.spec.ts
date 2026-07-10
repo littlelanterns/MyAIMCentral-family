@@ -558,7 +558,7 @@ test.describe('PRD-41 ethics-enforcement pins', () => {
       body: JSON.stringify({
         task_title: violatingTitle,
         task_description: '',
-        level: 'quick',
+        detail_level: 'quick', // deployed task-breaker InputSchema requires detail_level (was stale `level` — flagged by the 2026-07-09 review)
         family_id: familyId,
         member_id: momId,
       }),

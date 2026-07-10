@@ -27,6 +27,7 @@ import { logAICost } from '../_shared/cost-logger.ts'
 import { embedText } from '../_shared/embedding.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { extractJsonObject } from '../_shared/json-extract.ts'
 import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
@@ -141,11 +142,22 @@ Otherwise (historical figures, literary characters, public figures, personal peo
 
     const json = await res.json()
     const text = json.choices?.[0]?.message?.content?.trim() || ''
+    // Haiku wraps its verdict in a ```json fence (and sometimes appends
+    // prose); a bare JSON.parse(text) throws on the fence -> fail-closed ->
+    // 'blocked' for EVERY name, silently breaking the deity->Prayer-Seat
+    // redirect AND all persona creation. Extract the object first (matches the
+    // robust `\{[\s\S]*\}` approach already used by classifyRelevance below).
+    // See _shared/json-extract.ts.
+    const candidate = extractJsonObject(text)
+    if (candidate === null) {
+      console.error('contentPolicyCheck no JSON object in response:', text.slice(0, 200))
+      return CONTENT_POLICY_BLOCK_FAIL_CLOSED
+    }
     let parsed: Record<string, unknown>
     try {
-      parsed = JSON.parse(text)
+      parsed = JSON.parse(candidate)
     } catch {
-      console.error('contentPolicyCheck JSON parse failed:', text.slice(0, 200))
+      console.error('contentPolicyCheck JSON parse failed:', candidate.slice(0, 200))
       return CONTENT_POLICY_BLOCK_FAIL_CLOSED
     }
 
