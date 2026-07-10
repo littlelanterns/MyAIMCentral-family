@@ -14,9 +14,20 @@ interface CelebrateSectionProps {
   overrideMemberId?: string
   overrideMemberName?: string
   overrideFamilyId?: string
+  /** GDCX Slice 3 (PRD-25 Screen 6): forwarded to DailyCelebration's Step 2.5. */
+  reflectionsEnabled?: boolean
+  reflectionDailyCount?: number
+  readingSupport?: boolean
 }
 
-export function CelebrateSection({ overrideMemberId, overrideMemberName, overrideFamilyId }: CelebrateSectionProps) {
+export function CelebrateSection({
+  overrideMemberId,
+  overrideMemberName,
+  overrideFamilyId,
+  reflectionsEnabled = false,
+  reflectionDailyCount = 1,
+  readingSupport = false,
+}: CelebrateSectionProps) {
   const [showCelebration, setShowCelebration] = useState(false)
   const { data: family } = useFamily()
   const { member: displayMember } = useEffectiveMember()
@@ -50,6 +61,9 @@ export function CelebrateSection({ overrideMemberId, overrideMemberName, overrid
           familyId={familyId}
           memberName={memberName}
           onClose={() => setShowCelebration(false)}
+          reflectionsEnabled={reflectionsEnabled}
+          reflectionDailyCount={reflectionDailyCount}
+          readingSupport={readingSupport}
         />
       )}
     </>

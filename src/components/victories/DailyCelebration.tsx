@@ -4,10 +4,15 @@
 // NEVER shows incomplete tasks. Only victories. Never "X of Y".
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { X, ChevronLeft, ChevronRight, Star, CheckCircle, Share2, Pencil, Check, RefreshCw } from 'lucide-react'
+import { X, ChevronLeft, ChevronRight, Star, CheckCircle, Share2, Pencil, Check, RefreshCw, Flame, Sparkles } from 'lucide-react'
 import { useVictories, useCreateVictory } from '@/hooks/useVictories'
 import { useVoicePreference } from '@/hooks/useVoicePreference'
 import { useSaveCelebration } from '@/hooks/useCelebrationArchive'
+import { useMemberStreak } from '@/hooks/useMemberStreak'
+import { useGamificationConfig } from '@/hooks/useGamificationSettings'
+import { useStickerBookState } from '@/hooks/useStickerBookState'
+import { useCreaturesForMember } from '@/hooks/useCreaturesForMember'
+import { WriteDrawerReflections } from '@/components/guided/WriteDrawerReflections'
 import { supabase } from '@/lib/supabase/client'
 import { ConfettiBurst } from '@/components/shared/ConfettiBurst'
 import { AnimatedList } from '@/components/shared/AnimatedList'
@@ -21,12 +26,15 @@ interface DailyCelebrationProps {
   familyId: string
   memberName: string
   onClose: () => void
-  /** PRD-25 Phase B: when true, inserts reflection step between Step 2 and Step 3 */
+  /** PRD-25 Screen 6: when true, inserts the Reflections step between Step 2 (Victories) and Step 3 (Streak). Guided-only — Play never passes this. */
   reflectionsEnabled?: boolean
+  /** How many reflection prompts to show (mom's `reflection_daily_count` preference). Defaults to 1. */
+  reflectionDailyCount?: number
+  /** PRD-25 Screen 4: adds text-to-speech icons to reflection prompts. */
+  readingSupport?: boolean
 }
 
-type CelebrationStep = 'opener' | 'victories' | 'streak' | 'theme' | 'close'
-const ALL_STEPS: CelebrationStep[] = ['opener', 'victories', 'streak', 'theme', 'close']
+type CelebrationStep = 'opener' | 'victories' | 'reflections' | 'streak' | 'theme' | 'close'
 
 export function DailyCelebration({
   shell,
@@ -34,7 +42,9 @@ export function DailyCelebration({
   familyId,
   memberName,
   onClose,
-  reflectionsEnabled: _reflectionsEnabled,
+  reflectionsEnabled = false,
+  reflectionDailyCount = 1,
+  readingSupport = false,
 }: DailyCelebrationProps) {
   const isPlay = shell === 'play'
   const minTouch = isPlay ? 56 : 48
@@ -44,6 +54,19 @@ export function DailyCelebration({
   const { selectedVoice } = useVoicePreference(familyId, memberId, shell)
   const saveCelebrationMutation = useSaveCelebration()
   const createVictory = useCreateVictory()
+
+  // ─── GDCX Slice 3: Steps 3 (Streak) + 4 (Theme) real data ──
+  const { data: memberStreak } = useMemberStreak(memberId)
+  const streakCount = memberStreak?.currentStreak ?? 0
+  const { data: gamConfig } = useGamificationConfig(memberId)
+  // PRD-25 §Edge Cases: gamification disabled → Step 4 (Theme Progress) is
+  // skipped. Streak (Step 3) is NOT gamification-gated — compute_streak
+  // measures consistency independent of the points/rewards economy, and the
+  // PRD explicitly lists only Step 4 as skipped when gamification is off.
+  const gamificationEnabled = gamConfig?.enabled === true
+  const { data: stickerBookState } = useStickerBookState(memberId)
+  const { data: creatures = [] } = useCreaturesForMember(memberId)
+  const showThemeStep = gamificationEnabled && stickerBookState?.is_enabled === true
 
   // ─── State ────────────────────────────────────────────────
   const [currentStep, setCurrentStep] = useState<CelebrationStep>('opener')
@@ -71,11 +94,16 @@ export function DailyCelebration({
     }
   }, [todaysVictories])
 
-  // Active steps (skip streak + theme since they're stubs)
+  // GDCX Slice 3: Steps 2.5 (Reflections) and 4 (Theme) are conditional;
+  // Step 3 (Streak) always runs (compute_streak isn't gated on gamification).
   const activeSteps = useMemo((): CelebrationStep[] => {
-    // Steps 3 (streak) and 4 (theme) are stubs — auto-skip
-    return ALL_STEPS.filter(s => s !== 'streak' && s !== 'theme')
-  }, [])
+    const steps: CelebrationStep[] = ['opener', 'victories']
+    if (reflectionsEnabled) steps.push('reflections')
+    steps.push('streak')
+    if (showThemeStep) steps.push('theme')
+    steps.push('close')
+    return steps
+  }, [reflectionsEnabled, showThemeStep])
 
   const currentIndex = activeSteps.indexOf(currentStep)
   const totalSteps = activeSteps.length
@@ -325,6 +353,29 @@ export function DailyCelebration({
           />
         )}
 
+        {currentStep === 'reflections' && (
+          <StepReflections
+            familyId={familyId}
+            memberId={memberId}
+            readingSupport={readingSupport}
+            dailyCount={reflectionDailyCount}
+            isPlay={isPlay}
+            onSkip={goNext}
+          />
+        )}
+
+        {currentStep === 'streak' && (
+          <StepStreak streakCount={streakCount} isPlay={isPlay} />
+        )}
+
+        {currentStep === 'theme' && (
+          <StepTheme
+            creaturesCount={creatures.length}
+            pagesCount={stickerBookState?.pages_unlocked_total ?? 0}
+            isPlay={isPlay}
+          />
+        )}
+
         {currentStep === 'close' && (
           <StepClose
             isPlay={isPlay}
@@ -341,6 +392,8 @@ export function DailyCelebration({
       {/* Progress dots + navigation */}
       <div className="flex items-center justify-between px-6 pb-6 pt-3">
         <button
+          data-testid="celebration-back-button"
+          aria-label="Previous step"
           onClick={goBack}
           disabled={currentIndex <= 0}
           className="rounded-full flex items-center justify-center"
@@ -375,6 +428,8 @@ export function DailyCelebration({
         </div>
 
         <button
+          data-testid="celebration-next-button"
+          aria-label="Next step"
           onClick={currentStep === 'close' ? handleDone : goNext}
           disabled={currentIndex >= totalSteps - 1 && currentStep !== 'close'}
           className="rounded-full flex items-center justify-center"
@@ -666,6 +721,121 @@ function StepVictories({
             : (isPlay ? 'I Did Something Great!' : 'I Did Something Great!')}
         </button>
       )}
+    </div>
+  )
+}
+
+// ─── Step 2.5: Reflections (GDCX Slice 3, PRD-25 Screen 6) ───
+// Reuses the Write drawer's WriteDrawerReflections card pattern verbatim,
+// tagged sourceContext='daily_celebration' so answers are distinguishable
+// from Write-drawer-originated ones. "Skip" is always available — reflections
+// are never forced (PRD: "reflections are never forced").
+function StepReflections({
+  familyId,
+  memberId,
+  readingSupport,
+  dailyCount,
+  isPlay,
+  onSkip,
+}: {
+  familyId: string
+  memberId: string
+  readingSupport: boolean
+  dailyCount: number
+  isPlay: boolean
+  onSkip: () => void
+}) {
+  return (
+    <div className="w-full max-w-md space-y-4">
+      <h2
+        className={`text-center font-bold ${isPlay ? 'text-2xl' : 'text-xl'}`}
+        style={{ color: 'var(--color-text-heading)' }}
+      >
+        Let&rsquo;s think about your day for a moment.
+      </h2>
+      <WriteDrawerReflections
+        familyId={familyId}
+        memberId={memberId}
+        readingSupport={readingSupport}
+        dailyCount={dailyCount}
+        sourceContext="daily_celebration"
+      />
+      <button
+        onClick={onSkip}
+        className="w-full text-center text-sm py-2"
+        style={{ color: 'var(--color-text-secondary)', background: 'transparent', border: 'none' }}
+      >
+        Skip
+      </button>
+    </div>
+  )
+}
+
+// ─── Step 3: Streak Update (GDCX Slice 3) ────────────────────
+// Runs regardless of the gamification toggle — compute_streak measures
+// consistency of showing up, not points/rewards. Never shames a 0/1-day
+// streak (celebration-only, Convention #180/#219 lineage) — reframes as an
+// encouraging fresh start instead.
+function StepStreak({ streakCount, isPlay }: { streakCount: number; isPlay: boolean }) {
+  const hasStreak = streakCount >= 2
+  return (
+    <div className="text-center space-y-4 w-full max-w-sm">
+      <Flame
+        size={isPlay ? 56 : 40}
+        className="mx-auto"
+        style={{ color: 'var(--color-accent-warm, #f59e0b)' }}
+      />
+      <div
+        className={`font-bold ${isPlay ? 'text-3xl' : 'text-xl'}`}
+        style={{ color: 'var(--color-text-heading)' }}
+      >
+        {hasStreak ? `${streakCount}-day streak!` : "You're here today!"}
+      </div>
+      <p
+        className={isPlay ? 'text-lg' : 'text-base'}
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        {hasStreak
+          ? 'Keep showing up — you’re building something great.'
+          : 'Come back tomorrow and start a streak!'}
+      </p>
+    </div>
+  )
+}
+
+// ─── Step 4: Theme Progress (GDCX Slice 3) ───────────────────
+// Only rendered when gamification AND the sticker book (Build M) are both
+// enabled for this member (PRD-25 §Edge Cases: skipped when gamification is
+// off). Shows the same creature/page counts GuidedProgress's sticker book
+// widget surfaces, condensed into a celebration step.
+function StepTheme({
+  creaturesCount,
+  pagesCount,
+  isPlay,
+}: {
+  creaturesCount: number
+  pagesCount: number
+  isPlay: boolean
+}) {
+  return (
+    <div className="text-center space-y-4 w-full max-w-sm">
+      <Sparkles
+        size={isPlay ? 56 : 40}
+        className="mx-auto"
+        style={{ color: 'var(--color-sparkle-gold, #D4AF37)' }}
+      />
+      <div
+        className={`font-bold ${isPlay ? 'text-3xl' : 'text-xl'}`}
+        style={{ color: 'var(--color-text-heading)' }}
+      >
+        Your World is Growing!
+      </div>
+      <p
+        className={isPlay ? 'text-lg' : 'text-base'}
+        style={{ color: 'var(--color-text-secondary)' }}
+      >
+        {creaturesCount} {creaturesCount === 1 ? 'creature' : 'creatures'} collected &middot; {pagesCount} {pagesCount === 1 ? 'page' : 'pages'} unlocked
+      </p>
     </div>
   )
 }

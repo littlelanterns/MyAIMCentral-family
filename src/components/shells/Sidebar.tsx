@@ -18,6 +18,7 @@ import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useResolvedFeatureAccess } from '@/hooks/useResolvedFeatureAccess'
 import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
 import { supabase } from '@/lib/supabase/client'
+import { useAppearanceError } from '@/components/shells/ShellProvider'
 import type { ShellType } from '@/lib/theme'
 
 // `useShell` is intentionally not imported here — Sidebar derives its
@@ -394,14 +395,24 @@ export function getSidebarSections(
       // Existing items (Tasks, Messages, Journal, Reflections, Victories)
       // confirmed reasonable per audit "OK" classification. BookShelf
       // retained — audit didn't flag, audience-scoped per PRD-23 build.
+      //
+      // GDCX (2026-07): this list is never rendered as an actual Guided menu
+      // — GuidedShell owns its own purpose-built header/bottom-nav/More-menu
+      // UI. It exists solely to feed the View-As modal's allowedPaths set.
+      // The primary bottom-nav "Progress" tab now routes to /my-rewards
+      // UNCONDITIONALLY (Convention #124 — Progress is always present,
+      // alongside the other unhideable tabs), so /my-rewards must always be
+      // allowed here too, regardless of show_my_rewards — MyRewardsPage
+      // itself renders the "not set up yet" fallback card when the
+      // preference is off, matching what a real Guided kid sees on that tab.
       const guidedMyDayItems: NavItem[] = [
         { label: 'Tasks', path: '/tasks', featureKey: 'tasks', icon: <CheckSquare size={20} />, tooltip: 'Your tasks for today' },
         { label: 'Messages', path: '/messages', featureKey: 'messaging_basic', icon: <MessageCircle size={20} />, tooltip: 'Talk to your family' },
         { label: 'Journal', path: '/journal', featureKey: 'journal', icon: <BookOpen size={20} />, tooltip: 'Write and reflect' },
         { label: 'Reflections', path: '/reflections', featureKey: 'reflections_basic', icon: <BookHeart size={20} />, tooltip: 'Daily reflection questions' },
         { label: 'Victories', path: '/victories', featureKey: 'victories', icon: <Trophy size={20} />, tooltip: 'Your wins' },
+        myRewardsItem,
       ]
-      if (showMyRewards) guidedMyDayItems.push(myRewardsItem)
 
       return [
         home,
@@ -422,10 +433,18 @@ export function getSidebarSections(
 /**
  * Hook to persist sidebar collapsed state to family_members.layout_preferences.
  * Loads initial state from Supabase, saves on change.
+ *
+ * Writes route through the update_member_appearance RPC (FDWA, 2026-07-09)
+ * rather than a raw UPDATE — no self-update RLS policy on family_members has
+ * ever existed, so this silently no-op'd for every non-mom session (not just
+ * family devices). Failures report via useAppearanceError() (rendered by
+ * ShellProvider, an ancestor of every shell regardless of whether
+ * RoutingToastProvider happens to be mounted below it).
  */
 function useSidebarPersistence(memberId: string | null) {
   const [collapsed, setCollapsedState] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const { reportError } = useAppearanceError()
 
   // Load from Supabase on mount
   useEffect(() => {
@@ -451,16 +470,21 @@ function useSidebarPersistence(memberId: string | null) {
         .select('layout_preferences')
         .eq('id', memberId)
         .single()
-        .then(({ data }) => {
+        .then(async ({ data }) => {
           const prefs = (data?.layout_preferences as Record<string, unknown>) || {}
-          supabase
-            .from('family_members')
-            .update({ layout_preferences: { ...prefs, sidebar_open: !next } })
-            .eq('id', memberId)
-            .then(() => {})
+          const { data: rpcData, error } = await supabase.rpc('update_member_appearance', {
+            p_member_id: memberId,
+            p_theme_preferences: null,
+            p_layout_preferences: { ...prefs, sidebar_open: !next },
+          })
+          const status = (rpcData as { status?: string } | null)?.status
+          if (error || status !== 'ok') {
+            console.error('[Sidebar] failed to save sidebar layout preference:', error ?? status)
+            reportError('Your sidebar setting might not be saved. Check your connection and try again.')
+          }
         })
     }
-  }, [memberId])
+  }, [memberId, reportError])
 
   return { collapsed, setCollapsed, loaded }
 }

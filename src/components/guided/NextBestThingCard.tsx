@@ -154,7 +154,16 @@ export function NextBestThingCard({
           onClick={() => suggestion.navigateTo && navigate(suggestion.navigateTo)}
           className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-colors"
           style={{
-            backgroundColor: 'var(--surface-primary, var(--color-btn-primary-bg))',
+            // GDCX Slice 1 real-bug find (Convention #277 eyes-on): `--surface-
+            // primary` resolves to a linear-gradient() when the family's
+            // gradient toggle is on. `background-color` cannot accept a
+            // gradient value — the whole declaration silently fails, leaving
+            // the button transparent with white-on-cream invisible text. Every
+            // other `--surface-primary` consumer in the codebase uses the
+            // `background` shorthand (which accepts both colors and
+            // gradients); this one used `backgroundColor` and had never
+            // rendered in production since NBT was disabled 2026-05-03.
+            background: 'var(--surface-primary, var(--color-btn-primary-bg))',
             color: 'var(--color-btn-primary-text)',
           }}
         >

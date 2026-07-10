@@ -14,13 +14,19 @@ import {
   useSaveResponse,
   useUpdateResponse,
 } from '@/hooks/useReflections'
-import type { ReflectionCategory, ReflectionPrompt, ReflectionResponse } from '@/hooks/useReflections'
+import type { ReflectionCategory, ReflectionPrompt, ReflectionResponse, ReflectionSourceContext } from '@/hooks/useReflections'
 
 interface WriteDrawerReflectionsProps {
   familyId: string
   memberId: string
   readingSupport: boolean
   dailyCount: number
+  /**
+   * GDCX Slice 3: DailyCelebration's Step 2.5 reuses this component's card
+   * pattern verbatim, tagging newly-saved responses 'daily_celebration'
+   * (PRD-25 Screen 6) instead of the Write drawer's default 'reflections_page'.
+   */
+  sourceContext?: ReflectionSourceContext
 }
 
 export function WriteDrawerReflections({
@@ -28,6 +34,7 @@ export function WriteDrawerReflections({
   memberId,
   readingSupport,
   dailyCount,
+  sourceContext = 'reflections_page',
 }: WriteDrawerReflectionsProps) {
   const { data: prompts = [], isLoading: loadingPrompts } = useReflectionPrompts(familyId, memberId)
   const { data: todaysResponses = [], isLoading: loadingResponses } = useTodaysResponses(familyId, memberId)
@@ -98,7 +105,7 @@ export function WriteDrawerReflections({
           familyId={familyId}
           memberId={memberId}
           readingSupport={readingSupport}
-          onSave={saveResponse.mutateAsync}
+          onSave={params => saveResponse.mutateAsync({ ...params, sourceContext })}
           onUpdate={updateResponse.mutateAsync}
         />
       ))}

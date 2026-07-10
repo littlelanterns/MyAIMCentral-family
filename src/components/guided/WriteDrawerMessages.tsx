@@ -3,13 +3,15 @@
  *
  * Gives Guided kids a direct path to the full Messages page from inside the
  * Write drawer. This is the second discoverability surface for Guided members
- * (the first is the Messages entry in their sidebar). Keeping the Write drawer
- * tab around means kids who are already in "write something to my family" mode
- * have the shortest possible path to their inbox.
+ * (the first is the Messages entry in their More menu). Keeping the Write
+ * drawer tab around means kids who are already in "write something to my
+ * family" mode have the shortest possible path to their inbox.
  *
- * Future work: render a lightweight inline thread list + compose here instead
- * of bouncing to /messages. For now, a single clear button is the right call —
- * no one gets stuck on a "Coming soon" placeholder.
+ * D-GDCX-1 (2026-07, founder-ratified): the redirect-to-/messages pattern is
+ * the PERMANENT design, not an interim placeholder awaiting an inline
+ * compose surface. An inline drawer compose would duplicate the coached
+ * `/messages` surface (Convention #139 before-send coaching) for no gain —
+ * this supersedes PRD-25 Screen 2's inline-Messages-tab spec.
  */
 
 import { useNavigate } from 'react-router-dom'

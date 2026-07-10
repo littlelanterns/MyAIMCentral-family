@@ -19,6 +19,14 @@ interface GuidedGreetingSectionProps {
   /** PRD-24 Point Economy Addendum §5.6 (rider 2). Both undefined = goal off, indicator hidden entirely. */
   dailyGoal?: number | null
   pointsToday?: number
+  /**
+   * PRD-25 §Edge Cases "Member with Gamification Disabled": header indicators
+   * hide entirely (no empty space) when gamification is off — regardless of
+   * whether points/streak happen to be nonzero from before it was disabled.
+   * Defaults true so a caller that hasn't been updated to pass it doesn't
+   * silently lose an indicator it previously showed.
+   */
+  gamificationEnabled?: boolean
 }
 
 export function GuidedGreetingSection({
@@ -30,6 +38,7 @@ export function GuidedGreetingSection({
   readingSupport,
   dailyGoal,
   pointsToday = 0,
+  gamificationEnabled = true,
 }: GuidedGreetingSectionProps) {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -109,39 +118,42 @@ export function GuidedGreetingSection({
           )}
         </div>
 
-        {/* Gamification indicators */}
-        <div className="flex items-center gap-3 shrink-0">
-          {points > 0 && (
-            <div className="flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
-              <Star size={16} style={{ color: 'var(--color-accent-warm, var(--color-btn-primary-bg))' }} />
-              <span className="text-sm font-medium">{points}</span>
-            </div>
-          )}
-          {streak > 0 && (
-            <div className="flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
-              <Flame size={16} style={{ color: 'var(--color-accent-warm, #f59e0b)' }} />
-              <span className="text-sm font-medium">{streak}</span>
-            </div>
-          )}
-          {/* PRD-24 Point Economy Addendum §5.6: "7/10 today" — absent
-              entirely when mom hasn't set a goal. Never shows a miss. */}
-          {dailyGoal != null && dailyGoal > 0 && (
-            <div
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-              style={{
-                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
-                color: 'var(--color-btn-primary-bg)',
-              }}
-            >
-              <span className="text-sm font-semibold">
-                {Math.min(pointsToday, dailyGoal)}/{dailyGoal}
-              </span>
-              <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
-                today
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Gamification indicators — hidden entirely (no empty space) when
+            gamification is disabled for this member. */}
+        {gamificationEnabled && (
+          <div className="flex items-center gap-3 shrink-0">
+            {points > 0 && (
+              <div className="flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
+                <Star size={16} style={{ color: 'var(--color-accent-warm, var(--color-btn-primary-bg))' }} />
+                <span className="text-sm font-medium">{points}</span>
+              </div>
+            )}
+            {streak > 0 && (
+              <div className="flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
+                <Flame size={16} style={{ color: 'var(--color-accent-warm, #f59e0b)' }} />
+                <span className="text-sm font-medium">{streak}</span>
+              </div>
+            )}
+            {/* PRD-24 Point Economy Addendum §5.6: "7/10 today" — absent
+                entirely when mom hasn't set a goal. Never shows a miss. */}
+            {dailyGoal != null && dailyGoal > 0 && (
+              <div
+                className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, transparent)',
+                  color: 'var(--color-btn-primary-bg)',
+                }}
+              >
+                <span className="text-sm font-semibold">
+                  {Math.min(pointsToday, dailyGoal)}/{dailyGoal}
+                </span>
+                <span className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>
+                  today
+                </span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

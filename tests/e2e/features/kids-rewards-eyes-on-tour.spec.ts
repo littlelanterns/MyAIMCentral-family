@@ -671,9 +671,14 @@ test.describe('Eyes-on tour — Slice 1 mom surfaces', () => {
       await page.waitForTimeout(500)
     }
 
+    // GDCX (2026-07): the primary bottom-nav "Progress" tab now routes to
+    // /my-rewards unconditionally — no longer a More-menu entry.
     await page.getByRole('button', { name: 'More' }).click()
     await shot(page, '17-viewas-jordan-more-menu')
-    await page.getByText('My Rewards', { exact: true }).first().click()
+    // Close the More menu via its full-screen backdrop (top-left corner is
+    // outside the bottom slide-up panel's bounds).
+    await page.mouse.click(10, 10)
+    await page.locator('nav').last().getByText('Progress', { exact: true }).click()
     await expect(page.getByTestId('mr-section-custom')).toBeVisible({ timeout: 15000 })
     await shot(page, '18-viewas-jordan-my-rewards')
     await linger(page, 4000)

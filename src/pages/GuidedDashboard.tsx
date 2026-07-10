@@ -17,6 +17,7 @@ import {
   GuidedActiveTasksSection,
   GuidedWidgetGrid,
   CelebrateSection,
+  NextBestThingCard,
 } from '@/components/guided'
 import { GuidedThingsToTalkAboutSection } from '@/components/guided/GuidedThingsToTalkAboutSection'
 import { GuidedActivitySection } from '@/components/guided/GuidedActivitySection'
@@ -26,6 +27,7 @@ import { useMemberColoringReveals } from '@/hooks/useColoringReveals'
 import { useGamificationConfig } from '@/hooks/useGamificationSettings'
 import { useMemberStreak } from '@/hooks/useMemberStreak'
 import { useMemberPointsToday } from '@/hooks/useMemberPointsToday'
+import { useNBTEngine } from '@/hooks/useNBTEngine'
 import { useTasks } from '@/hooks/useTasks'
 import { DashboardSectionWrapper } from '@/components/dashboard'
 import type { SectionKey } from '@/components/dashboard'
@@ -62,9 +64,17 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
 
   // Build M Phase 5: Coloring reveal tally widgets (gamification opt-in)
   const { data: gamConfig } = useGamificationConfig(displayMemberId)
+  // GDCX Slice 2 (edge case, PRD-25 §Edge Cases "Member with Gamification
+  // Disabled"): header indicators must hide entirely when gamification is
+  // off, not merely when points/streak happen to be 0 — an explicit check
+  // instead of the previous value>0-only gate.
+  const gamificationEnabled = gamConfig?.enabled === true
   // PRD-24 Point Economy Addendum §5.6 (rider 2): daily points goal.
   const dailyGoal = gamConfig?.daily_points_goal ?? null
   const { data: pointsToday } = useMemberPointsToday(dailyGoal != null ? displayMemberId : undefined)
+  // GDCX Slice 1: Next Best Thing engine — re-enabled after the root-cause
+  // day-scheduling fix in useNBTEngine.ts (Convention #126).
+  const nbt = useNBTEngine(displayFamilyId, displayMemberId)
   const { data: colorReveals = [] } = useMemberColoringReveals(
     gamConfig?.enabled ? displayMemberId : undefined,
   )
@@ -96,6 +106,7 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
             readingSupport={readingSupport}
             dailyGoal={dailyGoal}
             pointsToday={pointsToday ?? 0}
+            gamificationEnabled={gamificationEnabled}
           />
         ) : null
 
@@ -110,9 +121,27 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
         ) : null
 
       case 'next_best_thing':
-        // Disabled per founder request (2026-05-03): pulling from unassigned/inactive tasks.
-        // Re-enable when the suggestion engine is scoped to assigned+active tasks only.
-        return null
+        // GDCX Slice 1 (2026-07): re-enabled. Was disabled 2026-05-03 because
+        // the engine suggested tasks not actually scheduled for today (e.g. an
+        // MWF routine on a Tuesday) — root cause was a missing day-scheduling
+        // filter, fixed in useNBTEngine.ts. Founder-eyes-on-verified (Convention
+        // #277 Claude-driven tour) that the day-scheduling bug no longer
+        // reproduces before this flip.
+        return displayMemberId && displayFamilyId ? (
+          <NextBestThingCard
+            suggestion={nbt.currentSuggestion}
+            onAdvance={nbt.advance}
+            isEmpty={nbt.isEmpty}
+            isLoading={nbt.isLoading}
+            memberName={displayMember?.display_name ?? 'Friend'}
+            streakCount={streak}
+            familyId={displayFamilyId}
+            memberId={displayMemberId}
+            readingSupport={readingSupport}
+            totalSuggestions={nbt.suggestions.length}
+            currentIndex={nbt.currentIndex}
+          />
+        ) : null
 
       case 'calendar':
         return displayMemberId ? (
@@ -160,7 +189,13 @@ export function GuidedDashboard({ isViewAsOverlay }: GuidedDashboardProps) {
         ) : null
 
       case 'celebrate':
-        return <CelebrateSection />
+        return (
+          <CelebrateSection
+            reflectionsEnabled={preferences.reflections_in_celebration}
+            reflectionDailyCount={preferences.reflection_daily_count}
+            readingSupport={readingSupport}
+          />
+        )
 
       default:
         return null

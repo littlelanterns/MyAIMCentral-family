@@ -12,6 +12,10 @@ export type ReflectionCategory =
 
 export type ReflectionSource = 'default' | 'custom' | 'lila_dynamic'
 
+// GDCX migration 00000000100307 extended the DB CHECK constraint to add
+// 'daily_celebration' alongside the two existing contexts.
+export type ReflectionSourceContext = 'reflections_page' | 'evening_rhythm' | 'daily_celebration'
+
 export interface ReflectionPrompt {
   id: string
   family_id: string
@@ -34,7 +38,7 @@ export interface ReflectionResponse {
   prompt_id: string
   response_text: string
   response_date: string
-  source_context: 'reflections_page' | 'evening_rhythm'
+  source_context: ReflectionSourceContext
   journal_entry_id: string | null
   routed_destinations: Record<string, unknown>
   created_at: string
@@ -248,8 +252,11 @@ export function useSaveResponse() {
       responseText: string
       promptText: string
       category: ReflectionCategory
+      /** Defaults to 'reflections_page' — the Write drawer's existing behavior. */
+      sourceContext?: ReflectionSourceContext
     }) => {
       const { familyId, memberId, promptId, responseText, promptText, category } = params
+      const sourceContext = params.sourceContext ?? 'reflections_page'
       const today = todayLocalIso()
 
       // 1. Create journal entry first
@@ -266,6 +273,10 @@ export function useSaveResponse() {
           tags,
           visibility: 'private',
           is_included_in_ai: true,
+          // PRD-25 Screen 6: celebration-originated reflections are tagged
+          // source='daily_celebration'; Write-drawer/evening-rhythm origins
+          // leave source unset (matches prior behavior).
+          ...(sourceContext === 'daily_celebration' ? { source: 'daily_celebration' } : {}),
         })
         .select('id')
         .single()
@@ -281,6 +292,7 @@ export function useSaveResponse() {
           prompt_id: promptId,
           response_text: responseText,
           response_date: today,
+          source_context: sourceContext,
           journal_entry_id: journalEntry.id,
         })
         .select()

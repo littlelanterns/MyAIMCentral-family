@@ -745,11 +745,10 @@ test.describe('KIDS-REWARDS-PAGE Slice 2 — My Rewards page + section opt-ins',
       await page.waitForTimeout(500)
     }
 
-    // Guided shell: My Rewards lives in the bottom-nav More menu (the guided
-    // shell has its own purpose-built nav — gated by the target's
-    // show_my_rewards, which we set above)
-    await page.getByRole('button', { name: 'More' }).click()
-    await page.getByText('My Rewards', { exact: true }).first().click()
+    // Guided shell: the primary bottom-nav "Progress" tab routes to
+    // /my-rewards unconditionally (GDCX, Convention #124/#150-2026-07) — no
+    // longer gated behind the More menu's show_my_rewards toggle.
+    await page.locator('nav').last().getByText('Progress', { exact: true }).click()
 
     await expect(page.getByTestId('mr-section-custom')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(`${PREFIX} Jordan popsicle`).first()).toBeVisible()

@@ -20,9 +20,14 @@
  *     RETAINS Touch Base, Shopping Mode, Journal, InnerWorkings,
  *     LifeLantern, AI Vault, BookShelf section, Family Feeds.
  *   - Independent does NOT include Archives.
- *   - My Rewards entry appears in Plan & Do (Adult/Independent) or My
- *     Day (Guided) ONLY when `options.showMyRewards === true`.
- *   - Guided shell unchanged (Home + My Day + BookShelf).
+ *   - My Rewards entry appears in Plan & Do (Adult/Independent) ONLY
+ *     when `options.showMyRewards === true`.
+ *   - Guided shell (Home + My Day + BookShelf) is unconditional in My
+ *     Day for My Rewards specifically (GDCX, 2026-07) — Guided's primary
+ *     bottom-nav "Progress" tab routes to /my-rewards regardless of
+ *     showMyRewards (Convention #124), so this list (used only to feed
+ *     View-As's allowedPaths, never rendered as a real Guided menu) must
+ *     always include it too.
  *   - Play shell returns `[]`.
  *
  * Convention #39 (View As Identity-Scope Architecture).
@@ -293,18 +298,24 @@ describe('getSidebarSections — guided shell', () => {
     expect(labels).toContain('Victories')
   })
 
-  it('My Rewards is INVISIBLE by default in guided', () => {
-    const sections = getSidebarSections('guided')
-    const allLabels = sections.flatMap(s => s.items.map(i => i.label))
-    expect(allLabels).not.toContain('My Rewards')
-  })
+  // GDCX (2026-07): unlike adult/independent (where "My Rewards" is a real,
+  // conditionally-rendered More-menu entry gated by show_my_rewards), Guided's
+  // primary bottom-nav "Progress" tab now routes to /my-rewards UNCONDITIONALLY
+  // (Convention #124 — Progress is always present, alongside the other
+  // unhideable tabs). This section list is never rendered as an actual Guided
+  // menu — it exists solely to feed the View-As modal's allowedPaths set — so
+  // /my-rewards must always be present here too, regardless of showMyRewards,
+  // to match what a real Guided kid's Progress tab always does.
+  it('My Rewards is present in My Day regardless of showMyRewards (feeds View-As allowedPaths for the unconditional Progress tab)', () => {
+    const withoutToggle = getSidebarSections('guided')
+    const withToggle = getSidebarSections('guided', { showMyRewards: true })
 
-  it('My Rewards appears in My Day when toggled on', () => {
-    const sections = getSidebarSections('guided', { showMyRewards: true })
-    const myDay = sections.find(s => s.title === 'My Day')
-    const myRewards = myDay!.items.find(i => i.label === 'My Rewards')
-    expect(myRewards).toBeDefined()
-    expect(myRewards!.path).toBe('/my-rewards')
+    for (const sections of [withoutToggle, withToggle]) {
+      const myDay = sections.find(s => s.title === 'My Day')
+      const myRewards = myDay!.items.find(i => i.label === 'My Rewards')
+      expect(myRewards).toBeDefined()
+      expect(myRewards!.path).toBe('/my-rewards')
+    }
   })
 })
 

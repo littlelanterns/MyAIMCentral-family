@@ -1,14 +1,18 @@
 /**
  * PRD-25: Next Best Thing engine
- * Deterministic 7-level priority system for Guided dashboard.
+ * Deterministic 8-level priority system for Guided dashboard (Convention #126).
  * Computes suggestions from task/intention data — no database table needed.
  */
 
 import { useState, useMemo, useCallback } from 'react'
 import { useTasks } from './useTasks'
 import { useBestIntentions } from './useBestIntentions'
+import { useFamilyToday } from './useFamilyToday'
 import type { NBTSuggestion } from '@/types/guided-dashboard'
-import { localIso } from '@/utils/dates'
+import type { Task } from '@/types/tasks'
+import type { BestIntention } from './useBestIntentions'
+import { todayLocalIso } from '@/utils/dates'
+import { filterTasksForToday } from '@/lib/tasks/recurringTaskFilter'
 
 export interface UseNBTEngineReturn {
   suggestions: NBTSuggestion[]
@@ -19,32 +23,40 @@ export interface UseNBTEngineReturn {
   isEmpty: boolean
 }
 
-export function useNBTEngine(
-  familyId: string | undefined,
-  memberId: string | undefined
-): UseNBTEngineReturn {
-  const [currentIndex, setCurrentIndex] = useState(0)
+/**
+ * Pure priority-computation core, extracted from the hook so the GDCX Slice 1
+ * day-scheduling fix (filterTasksForToday) can be pinned with a plain unit
+ * test — no React, no mocked hooks, no real-seed-data noise. `now` and
+ * `today` are passed in (rather than computed with `new Date()` internally)
+ * so tests can exercise a specific point in time deterministically.
+ */
+export function computeNBTSuggestions(
+  tasks: Task[],
+  intentions: BestIntention[],
+  memberId: string | undefined,
+  today: string,
+  now: Date = new Date(),
+): NBTSuggestion[] {
+  if (!memberId) return []
 
-  const { data: tasks = [], isLoading: tasksLoading } = useTasks(familyId, {
-    assigneeId: memberId,
-    status: ['pending', 'in_progress'],
-    archived: false,
-  })
+  const todayDate = (() => {
+    const [y, m, d] = today.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  })()
+  const currentHour = now.getHours()
+  const currentMinutes = currentHour * 60 + now.getMinutes()
 
-  const { data: intentions = [], isLoading: intentionsLoading } = useBestIntentions(memberId)
-  const isLoading = tasksLoading || intentionsLoading
-
-  const suggestions = useMemo((): NBTSuggestion[] => {
-    if (!memberId) return []
-
-    const now = new Date()
-    const today = localIso(now)
-    const currentHour = now.getHours()
-    const currentMinutes = currentHour * 60 + now.getMinutes()
-    const result: NBTSuggestion[] = []
+  // GDCX Slice 1 root-cause fix: the engine previously suggested tasks
+  // regardless of whether they were actually scheduled for today (e.g. an
+  // MWF routine suggested on a Tuesday, or a routine whose dtstart hadn't
+  // arrived yet). This is the same day-scheduling filter
+  // GuidedActiveTasksSection applies to "My Tasks" — NBT's suggestion pool
+  // must match what the kid's own task list shows for today, never wider.
+  const todaysTasks = filterTasksForToday(tasks, todayDate)
+  const result: NBTSuggestion[] = []
 
     // Priority 1: Overdue tasks
-    const overdueTasks = tasks.filter(t => {
+    const overdueTasks = todaysTasks.filter(t => {
       if (!t.due_date) return false
       if (t.due_date < today) return true
       if (t.due_date === today && t.due_time) {
@@ -67,7 +79,7 @@ export function useNBTEngine(
     }
 
     // Priority 2: Active routines in progress
-    const activeRoutines = tasks.filter(
+    const activeRoutines = todaysTasks.filter(
       t => t.task_type === 'routine' && t.status === 'in_progress'
     )
     for (const t of activeRoutines) {
@@ -84,7 +96,7 @@ export function useNBTEngine(
     }
 
     // Priority 3: Current time-block tasks (±15 min window)
-    const timeBlockTasks = tasks.filter(t => {
+    const timeBlockTasks = todaysTasks.filter(t => {
       if (!t.due_date || t.due_date !== today || !t.due_time) return false
       if (overdueTasks.some(o => o.id === t.id)) return false
       const [h, m] = t.due_time.split(':').map(Number)
@@ -105,7 +117,7 @@ export function useNBTEngine(
     }
 
     // Priority 4: Mom-prioritized tasks
-    const momPriority = tasks.filter(
+    const momPriority = todaysTasks.filter(
       t =>
         t.priority === 'now' &&
         !overdueTasks.some(o => o.id === t.id) &&
@@ -129,7 +141,7 @@ export function useNBTEngine(
     const addedIds = new Set(result.map(r => r.entityId))
 
     // Priority 5: Next due task
-    const futureDue = tasks
+    const futureDue = todaysTasks
       .filter(t => t.due_date && t.due_date >= today && !addedIds.has(t.id))
       .sort((a, b) => {
         const dateCompare = (a.due_date ?? '').localeCompare(b.due_date ?? '')
@@ -152,7 +164,7 @@ export function useNBTEngine(
     }
 
     // Priority 6: Available opportunities
-    const opportunities = tasks.filter(
+    const opportunities = todaysTasks.filter(
       t =>
         (t.task_type === 'opportunity_repeatable' ||
           t.task_type === 'opportunity_claimable' ||
@@ -177,7 +189,7 @@ export function useNBTEngine(
     }
 
     // Priority 7: Unscheduled tasks
-    const unscheduled = tasks.filter(t => !addedIds.has(t.id))
+    const unscheduled = todaysTasks.filter(t => !addedIds.has(t.id))
     for (const t of unscheduled) {
       result.push({
         id: `unsched-${t.id}`,
@@ -205,8 +217,32 @@ export function useNBTEngine(
       })
     }
 
-    return result
-  }, [tasks, intentions, memberId])
+  return result
+}
+
+export function useNBTEngine(
+  familyId: string | undefined,
+  memberId: string | undefined
+): UseNBTEngineReturn {
+  const [currentIndex, setCurrentIndex] = useState(0)
+
+  const { data: tasks = [], isLoading: tasksLoading } = useTasks(familyId, {
+    assigneeId: memberId,
+    status: ['pending', 'in_progress'],
+    archived: false,
+  })
+
+  const { data: intentions = [], isLoading: intentionsLoading } = useBestIntentions(memberId)
+  // GDCX Slice 1 (2026-07): family-timezone-derived "today" per Convention #257,
+  // same seeded pattern CLIENT-DATE-REMEDIATION established at every other
+  // filterTasksForToday call site (GuidedActiveTasksSection, Tasks, PlayDashboard).
+  const { data: todayFamily } = useFamilyToday(memberId)
+  const isLoading = tasksLoading || intentionsLoading
+
+  const suggestions = useMemo(
+    () => computeNBTSuggestions(tasks, intentions, memberId, todayFamily ?? todayLocalIso()),
+    [tasks, intentions, memberId, todayFamily],
+  )
 
   const advance = useCallback(() => {
     setCurrentIndex(prev =>

@@ -1,7 +1,6 @@
 import { Calendar, BarChart3, Compass, Users, Archive, Sun, Moon, Settings, Map, Brain, Rss, StickyNote } from 'lucide-react'
 import { PlaceholderPage } from './PlaceholderPage'
 import { GuidedVictories } from '@/pages/GuidedVictories'
-import { GuidedProgress } from '@/pages/GuidedProgress'
 import { VictoryRecorder } from '@/pages/VictoryRecorder'
 import { useShell } from '@/components/shells/ShellProvider'
 
@@ -18,8 +17,9 @@ export function CalendarPage() {
 }
 
 export function TrackersPage() {
-  const { shell } = useShell()
-  if (shell === 'guided') return <GuidedProgress />
+  // GDCX (2026-07): Guided's bottom-nav "Progress" tab now routes directly
+  // to /my-rewards (D-GDCX-2) — GuidedProgress.tsx retired, this page no
+  // longer forks on shell.
   return <PlaceholderPage title="Trackers" description="Dashboard widgets and visual trackers for habits, goals, and progress." icon={BarChart3} prd="PRD-10" featureKey="widgets" />
 }
 
