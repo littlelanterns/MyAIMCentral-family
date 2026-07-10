@@ -35,6 +35,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { jsonHeaders } from '../_shared/cors.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { extractJsonObject } from '../_shared/json-extract.ts'
 import { planEnforcingSideEffects, ENFORCEMENT_MODE } from '../_shared/ethics-guard.ts'
 import type { EthicsCategory } from '../_shared/ethics-guard.ts'
 
@@ -122,6 +123,8 @@ async function getEmbedding(text: string): Promise<number[]> {
 async function tier2Confirm(
   content: string,
   triggeringMessage: string | null,
+  familyId: string,
+  memberId: string | null,
 ): Promise<{ verdict: 'clean' | EthicsCategory; confidence: number; reasoning: string } | null> {
   const userParts = [`Flagged AI output:\n"""${content}"""`]
   if (triggeringMessage) userParts.push(`\nTriggering user message (for facilitation-vs-discussion context):\n"""${triggeringMessage}"""`)
@@ -150,12 +153,20 @@ async function tier2Confirm(
   const outputTokens = json.usage?.completion_tokens || 0
   const text = (json.choices?.[0]?.message?.content || '').trim()
 
+  // Robust JSON extraction — a trailing explanatory paragraph after the
+  // ```json fence would otherwise throw here and be treated as a Tier-2
+  // failure (retry -> park at 'error'), silently skipping a real violation.
+  // See _shared/json-extract.ts.
+  const candidate = extractJsonObject(text)
+  if (candidate === null) {
+    console.error('tier2Confirm no JSON object in response:', text.slice(0, 200))
+    return null
+  }
   let parsed: unknown
   try {
-    const cleaned = text.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
-    parsed = JSON.parse(cleaned)
+    parsed = JSON.parse(candidate)
   } catch {
-    console.error('tier2Confirm JSON parse failed:', text.slice(0, 200))
+    console.error('tier2Confirm JSON parse failed:', candidate.slice(0, 200))
     return null
   }
 
@@ -165,9 +176,13 @@ async function tier2Confirm(
     return null
   }
 
+  // Real family/member attribution (the old zero-UUIDs FK-violated
+  // ai_usage_tracking and every ethics_validation cost row was silently
+  // dropped — 0 rows in production). member_id may be null for a member-less
+  // scan; the shared logger skips+warns rather than fire a doomed insert.
   logAICost({
-    familyId: '00000000-0000-0000-0000-000000000000',
-    memberId: '00000000-0000-0000-0000-000000000000',
+    familyId,
+    memberId,
     featureKey: 'ethics_validation',
     model: HAIKU_MODEL,
     inputTokens,
@@ -260,7 +275,7 @@ async function processRow(row: PendingScanRow): Promise<'validated' | 'rejected'
     }).eq('id', row.id)
 
     const triggeringMessage = await fetchTriggeringMessage(row)
-    const tier2 = await tier2Confirm(row.content, triggeringMessage)
+    const tier2 = await tier2Confirm(row.content, triggeringMessage, row.family_id, row.member_id)
 
     if (tier2 === null) {
       // Tier-2 INFRASTRUCTURE FAILURE (HTTP error, timeout, JSON parse

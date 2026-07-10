@@ -57,6 +57,7 @@ import { z } from 'https://esm.sh/zod@3.23.8'
 import { jsonHeaders } from '../_shared/cors.ts'
 import { logAICost } from '../_shared/cost-logger.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { extractJsonObject } from '../_shared/json-extract.ts'
 import {
   CATEGORY_LIST,
   CATEGORY_DESCRIPTION,
@@ -389,6 +390,7 @@ async function generateConversationStarter(
   ageLabel: string,
   age: number | null,
   familyId: string,
+  memberId: string | null,
 ): Promise<string | null> {
   if (!TIER_GATE_ENABLED) {
     // beta bypass — proceed unconditionally
@@ -422,7 +424,7 @@ Rules:
     const text = (json.choices?.[0]?.message?.content || '').trim()
     logAICost({
       familyId,
-      memberId: '00000000-0000-0000-0000-000000000000',
+      memberId,
       featureKey: 'safety_classification',
       model: HAIKU_MODEL,
       inputTokens: json.usage?.prompt_tokens || 0,
@@ -580,7 +582,7 @@ async function processLilaMessagesLayer1(
           if (result.isNew) topFlagId = result.flagId
           if (result.isNew) {
             const { age, label } = computeAgeAndLabel(member)
-            const starter = await generateConversationStarter(category, severity, label, age, member.family_id)
+            const starter = await generateConversationStarter(category, severity, label, age, member.family_id, member.id)
             if (starter) {
               await supabase.from('safety_flags').update({ conversation_starter: starter }).eq('id', result.flagId)
             }
@@ -715,7 +717,7 @@ async function processBookshelfMessagesLayer1(
           if (result.isNew) topFlagId = result.flagId
           if (result.isNew) {
             const { age, label } = computeAgeAndLabel(member)
-            const starter = await generateConversationStarter(category, severity, label, age, member.family_id)
+            const starter = await generateConversationStarter(category, severity, label, age, member.family_id, member.id)
             if (starter) {
               await supabase.from('safety_flags').update({ conversation_starter: starter }).eq('id', result.flagId)
             }
@@ -782,6 +784,7 @@ async function fetchBoundedConversationMessages(
 async function classifyTranscript(
   transcript: { role: string; content: string }[],
   familyId: string,
+  memberId: string | null,
 ): Promise<z.infer<typeof ClassificationSchema> | null> {
   let userParts = transcript.map((m, i) => `[${i}] ${m.role}: ${m.content}`).join('\n')
   if (userParts.length > MAX_TRANSCRIPT_CHARS) {
@@ -813,19 +816,27 @@ async function classifyTranscript(
     const text = (json.choices?.[0]?.message?.content || '').trim()
     logAICost({
       familyId,
-      memberId: '00000000-0000-0000-0000-000000000000',
+      memberId,
       featureKey: 'safety_classification',
       model: HAIKU_MODEL,
       inputTokens: json.usage?.prompt_tokens || 0,
       outputTokens: json.usage?.completion_tokens || 0,
     })
 
+    // Robust JSON extraction — Haiku often wraps the object in a ```json fence
+    // AND appends explanatory prose after it, which the old fence-only strip
+    // could not handle (parse threw -> null -> conversation left unscanned
+    // forever). See _shared/json-extract.ts.
+    const candidate = extractJsonObject(text)
+    if (candidate === null) {
+      console.error('safety-classify: classifyTranscript no JSON object in response:', text.slice(0, 200))
+      return null
+    }
     let parsed: unknown
     try {
-      const cleaned = text.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
-      parsed = JSON.parse(cleaned)
+      parsed = JSON.parse(candidate)
     } catch {
-      console.error('safety-classify: classifyTranscript JSON parse failed:', text.slice(0, 200))
+      console.error('safety-classify: classifyTranscript JSON parse failed:', candidate.slice(0, 200))
       return null
     }
     const validated = ClassificationSchema.safeParse(parsed)
@@ -918,6 +929,7 @@ async function processLilaConversationsLayer2(
     const classification = await classifyTranscript(
       messages.map(m => ({ role: m.role, content: m.content })),
       member.family_id,
+      member.id,
     )
     if (!classification) {
       // Leave unscanned — retries on the next tick (documented simplification).
@@ -962,7 +974,7 @@ async function processLilaConversationsLayer2(
         if (result.isNew) topFlagId = result.flagId
         if (result.isNew) {
           const { age, label } = computeAgeAndLabel(member)
-          const starter = await generateConversationStarter(concern.category, concern.severity, label, age, member.family_id)
+          const starter = await generateConversationStarter(concern.category, concern.severity, label, age, member.family_id, member.id)
           if (starter) {
             await supabase.from('safety_flags').update({ conversation_starter: starter }).eq('id', result.flagId)
           }
@@ -1031,6 +1043,7 @@ async function processBookshelfDiscussionsLayer2(
     const classification = await classifyTranscript(
       messages.map(m => ({ role: m.role, content: m.content })),
       member.family_id,
+      member.id,
     )
     if (!classification) continue // retries next tick
 
@@ -1072,7 +1085,7 @@ async function processBookshelfDiscussionsLayer2(
         if (result.isNew) topFlagId = result.flagId
         if (result.isNew) {
           const { age, label } = computeAgeAndLabel(member)
-          const starter = await generateConversationStarter(concern.category, concern.severity, label, age, member.family_id)
+          const starter = await generateConversationStarter(concern.category, concern.severity, label, age, member.family_id, member.id)
           if (starter) {
             await supabase.from('safety_flags').update({ conversation_starter: starter }).eq('id', result.flagId)
           }
