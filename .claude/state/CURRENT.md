@@ -51,6 +51,13 @@ PRD-30 (SM-A/B/C) + PECON (A+B) Checkpoint-5 PASS, signed off, archived (`cd0aca
 
 Model routing: **security/adversarial → Opus (Fable dual-use flags it) — this is now a re-pin data point for 07-12.** Two-step /model headers on every dispatch. ONE shared Playwright suite at a time across windows (seat serializes; tree-level result counts for all lanes). Seat-executed commit batches (per-lane + schema commit staged with live_schema + shared sweep). **Founder standing push-after-review authorization.** Production migrations + Edge deploys + destructive ops = founder per-instance. Hook false-positives on PROSE describing banned patterns get reworded, never overridden. Convention #277 eyes-on tours are load-bearing.
 
+## New follow-ups surfaced 2026-07-09 (FDWA+PINR lane)
+
+- **Kid PIN session-mint bug + founder decision.** FDWA+PINR found: a real personal-device session minted from a kid's 4-digit PIN currently uses the raw PIN as the shadow-account password, which fails this project's 6+ char Supabase Auth policy → no kid PIN can mint a real persistent session today (verify-only hub dip-in still works, which is why founder's kids "using 4-digit PINs" seem fine). **FOUNDER RULED: keep 4-digit PINs.** The fix is NEITHER of the worker's two options (force 6-digit / weaken Auth policy) — it is the picture-password pattern (Convention #273): shadow password = long server-derived HMAC secret, PIN is just what the kid types. Small, well-patterned follow-up build (mirror `family-auth-admin` picture path lines ~384/509). Do NOT force 6-digit PINs or lower the Auth password policy.
+- **Teen mom-initiated invite (founder feature request 2026-07-09).** Mom can create a username/password OR email-based login invitation for a teen, sent by the account-holding mom, teen still under her family. PRD-01 accept-invite territory. Capture as a scoped follow-up / dispatch-factory item.
+- **csm_insert_admin_or_parent RLS branch mystery** (PRD-15 messaging) — diagnosed, not chased. Follow-up.
+- **Haiku spend ~$8 on OpenRouter (founder asked 2026-07-09):** internal ai_usage_tracking shows only ~$0.07/4days of normal app usage — the $8 is the adversarial review's LIVE calibration campaign hitting OpenRouter directly (bypasses the app cost-logger), a ONE-TIME approved cost. Seat verifying no cron loop; not ongoing (safety crons are demand-driven — no users = no content = ~$0).
+
 ## Founder-only open items
 
 1. **"lock them"** — the 3 safe RPC revokes (do it in whichever seat; fastest = immediately).
