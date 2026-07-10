@@ -46,9 +46,9 @@ The short version, in plain words:
 ## 1. Who we are
 
 1.1. Three Little Lanterns LLC is a Missouri limited liability company.
-Mailing address: **[FOUNDER INPUT NEEDED]**. Email: **[FOUNDER INPUT NEEDED — e.g.,
-privacy@myaimcentral.com; must be a monitored inbox]**. Phone: **[FOUNDER INPUT NEEDED — the
-amended COPPA Rule's notice provisions expect a telephone number]**.
+Mailing address: **4032 State Highway VV, Verona, MO 65769**. Email:
+**aimagicformoms@gmail.com** (a monitored inbox read directly by the founder). Phone:
+**208-351-4622**.
 
 1.2. We operate two connected products: **MyAIM Central**, a private family management
 platform, and **AI Magic for Moms**, a public blog and membership. This policy covers both;
@@ -288,7 +288,7 @@ your data, correct it, delete it, and close your account.
 > whether any apply **now**.
 
 10.2. How to exercise rights: in-app (Settings) where available, or by emailing
-**[privacy contact — FOUNDER INPUT NEEDED]**. We verify requests, respond within [45] days,
+**aimagicformoms@gmail.com**. We verify requests, respond within [45] days,
 and never discriminate against you for exercising rights. If we decline a request, we explain
 why and how to appeal. **[Note for counsel: appeal mechanics required by several state laws —
 include now or upon applicability?]**
@@ -338,9 +338,9 @@ and our consent records always preserve the exact text each parent agreed to.
 ## 14. Contact us
 
 Three Little Lanterns LLC
-[Mailing address — FOUNDER INPUT NEEDED]
-[Phone — FOUNDER INPUT NEEDED]
-[privacy@… — FOUNDER INPUT NEEDED]
+4032 State Highway VV, Verona, MO 65769
+208-351-4622
+aimagicformoms@gmail.com
 
 If you have any privacy concern, email us and a human — the founder — will read it.
 

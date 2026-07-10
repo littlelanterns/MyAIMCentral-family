@@ -112,7 +112,7 @@ Bill/scope note: if any of this sits outside your practice area (COPPA is specia
 welcome a referral or co-counsel recommendation rather than a stretch — the FTC's current
 enforcement posture on children's privacy makes this the wrong corner to cut.
 
-— Tenise Wertman, Three Little Lanterns LLC · [email] · [phone]
+— Tenise Wertman, Three Little Lanterns LLC · aimagicformoms@gmail.com · 208-351-4622
 
 ---
 

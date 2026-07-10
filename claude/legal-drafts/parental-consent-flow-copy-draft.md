@@ -144,8 +144,7 @@ These aren't buried-in-the-fine-print rights. They're buttons in your Settings:
   after a 14-day grace window (in case you tapped by accident), and revoking for one child
   never touches your other children's data.
 - **Reach a human.** Contact Three Little Lanterns LLC directly about any privacy concern:
-  [privacy email — FOUNDER INPUT NEEDED], [phone — FOUNDER INPUT NEEDED], [mailing address —
-  FOUNDER INPUT NEEDED].
+  aimagicformoms@gmail.com, 208-351-4622, or 4032 State Highway VV, Verona, MO 65769.
 
 One more promise: we never require [Child Name] to hand over more information than an
 activity actually needs in order to participate.

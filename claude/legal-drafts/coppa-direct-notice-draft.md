@@ -20,8 +20,8 @@
 ## Direct Notice: Our Collection of Personal Information from Your Child
 
 **From:** Three Little Lanterns LLC (operator of MyAIM Central)
-[Mailing address — FOUNDER INPUT NEEDED] · [Phone — FOUNDER INPUT NEEDED] ·
-[privacy email — FOUNDER INPUT NEEDED] · myaimcentral.com
+4032 State Highway VV, Verona, MO 65769 · 208-351-4622 ·
+aimagicformoms@gmail.com · myaimcentral.com
 
 You're receiving this notice because you told us **[Child Name]** is under 13. A U.S. federal
 law — the Children's Online Privacy Protection Act (COPPA) — requires us to tell you exactly
@@ -131,7 +131,7 @@ MyAIM Central for yourself and family members 13 and older.
 - **Revoke your consent entirely** (Settings → Privacy & Consent → Revoke). Your child's
   information is then deleted — you get a 14-day window to change your mind, and after that
   the deletion is permanent. Revoking for one child never affects your other children.
-- **Contact us** about any of this: [privacy email], [phone], [address].
+- **Contact us** about any of this: aimagicformoms@gmail.com, 208-351-4622, or 4032 State Highway VV, Verona, MO 65769.
 
 We will honor review, deletion, and refusal-of-further-collection requests even while your
 consent remains otherwise active.

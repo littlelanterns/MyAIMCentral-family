@@ -15,7 +15,7 @@
 ## 1. What the platform is
 
 1.1. **Operator:** Three Little Lanterns LLC, a Missouri limited liability company
-([FOUNDER INPUT NEEDED: registered address, phone]). Sole owner-operator: Tenise Wertman.
+(4032 State Highway VV, Verona, MO 65769 · 208-351-4622). Sole owner-operator: Tenise Wertman.
 Products: **MyAIM Central** (myaimcentral.com — the family platform) and **AI Magic for Moms /
 AIMfM** (aimagicformoms.com — a public blog and AI-literacy membership).
 
