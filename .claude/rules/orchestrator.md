@@ -75,6 +75,40 @@ Full details: `claude/orchestration/Verifier-Checkpoint-Schedule.md`
 
 ---
 
+## The Referee Procedure — Judging Worker Reports (added 2026-07-10)
+
+The seat NEVER relays a worker's claims to the founder, or commits/pushes/approves on them,
+without independent verification. This procedure settled a live two-window contradiction and
+caught a shipped defect the same week it was written. Model-independent, non-optional.
+
+**Before accepting any "code complete / proof green" report:**
+1. `git status --porcelain` — the reported change set must match the tree EXACTLY. Extra
+   files = another lane's work or an unreported change; investigate before staging.
+2. Run one named pin yourself (the redteam suite is ~2s; a vitest file is seconds). "The
+   worker says 76/76" becomes "I ran it: 76/76."
+3. Read the load-bearing diff hunk (the flip constant, the gate block, the parse change) —
+   not the whole diff, the line the claim rests on.
+
+**When reports conflict (two windows, or report vs. record):** do NOT arbitrate prose.
+Query the ground truth directly — production DB (read-only `supabase db query --linked -f`),
+the deployed function source (`supabase functions download` into the SCRATCHPAD, never the
+repo tree), the live constraint/grant (`pg_proc`, `pg_policies`, `has_function_privilege`).
+One discriminating query beats three rounds of he-said-she-said. Beware plausible-but-wrong
+inferences: commit timestamps do NOT prove deploy contents (deploys ship the working tree);
+zero telemetry rows do NOT prove a function never ran (the telemetry write itself may be
+broken — check the writer's FK/error handling before trusting its absence).
+
+**Standing rules this procedure enforces:**
+- ONE window owns a task. If two windows report on the same job, stop both, referee, then
+  explicitly stand one down and confirm which continues.
+- Serialize production changes (deploys, migration applies) across lanes — attribution gets
+  murky when two land at once. Shared Playwright suites: one at a time, seat grants slots.
+- Live-but-uncommitted is a P0 gap (silently reverts on next redeploy); commit it the same
+  hour it's verified. Committed-but-undeployed is the mirror gap; track both directions.
+- A worker asking permission via AskUserQuestion gets its answer THROUGH the founder with
+  seat conditions attached — conditional approval ("apply after items 1-3, with proof")
+  beats round-trips.
+
 ## Mom-UI Verification Table
 
 Every build touching UI must maintain this in the active build file:

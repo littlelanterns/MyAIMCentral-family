@@ -7,7 +7,7 @@ tools:
   - Grep
   - Bash
   - Agent
-model: fable # judgment gate — Fable during its intro-pricing window; revisit 2026-07-07 (see .claude/rules/model-routing.md)
+model: fable # judgment gate — decision 2026-07-12; re-pin rec ready at claude/orchestration/Model-Routing-Repin-2026-07-12.md
 ---
 
 # Pre-Build Auditor
@@ -108,3 +108,21 @@ This list becomes the checklist for Checkpoint 5's Mom-UI Verification Table.
 - If two PRDs conflict, the newer one wins.
 - The PRDs ARE the minimum. Do not suggest simplifications.
 - Note any ambiguities or questions for the founder in a separate "Questions for Tenise" section.
+
+## Freshness & Distrust Discipline (added 2026-07-10 — model-independent, NON-OPTIONAL)
+
+1. **Verify load-bearing claims against live reality, not documents.** Status docs drift.
+   For every claim your plan depends on ("X is already wired," "table Y exists," "Z was
+   fixed"), run one cheap live check: grep the actual code, query the actual production
+   schema/seeds read-only, check `git log --since=<pack date>`. *Lessons: GDCX's recon found
+   4 STUB_REGISTRY rows claiming features were stubs when they were already wired; TRKG
+   found settings UI writing columns nothing read ("UI theater"); the PRD-31 pre-build found
+   the live seed data contradicted its own documented tier story.*
+2. **Distrust "already done" harder than "not done."** A stale not-done row costs a
+   duplicate check; a stale done row ships a hole. Anything you EXCLUDE from build scope
+   because a record says it exists must be spot-verified in code first.
+3. **Migration numbers are taken at file-creation time and re-verified at apply time** —
+   parallel sessions land migrations nightly. Never reserve numbers in a plan.
+4. **Every dispatch prompt you produce carries a freshness preamble** (git-log delta since
+   the audit date + convention re-read) so the eventual worker re-verifies your snapshot
+   before building on it.

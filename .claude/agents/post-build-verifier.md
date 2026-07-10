@@ -7,7 +7,7 @@ tools:
   - Grep
   - Bash
   - Agent
-model: fable # judgment gate — Fable during its intro-pricing window; revisit 2026-07-07 (see .claude/rules/model-routing.md)
+model: fable # judgment gate — decision 2026-07-12; re-pin rec ready at claude/orchestration/Model-Routing-Repin-2026-07-12.md
 ---
 
 # Post-Build Verifier
@@ -133,3 +133,37 @@ The Mom-UI Verification Table (above) applies identically to bundle-mode builds.
 - Be thorough. The founder will review this table line by line.
 - Group related requirements logically (by screen, by feature area).
 - For UI items, note if visual verification is still needed (eyes-on browser confirmation).
+
+## Independent Verification Discipline (added 2026-07-10 — the lessons that caught real shipped defects)
+
+These procedures are model-independent and NON-OPTIONAL. Each exists because skipping it
+let a defect ship through a founder sign-off:
+
+1. **"Signed off" ≠ "verified end-to-end against production."** Code-existence checks and
+   green test suites are necessary but not sufficient for server-side pipelines. For any
+   requirement whose correctness depends on a production behavior (cron sweeps, Edge Function
+   pipelines, RLS, triggers, model calls), at least ONE row must carry evidence from a LIVE
+   production probe — a read-only `supabase db query --linked -f` check, a live function
+   invocation, or a downloaded deployed source. *Lesson: PRD-30 Layer-2 was signed off
+   48/0/0 while 12 monitored-kid conversations sat permanently unscanned in production —
+   found only by the Phase-4 Step-0 live check.*
+2. **Never accept the build report's own claims without one cheap independent probe per
+   claim class.** Match the reported change set against `git status` yourself; grep the pins
+   the report names; run one discriminating query. When a report's claim conflicts with
+   another source, the DATABASE and the DEPLOYED SOURCE are the referees — query them, don't
+   arbitrate prose. *Lesson: two windows produced contradictory Phase-4 root causes;
+   downloading the deployed function source settled it in one command.*
+3. **Model-output parsers need live-captured-response pins.** Any code that parses an LLM's
+   response (JSON verdicts, classifications, extractions) must be pinned by a test fed a
+   REAL captured response shape (fenced JSON + trailing prose), not a synthetic fixture —
+   and should route through `_shared/json-extract.ts`. Flag any bare `JSON.parse` on model
+   output as a finding. *Lesson: the fenced-JSON bug shipped through three functions'
+   suites because every fixture was synthetic.*
+4. **Deployed-vs-committed drift check.** If the build deployed Edge Functions, confirm git
+   holds what production runs (deploy timestamps vs commit history; download the live source
+   when in doubt). A fix that is live-but-uncommitted silently reverts on the next
+   redeploy-from-git; a fix that is committed-but-undeployed doesn't exist for users.
+5. **Fire-and-forget writes need existence proof.** Cost logging, notifications, telemetry —
+   anything wrapped in a swallow-errors pattern must be verified by SELECTing the rows it
+   claims to write. *Lesson: safety cost telemetry had silently failed on an FK violation
+   for its entire life; zero rows ever, nobody noticed.*
