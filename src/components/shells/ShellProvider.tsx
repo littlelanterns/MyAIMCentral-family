@@ -1,8 +1,9 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useSessionTimeout } from '@/hooks/useSessionTimeout'
 import { useThemePersistence } from '@/lib/theme/useThemePersistence'
 import { SessionWarning } from '@/components/shared/SessionWarning'
+import { AppearanceErrorBanner } from '@/components/shared/AppearanceErrorBanner'
 import type { ShellType } from '@/lib/theme'
 
 interface ShellContextType {
@@ -21,6 +22,28 @@ const ShellContext = createContext<ShellContextType>({
 
 export function useShell() {
   return useContext(ShellContext)
+}
+
+/**
+ * FDWA (2026-07-09) — a single cross-shell surface for "a preference write
+ * silently failed" (theme, sidebar layout, etc). useThemePersistence is
+ * called here, above where RoutingToastProvider mounts (inside Mom/Adult
+ * shells only, and not at all in Independent/Guided/Play) — so descendants
+ * that write to family_members appearance columns (e.g. Sidebar's
+ * useSidebarPersistence) report into THIS context instead, which every
+ * shell inherits regardless of RoutingToastProvider mounting.
+ */
+interface AppearanceErrorContextType {
+  reportError: (message: string) => void
+}
+
+const AppearanceErrorContext = createContext<AppearanceErrorContextType | null>(null)
+
+/** Safe to call outside ShellProvider (e.g. tests) — falls back to a no-op. */
+export function useAppearanceError(): AppearanceErrorContextType {
+  const ctx = useContext(AppearanceErrorContext)
+  if (!ctx) return { reportError: () => {} }
+  return ctx
 }
 
 /**
@@ -49,9 +72,15 @@ interface ShellProviderProps {
 export function ShellProvider({ children }: ShellProviderProps) {
   const { data: member } = useFamilyMember()
   const { showWarning, secondsRemaining, dismissWarning } = useSessionTimeout()
+  const [appearanceError, setAppearanceError] = useState<string | null>(null)
 
-  // Sync theme preferences with Supabase (PRD-03)
-  useThemePersistence()
+  // Sync theme preferences with Supabase (PRD-03). onError surfaces via the
+  // banner below (FDWA — silent failure is the bug class this exists to kill).
+  useThemePersistence({ onError: setAppearanceError })
+
+  const reportAppearanceError = useCallback((message: string) => {
+    setAppearanceError(message)
+  }, [])
 
   const shell = member ? getShellForMember(member.role, member.dashboard_mode) : 'mom'
 
@@ -64,13 +93,21 @@ export function ShellProvider({ children }: ShellProviderProps) {
         memberName: member?.display_name ?? null,
       }}
     >
-      {showWarning && (
-        <SessionWarning
-          secondsRemaining={secondsRemaining}
-          onDismiss={dismissWarning}
-        />
-      )}
-      {children}
+      <AppearanceErrorContext.Provider value={{ reportError: reportAppearanceError }}>
+        {showWarning && (
+          <SessionWarning
+            secondsRemaining={secondsRemaining}
+            onDismiss={dismissWarning}
+          />
+        )}
+        {appearanceError && (
+          <AppearanceErrorBanner
+            message={appearanceError}
+            onDismiss={() => setAppearanceError(null)}
+          />
+        )}
+        {children}
+      </AppearanceErrorContext.Provider>
     </ShellContext.Provider>
   )
 }

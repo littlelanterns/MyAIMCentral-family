@@ -19,6 +19,26 @@ const SESSION_DURATIONS: Record<string, number> = {
   play: 7 * 24 * 60 * 60 * 1000,        // 7 days
 }
 
+/**
+ * PINR (2026-07-09) — E2E test seam, DEV-only. Vite dead-code-eliminates
+ * `import.meta.env.DEV` branches from production builds, so this cannot
+ * exist in a shipped bundle — no behavioral change for real users.
+ * Lets pin-relock-stickiness.spec.ts simulate a session timeout in seconds
+ * instead of waiting up to 7 real days. Per-dashboard-mode, sessionStorage
+ * only (never persists across tabs/devices, never touches localStorage).
+ */
+function getTestTimeoutOverrideMs(mode: string): number | null {
+  if (!import.meta.env.DEV) return null
+  try {
+    const raw = sessionStorage.getItem(`__pinr_e2e_timeout_override_ms_${mode}`)
+    if (!raw) return null
+    const parsed = Number(raw)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 const WARNING_LEAD_MS = 2 * 60 * 1000    // Show warning 2 minutes before expiry
 const THROTTLE_MS = 30 * 1000            // Throttle activity resets to once per 30 seconds
 const COUNTDOWN_INTERVAL_MS = 1000       // Update countdown every second
@@ -46,6 +66,8 @@ export function useSessionTimeout(): SessionTimeoutState {
   const [secondsRemaining, setSecondsRemaining] = useState(0)
 
   // Refs so event handlers always see current values without re-registering
+  const memberRef = useRef(member)
+  memberRef.current = member
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const warningTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -58,6 +80,8 @@ export function useSessionTimeout(): SessionTimeoutState {
     if (!member) return SESSION_DURATIONS.adult
     if (member.role === 'primary_parent') return SESSION_DURATIONS.adult
     const mode = member.dashboard_mode ?? 'adult'
+    const testOverride = getTestTimeoutOverrideMs(mode)
+    if (testOverride !== null) return testOverride
     return SESSION_DURATIONS[mode] ?? SESSION_DURATIONS.adult
   }, [member])
 
@@ -119,11 +143,32 @@ export function useSessionTimeout(): SessionTimeoutState {
     timeoutRef.current = setTimeout(async () => {
       clearAllTimers()
       setShowWarning(false)
-      await supabase.auth.signOut()
+      // PINR (2026-07-09): capture which member timed out BEFORE signing
+      // out — this member's own session is what's ending, scoped to the
+      // main client only (the family-shadow session on familyDeviceClient,
+      // a separate client/storage key, is untouched). FamilyLogin.tsx uses
+      // resumeMemberId to check for a resumable family layer and, if one
+      // exists, relock at just this member's own PIN/picture gate instead
+      // of the full family-name + password door. Read via ref (not a
+      // `member` closure/dependency) so scheduleTimeout's identity doesn't
+      // churn on every React Query background refetch of `member`.
+      const timedOutMemberId = memberRef.current?.id ?? null
+      // Navigate FIRST, sign out SECOND (2026-07-09 fix — pre-existing race,
+      // found while building PINR, present for every prior session-timeout
+      // path too, not just PINR's). /dashboard is wrapped in AuthGuard,
+      // which has its own `if (!user) return <Navigate to="/" replace />`.
+      // signOut() fires onAuthStateChange synchronously-ish, and if
+      // AuthGuard is STILL MOUNTED when that lands, its redirect to "/" can
+      // win the race against this navigate() call, silently dropping the
+      // resumeMemberId state and dumping the user on the marketing landing
+      // page instead of the family-login door. Navigating to /auth/family-
+      // login FIRST unmounts AuthGuard (that route carries no auth guard)
+      // before signOut()'s auth-state event has anywhere left to redirect.
       navigate('/auth/family-login', {
         replace: true,
-        state: { reason: 'session_expired' },
+        state: { reason: 'session_expired', resumeMemberId: timedOutMemberId },
       })
+      await supabase.auth.signOut()
     }, timeoutMs)
   }, [clearAllTimers, getTimeoutMs, navigate, startCountdown])
 

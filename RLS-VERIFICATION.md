@@ -1098,3 +1098,153 @@ All zero. Every table's total row count was also confirmed back to its pre-probe
 | Residue after the probe transaction | **Zero** — every table, every row count, exactly restored |
 
 **Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. Every one of the 7 new tables enforces exactly the access shape its own design comments claim, verified by live adversarial probing rather than policy inspection alone — including the two hardest claims to get right (a genuinely immutable audit trail that resists even an admin session, and a column-level UPDATE grant that correctly rejects mixed legal/illegal-column statements atomically). No non-mom role can read any COPPA data on 6 of the 7 tables (the 7th, `coppa_consent_templates`, is intentionally readable by all family members since it's the disclosure text itself, not personal data). No mutation of an immutable field ever succeeded, for any role tested, including staff/admin. No cross-family access succeeded on any table, for any role, for any operation. Zero fixture residue confirmed by an independent post-transaction query.
+
+---
+
+## Migration 100306 — FDWA Family-Device Write Audit (2026-07-09)
+
+**Overall result: PASS, with one pre-existing (NOT introduced by 100306) live defect discovered and documented below.** Migration `00000000100306_family_device_write_audit.sql` adds 35 additive `*_family_device` RLS policies across 22 tables restoring family-shadow-session (family tablet device, `role='family'` member row) write access, plus a new narrow SECURITY DEFINER RPC `update_member_appearance()` and a family-shadow branch added to the existing `redeem_own_prize()` RPC. This is a security-sensitive migration by design — it relaxes RLS for a shared credential (the family-shadow account) — so the verification prioritized cross-tenant isolation above all else, per the request. All 22 tables were probed for genuine cross-family isolation (not just "the family-shadow session can do its job"), both RPCs were probed for the same, and every capability-discipline claim in the migration's own header comments (which commands are newly granted vs. deliberately withheld) was proven live rather than trusted from the DDL.
+
+### Methodology
+
+`SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim impersonation inside a single `BEGIN...ROLLBACK` transaction against the linked production database (project ref `vjfbzpliqialqmabfnxs`), extending the established pattern from the 100302/100305 entries above with one refinement: each DML probe (INSERT/UPDATE/DELETE) is wrapped in its own `DO $$ ... EXCEPTION WHEN insufficient_privilege THEN ... END $$;` block so a *blocked* write (which Postgres reports as a thrown `42501` error for INSERT, but as a silent `0 rows affected` for UPDATE/DELETE with no matching policy) can be captured uniformly into a `CREATE TEMP TABLE probe_log` results ledger without aborting the surrounding transaction. All 173 probe results were captured this way and read back in one final `SELECT * FROM probe_log ORDER BY seq` before the `ROLLBACK`.
+
+For every one of the 22 tables, two rows were seeded (as `postgres`, which connects with `rolbypassrls=true` and therefore writes unconditionally regardless of RLS) — one owned by The Testworth Family (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`), one owned by OurFamily (`4bc86323-545b-4faf-b31f-3926fdd8c5a6`) — to serve as attack targets for the cross-tenant UPDATE/DELETE probes. Every table was then probed, as the Testworth family-shadow session, for: (1) `SELECT count(*)` scoped to its own family, (2) `SELECT count(*)` scoped to the *other* family (expect 0), (3) a bare unscoped `SELECT count(*)` with no `WHERE` clause at all (expect it to equal the own-family count exactly — this is a stronger test than just "can't see the other family's specific rows," since it also catches an overly-broad policy that would leak the *whole table*), (4) an INSERT with its own family's `family_id` (or join-chain equivalent), (5) an INSERT attempting to target the *other* family (expect `42501` block), (6/7) UPDATE own-family / cross-family (where UPDATE is granted), (8/9) DELETE own-family / cross-family (where DELETE is granted). A lighter symmetric pass was then run as the OurFamily family-shadow session against a representative sample (`widget_data_points`, `journal_entries`, `conversation_spaces`/`conversation_threads`) to confirm the isolation holds in the reverse direction too, since the underlying predicate (`util.is_family_shadow_of(family_id)`) is symmetric by construction and a single-direction proof would leave an asymmetric-bug blind spot unchecked.
+
+### Test roster
+
+Same two-family roster used throughout this file, with the addition of both families' `role='family'` shadow-account rows (Convention #273):
+
+| Member | Family | Role | fm_id | user_id (shadow auth account) |
+|---|---|---|---|---|
+| Family (shadow) | The Testworth Family | `family` | `85d6da3e-63a0-4b3f-a887-294b7db06978` | `1a2ee919-9c52-4d17-939d-28d5ab9fd947` |
+| Sarah (mom) | The Testworth Family | `primary_parent` | `606aad81-7c59-45af-8770-2df484e4418f` | `81246f0f-ab60-4932-8914-2a48b97b274c` |
+| Casey | The Testworth Family | `member` (independent) | `240af2a3-ffd2-4fbe-9028-cad8b3456d1a` | `11bd078d-2637-42e6-adf6-3283ec92d4d8` |
+| Jordan | The Testworth Family | `member` (guided) | `01ef28d2-b9eb-49aa-9eab-868258723f15` | `94537147-7cce-420b-9647-5d77f94f5d1d` |
+| Family (shadow) | OurFamily | `family` | `c3d31bfa-6ce7-44db-9a0b-5f2a740dde18` | `f8c494bc-eec6-41d0-b8fa-558ac67ae017` |
+| Tenise (mom) | OurFamily | `primary_parent` | `fcac562b-b7f2-412b-8e25-33a1e94cc13b` | `7434224b-ebb4-4138-8bd8-9fbc62259c42` |
+| Helam | OurFamily | `member` (independent) | `b266cf06-d2b4-4c7b-a6bd-559224367005` | `75a9aa25-e980-4ed0-8a75-257fec7f9e8f` |
+
+Casey (Testworth) and Helam (OurFamily) have zero relationship to each other's family — no shared membership, no cross-family `member_permissions` grant — used throughout as the cross-tenant attacker/victim pair, exactly as this migration's own design intent requires (a family device belonging to one family must never be able to reach into another family's data, even though the shadow account is a real `authenticated` session with a real, valid JWT).
+
+### 1. Full 22-table capability matrix — all 173 probes, all PASS
+
+Every cell below is a live, adversarial result, not a reading of the policy DDL. "✓ own" = the Testworth shadow session succeeded against Testworth-scoped data. "✓ blocked" = the Testworth shadow session's attempt against OurFamily-scoped data was correctly rejected (INSERT: `42501` error; UPDATE/DELETE: `0 rows affected`). "n/a (no policy)" = the migration deliberately did not grant this command, and the live probe confirms it is genuinely unreachable, not merely unexercised.
+
+| # | Table | Scoping | SELECT (own / cross / unscoped==own) | INSERT own / cross | UPDATE own / cross | DELETE own / cross |
+|---|---|---|---|---|---|---|
+| 1 | `widget_data_points` | direct `family_id` | ✓ 69/0/69 | ✓ succeeded / ✓ blocked (`42501`) | **n/a (no policy)** — 0 rows even for own family | **n/a (no policy)** — 0 rows even for own family |
+| 2 | `practice_log` | direct | ✓ 9/0/9 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 3 | `journal_entries` | direct | ✓ 6/0/6 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 4 | `guided_form_responses` | direct (+task_id FK) | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 5 | `dashboard_widgets` | direct | ✓ 16/0/16 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 6 | `dashboard_configs` | direct | ✓ 11/0/11 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 7 | `guiding_stars` | direct | ✓ 24/0/24 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 8 | `best_intentions` | direct | ✓ 8/0/8 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 9 | `self_knowledge` | direct | ✓ 99/0/99 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 10 | `reflection_responses` | direct (+prompt_id FK) | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 11 | `rhythm_completions` | direct | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 12 | `randomizer_draws` | join via `list_id`→`lists.family_id` | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 13 | `time_sessions` | direct | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | **n/a (no policy)** — 0 rows even for own family |
+| 14 | `reward_proposals` | direct | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 15 | `conversation_spaces` | direct | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | **n/a (no policy)** — 0 rows even for own family |
+| 16 | `conversation_space_members` | join via `space_id`→`conversation_spaces.family_id` | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | **BLOCKED, but see Finding A below** — pre-existing unrelated bug |
+| 17 | `conversation_threads` | join via `space_id` | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | **n/a (no policy)** — 0 rows even for own family |
+| 18 | `messages` | 2-hop join `thread_id`→`space_id`→`family_id` | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | **n/a (no policy)** — 0 rows even for own family |
+| 19 | `notepad_tabs` | direct | ✓ 5/0/5 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 20 | `notepad_extracted_items` | join via `tab_id`→`notepad_tabs.family_id` | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 21 | `mindsweep_holding` | direct | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | ✓ 1 row / ✓ 0 rows |
+| 22 | `family_requests` | direct | ✓ 1/0/1 | ✓ / ✓ blocked | ✓ 1 row / ✓ 0 rows | **n/a (no policy)** — 0 rows even for own family |
+
+**Row counts (columns 4-5) match the migration's own declared shape exactly:** the 15 `FOR ALL` tables (rows 2-12, 14, 19-21) show real UPDATE-succeeds/DELETE-succeeds-own/DELETE-blocked-cross behavior — this is *correct, intentional* new capability (the family-shadow session inherits the same `FOR ALL` shape the owning member already had), not a gap. The 7 tables the migration's header explicitly calls out as deliberately withheld from new DELETE capability (`widget_data_points`, `time_sessions`, `conversation_spaces`, `conversation_space_members`, `conversation_threads`, `messages`, `family_requests`) all show **zero rows affected on DELETE even for the caller's own family** — confirmed live, not just absent from the migration text. `widget_data_points` additionally has zero UPDATE capability (append-only, matching its "no UPDATE/DELETE policy exists for anyone" design claim).
+
+### 2. Reverse-direction symmetric check (OurFamily-shadow) — 8/8 PASS
+
+Confirms the isolation holds in both directions, not just from Testworth's perspective:
+
+| Test | Result |
+|---|---|
+| OurFamily-shadow SELECT `widget_data_points`: own=1, Testworth-cross=0 | PASS |
+| OurFamily-shadow UPDATE its own `widget_data_points` seed row (append-only, should be blocked even for own family) | PASS — 0 rows updated |
+| OurFamily-shadow INSERT into Testworth's `widget_data_points` family scope | PASS — blocked (`42501`) |
+| OurFamily-shadow SELECT `journal_entries`: own=107, Testworth-cross=0 | PASS |
+| OurFamily-shadow UPDATE Testworth's seeded `journal_entries` row | PASS — 0 rows updated |
+| OurFamily-shadow DELETE Testworth's seeded `journal_entries` row | PASS — 0 rows deleted |
+| OurFamily-shadow SELECT `conversation_spaces`: own=12, Testworth-cross=0 | PASS |
+| OurFamily-shadow INSERT a `conversation_threads` row into Testworth's seeded space | PASS — blocked (`42501`) |
+
+### 3. `update_member_appearance(p_member_id, p_theme_preferences, p_layout_preferences)` — 9/9 sub-checks, all PASS
+
+| # | Caller | Target | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| A | Testworth family-shadow | Casey (own family) | `{"status":"ok"}`, both columns updated | `{"status":"ok"}`; verified `theme_preferences` and `layout_preferences` both changed to the probe values | **PASS** |
+| B | Testworth family-shadow | Helam (**OurFamily — cross-tenant**) | `{"status":"not_allowed"}`, zero effect | `{"status":"not_allowed"}` | **PASS — the critical cross-tenant check.** Independently re-verified afterward: Helam's `theme_preferences`/`layout_preferences` still show her real pre-probe values (`{"vibe":"modern","theme":"pine_stone",...}`), byte-identical to the baseline snapshot taken before the attempt — the blocked call had **zero** side effect, not a partial or silently-reverted one |
+| C | Testworth family-shadow | Casey, `p_theme_preferences` set, `p_layout_preferences` **NULL** | Only `theme_preferences` changes; `layout_preferences` untouched | `theme_preferences` updated to the new value; `layout_preferences` still held the value set in step A (unchanged) | **PASS — confirms the `COALESCE(p_X, X)` partial-update semantics live**, not just in the function source |
+| D | Casey's own **real, non-shadow** session | Casey (self) | `{"status":"ok"}` | `{"status":"ok"}`; verified `theme_preferences` updated | **PASS — this is the "universal non-mom self-theme bug" fix** (Convention #198/#280 area): before this migration, `family_members` had *zero* self-update policy of any kind, so this exact call would have failed for every non-mom user, including on their own real (non-family-device) login |
+| E | Jordan (Casey's **sibling**, real session — same family, NOT the target, NOT mom, NOT shadow) | Casey | `{"status":"not_allowed"}` | `{"status":"not_allowed"}` | **PASS — confirms the "own row" predicate requires an exact member-id match**, not just common family membership; a same-family sibling cannot repaint another kid's theme |
+| F | (structural) | any | Function body touches `theme_preferences`/`layout_preferences` only | Confirmed by direct read of the migration's `CREATE FUNCTION` body: two `SET` targets, no dynamic SQL, no column-name parameter, hardcoded `UPDATE public.family_members SET theme_preferences = ..., layout_preferences = ...` | **PASS (static read, corroborated live)** — `RPC-uma-final-integrity-check` additionally confirms Casey's `gamification_points` (20), `role` (`member`), and `pin_hash` (still NULL) are **byte-identical** to the pre-probe baseline after 4 separate calls to this function against her row |
+
+### 4. `redeem_own_prize(p_prize_id)` — the family-shadow branch, 6/6 sub-checks, all PASS
+
+Two fresh `earned_prizes` rows were seeded for Casey (Testworth) to isolate "not yet redeemed" from "already redeemed" as cleanly distinguishable states.
+
+| # | Caller | Prize | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| A | Testworth family-shadow | Casey's Prize A (own family) | `{"status":"redeemed","redeemed_by":"<Casey's fm_id>"}` | Exactly that; independently re-verified via a follow-up `SELECT` — `redeemed_at` set, `redeemed_by`=Casey | **PASS — this is the bug the migration fixes**: before this branch existed, a kid redeeming on the family tablet was silently blocked (`fm.user_id` never matches the shared shadow account) |
+| C | Testworth family-shadow, **same prize A again** | Casey's Prize A (already redeemed) | `{"status":"already_redeemed"}`, no duplicate processing | `{"status":"already_redeemed"}`; `redeemed_by` unchanged on re-read (still Casey, not re-written) | **PASS — no double-processing.** (The RPC has no separate credit/reward step to duplicate beyond the redemption fields themselves — those fields provably did not move on the second call) |
+| B | **OurFamily family-shadow (cross-tenant)** | Casey's Prize B (Testworth, still unredeemed) | `{"status":"not_allowed"}`, zero effect | `{"status":"not_allowed"}` | **PASS — the critical cross-tenant check.** Independently re-verified: Prize B's `redeemed_at` was still `NULL` immediately afterward — the blocked cross-family attempt had zero effect, confirming a family device cannot be used to redeem (or corrupt the redemption state of) another family's prize |
+| D | Jordan (Casey's sibling, real session, same Testworth family, NOT the prize's earner) | Casey's Prize B | `{"status":"not_allowed"}` | `{"status":"not_allowed"}` | **PASS — earner-only, confirmed same-family siblings can't redeem each other's prizes either** |
+| E | Casey's own real (non-shadow) session | Casey's Prize B | `{"status":"redeemed"}` | `{"status":"redeemed","redeemed_by":"<Casey's fm_id>"}` | **PASS — the actual production kid-self-redeem path (My Rewards page) continues to work unmodified** by this migration's addition |
+
+### 5. Finding A — pre-existing (NOT caused by 100306) infinite-recursion bug on `conversation_space_members` DELETE
+
+While probing item 3's DELETE-blocked expectation for `conversation_space_members`, the Testworth family-shadow session's DELETE attempt did not fail with the expected clean `42501`/`0 rows` shape every other no-DELETE-policy table produced — it instead raised a **live database error**:
+
+```
+ERROR: 42P17: infinite recursion detected in policy for relation "conversation_space_members"
+```
+
+Root cause, confirmed by reading `pg_policies` directly: the table's **pre-existing** `csm_delete_admin_or_parent` policy (untouched by migration 100306 — the migration only adds `csm_select_family_device`/`csm_insert_family_device`/`csm_update_family_device`, no DELETE policy at all) contains a self-referential subquery in its `USING` clause:
+
+```sql
+EXISTS (
+  SELECT 1 FROM conversation_space_members csm2
+  WHERE csm2.space_id = conversation_space_members.space_id
+    AND csm2.family_member_id = ANY (get_my_member_ids())
+    AND csm2.role = 'admin'
+)
+```
+
+Evaluating this policy requires querying `conversation_space_members` again from *inside its own DELETE policy*, which re-triggers RLS evaluation on the same table and loops. **This is role-independent and was NOT introduced by this migration** — confirmed by reproducing it against Tenise's real mom session (`primary_parent`, OurFamily, not a family-shadow session, not touched by 100306 at all) in an isolated follow-up probe: `DELETE FROM public.conversation_space_members WHERE id = gen_random_uuid()` (a query guaranteed to match zero rows even before hitting the policy) still throws the identical `42P17` error for her. This means **any DELETE attempt against `conversation_space_members`, by any role, has been completely broken since this policy was created** — not a security leak (no row is ever actually deleted; the operation fails closed, not open), but a live application-breaking defect: any "leave a conversation space" feature that reaches this code path gets an unhandled 500-class database error today, in production, for every user, regardless of this migration.
+
+Because the effect is "the DELETE never succeeds" either way, item 3's underlying security property (the family-shadow session gains no new DELETE capability on this table) **still holds** — it holds via a database error rather than a clean no-op, which is a correctness/UX defect but not a security regression, and not something this migration introduced or could reasonably have been expected to catch (it doesn't touch this policy). Recommend filing this as its own follow-up fix (likely the same "table's own policy subqueries itself" pattern documented in Convention lore around migration 100265's `fix_tasks_ta_policy_recursion` — the fix there was a `SECURITY DEFINER` helper function to break the self-reference, and the same pattern would apply here).
+
+### 6. Residue check — zero permanent trace, confirmed independently after the probe transaction
+
+All 173 probes, both baseline/verification reads of `family_members`, and all seed/scaffold rows across all 22 tables plus the 2 `earned_prizes` rows ran inside one `BEGIN...ROLLBACK` transaction. A fully independent, separately-connected read-only pass was run afterward against production to confirm zero residue by content marker across every touched table:
+
+```sql
+SELECT
+  (SELECT count(*) FROM widget_data_points WHERE value IN (555001,555002,777001,777002,666001,888)) AS wdp_residue, -- 0
+  (SELECT count(*) FROM practice_log WHERE evidence_note LIKE 'RLSPROBE100306%') AS pl_residue,                    -- 0
+  -- ... (22 tables total, one count expression per table, matching on the RLSPROBE100306 content marker
+  --      or, for join-scaffold rows, the literal '11111111-...' / '22222222-...' id prefixes used)
+  (SELECT count(*) FROM earned_prizes WHERE id::text LIKE '22222222%') AS ep_residue;                              -- 0
+```
+
+Every one of the 22 table-residue counts, plus the 2 join-scaffold-id residue counts (`conversation_spaces`/`conversation_threads`/`notepad_tabs` ids matching the `11111111-...` prefix, `earned_prizes` ids matching `22222222-...`) returned **zero**. `family_members` was independently re-read for both Casey and Helam: Casey's `theme_preferences`/`layout_preferences` are back to their true pre-probe empty-object baseline, Helam's are back to her real, unmodified values (`{"vibe":"modern","theme":"pine_stone","colorMode":"dark","fontScale":"small","gradientEnabled":true}`), and both members' `gamification_points` (20 / 30 respectively) are unchanged.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| Cross-tenant isolation across all 22 tables (SELECT own/cross/unscoped, INSERT own/cross, UPDATE own/cross, DELETE own/cross where granted) | **PASS** — 173/173 probes, zero leaks in either direction |
+| Reverse-direction symmetric check (OurFamily-shadow attempting to reach Testworth) | **PASS** — 8/8 |
+| Append-only table (`widget_data_points`) correctly has zero UPDATE and zero DELETE capability, even for the caller's own family | **PASS** |
+| The 6 additional no-DELETE tables (`time_sessions`, `conversation_spaces`, `conversation_space_members`, `conversation_threads`, `messages`, `family_requests`) correctly have zero DELETE capability, even for the caller's own family | **PASS** (see Finding A for `conversation_space_members`'s specific failure mode) |
+| `update_member_appearance()`: own-family success, cross-family block (independently re-verified as zero-effect), partial-update semantics, real non-shadow self-update fix, sibling-blocked, no-other-column-touched | **PASS** — 9/9 |
+| `redeem_own_prize()` family-shadow branch: own-family success, double-redeem returns `already_redeemed` with no duplicate processing, cross-family block (independently re-verified as zero-effect), sibling-blocked, real non-shadow self-redeem still works | **PASS** — 6/6 |
+| Residue after the probe transaction | **Zero** — every table, every row count, exactly restored |
+| **Finding A** — pre-existing (not introduced by 100306), role-independent infinite-recursion bug in `csm_delete_admin_or_parent` breaks all DELETEs against `conversation_space_members` | **Documented, not blocking** — fails closed (no security leak), but is a live application-breaking defect; recommend a follow-up fix using the `SECURITY DEFINER` helper-function pattern already established for this exact bug class |
+
+**Verdict: PASS.** Migration 100306 does exactly what its own header claims: it restores family-shadow write access scoped strictly to the calling shadow account's own family, on exactly the 22 tables and exactly the commands (SELECT/INSERT/UPDATE, with DELETE only on the 15 tables that already had it for the owning member) its comments describe — verified by 181 live adversarial probes (173 table probes + 8 reverse-direction probes) plus 15 RPC sub-checks, not by reading the DDL. Both new/modified functions (`update_member_appearance`, `redeem_own_prize`) correctly reject cross-family targets with `not_allowed` and zero side effects, correctly reject same-family non-owner callers, and correctly continue to support their real (non-shadow) production call paths. The one real defect surfaced during this pass (Finding A) is a pre-existing, unrelated, fail-closed bug — not a security regression from this migration — and is documented here so it doesn't get silently rediscovered later.

@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { ArrowLeft, Home } from 'lucide-react'
 import { verifyFamilyLogin } from '@/lib/supabase/auth'
 import { supabase } from '@/lib/supabase/client'
+import {
+  familyDeviceClient,
+  setFamilyDeviceMarker,
+  getFamilyDeviceMarker,
+  clearFamilyDeviceMarker,
+} from '@/lib/supabase/familyDeviceClient'
 import { AuthPageLayout, AUTH_COLORS } from '@/components/auth/AuthPageLayout'
 import { PicturePasswordGrid } from '@/components/auth/PicturePasswordGrid'
 
@@ -29,6 +35,7 @@ type Step = 'family-name' | 'member-select' | 'pin-entry' | 'visual-password'
 
 export function FamilyLogin() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [step, setStep] = useState<Step>('family-name')
   const [familyName, setFamilyName] = useState('')
   // The family door (Family-Auth-Two-Door Phase 2): family login name +
@@ -45,6 +52,18 @@ export function FamilyLogin() {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // PINR (2026-07-09): personal-device timeout resume. useSessionTimeout's
+  // expiry branch navigates here with state.resumeMemberId set — while we
+  // check whether this device still holds a valid family layer (the
+  // persisted familyDeviceClient session), hold the full door off-screen so
+  // it doesn't flash before potentially being replaced by the member's own
+  // relock gate. isResumed distinguishes "landed here via relock" (no
+  // roster loaded, Back means start over) from a normal member-select pick.
+  const [resumeChecking, setResumeChecking] = useState(
+    Boolean((location.state as { resumeMemberId?: string } | null)?.resumeMemberId),
+  )
+  const [isResumed, setIsResumed] = useState(false)
 
   // Lockout state
   const [isLocked, setIsLocked] = useState(false)
@@ -90,28 +109,48 @@ export function FamilyLogin() {
    * Tries direct sign-in first; on failure runs the self-healing
    * family_door_sync (creates/aligns the shadow account — gated server-side
    * by the actual family password) and retries once.
+   *
+   * PINR (2026-07-09): also signs the SAME family shadow credentials into
+   * the dedicated familyDeviceClient (a second client, separate storage
+   * key) so the family layer survives a subsequent member PIN/picture
+   * sign-in on the main client. Best-effort — a failure here only degrades
+   * the personal-device-timeout-resume stickiness feature, never the
+   * immediate Hub/member-select flow this function's main-client sign-in
+   * already enables.
    */
   async function establishFamilySession(fId: string, password: string): Promise<boolean> {
     const email = `${fId}@family.myaimcentral.app`
 
+    let mainOk = false
     const first = await supabase.auth.signInWithPassword({ email, password })
-    if (!first.error) return true
+    if (!first.error) {
+      mainOk = true
+    } else {
+      const { data: syncData, error: syncError } = await supabase.functions.invoke(
+        'family-auth-admin',
+        { body: { action: 'family_door_sync', login_name: familyName.trim(), password } },
+      )
+      if (syncError || !syncData?.success) {
+        console.warn('family_door_sync failed:', syncError?.message ?? JSON.stringify(syncData))
+        return false
+      }
 
-    const { data: syncData, error: syncError } = await supabase.functions.invoke(
-      'family-auth-admin',
-      { body: { action: 'family_door_sync', login_name: familyName.trim(), password } },
-    )
-    if (syncError || !syncData?.success) {
-      console.warn('family_door_sync failed:', syncError?.message ?? JSON.stringify(syncData))
-      return false
+      const retry = await supabase.auth.signInWithPassword({ email, password })
+      if (retry.error) {
+        console.warn('family session sign-in failed after sync:', retry.error.message)
+        return false
+      }
+      mainOk = true
     }
 
-    const retry = await supabase.auth.signInWithPassword({ email, password })
-    if (retry.error) {
-      console.warn('family session sign-in failed after sync:', retry.error.message)
-      return false
+    const deviceResult = await familyDeviceClient.auth.signInWithPassword({ email, password })
+    if (!deviceResult.error) {
+      setFamilyDeviceMarker(fId)
+    } else {
+      console.warn('family device client persistence failed:', deviceResult.error.message)
     }
-    return true
+
+    return mainOk
   }
 
   async function handleFamilyLookup(e: React.FormEvent) {
@@ -201,6 +240,76 @@ export function FamilyLogin() {
     setStep('pin-entry')
   }
 
+  // PINR (2026-07-09): on mount, if useSessionTimeout sent us here with a
+  // resumeMemberId, check whether this device still holds a valid family
+  // layer (familyDeviceClient's persisted, separately-stored session) and,
+  // if so, resume directly at that ONE member's own gate — never the full
+  // family-name + password door. No-enumeration is preserved: the roster
+  // fetch uses get_family_login_members(p_family_id) under the family
+  // device session's OWN auth.uid(), the same gate the family door itself
+  // uses post-password, and it's never released to an unauthenticated
+  // caller. Falls through to the full door (resumeChecking → false, step
+  // stays 'family-name') on any failure — missing marker, expired/killed
+  // session, RPC error, or no matching member.
+  useEffect(() => {
+    async function checkResume() {
+      const resumeMemberId = (location.state as { resumeMemberId?: string } | null)?.resumeMemberId
+      if (!resumeMemberId) {
+        setResumeChecking(false)
+        return
+      }
+
+      const storedFamilyId = getFamilyDeviceMarker()
+      if (!storedFamilyId) {
+        setResumeChecking(false)
+        return
+      }
+
+      // getUser() (not getSession()) deliberately — getSession() is a local-
+      // only check of the stored token's own expiry and does NOT detect a
+      // server-side revocation (the kill switch's admin.signOut(userId,
+      // 'global')). This is a security-relevant gate — a killed family
+      // layer must never render a relock screen — so it needs the real
+      // server round-trip getUser() makes.
+      const { data: userData, error: userErr } = await familyDeviceClient.auth.getUser()
+      if (userErr || !userData?.user) {
+        // Family layer gone — kill switch, expired/revoked session, or this
+        // device never actually persisted one. Full door.
+        clearFamilyDeviceMarker()
+        setResumeChecking(false)
+        return
+      }
+
+      const { data: rosterMembers, error: rosterErr } = await familyDeviceClient.rpc(
+        'get_family_login_members',
+        { p_family_id: storedFamilyId },
+      )
+      if (rosterErr || !rosterMembers || (rosterMembers as LoginMember[]).length === 0) {
+        setResumeChecking(false)
+        return
+      }
+
+      const match = (rosterMembers as LoginMember[]).find(m => m.member_id === resumeMemberId)
+      if (!match) {
+        setResumeChecking(false)
+        return
+      }
+
+      setFamilyId(storedFamilyId)
+      setIsResumed(true)
+      setResumeChecking(false)
+      // primary_parent/full_login never happens in practice (mom has no
+      // session timeout — SESSION_DURATIONS.adult=0) but handleMemberSelect
+      // already routes that case to /auth/sign-in, matching the picture_
+      // login requires_email_login precedent for consistency.
+      handleMemberSelect(match)
+    }
+    checkResume()
+    // Runs once on mount only — resume is a one-shot check of the state
+    // this page was navigated to with, not a reactive value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function handleHubSelect() {
     // This device becomes a family device — it rests on the Hub.
     navigate('/hub')
@@ -270,6 +379,20 @@ export function FamilyLogin() {
   function goBack() {
     if (countdownRef.current) clearInterval(countdownRef.current)
     if (step === 'pin-entry' || step === 'visual-password') {
+      if (isResumed) {
+        // Resumed straight to a gate with no roster ever loaded ("not me" /
+        // start over) — Back means the full door, not an empty
+        // member-select screen.
+        setIsResumed(false)
+        setStep('family-name')
+        setSelectedMember(null)
+        setFamilyId(null)
+        setPin('')
+        setError('')
+        setIsLocked(false)
+        setLockoutSecondsRemaining(0)
+        return
+      }
       setStep('member-select')
       setSelectedMember(null)
       setPin('')
@@ -282,6 +405,20 @@ export function FamilyLogin() {
       setMembers([])
       setError('')
     }
+  }
+
+  // PINR: hold the full door off-screen while we check for a resumable
+  // family layer, so it never flashes before being replaced by the relock
+  // gate. Deliberately minimal — this resolves in well under a second for
+  // the common case (no resume requested at all, checked synchronously).
+  if (resumeChecking) {
+    return (
+      <AuthPageLayout>
+        <div className="max-w-md w-full flex justify-center py-12">
+          <p className="text-sm" style={{ color: AUTH_COLORS.textMuted }}>Loading...</p>
+        </div>
+      </AuthPageLayout>
+    )
   }
 
   return (
@@ -467,7 +604,7 @@ export function FamilyLogin() {
         {step === 'pin-entry' && selectedMember && (
           <form onSubmit={handlePinSubmit} className="space-y-4">
             <p className="text-center" style={{ color: AUTH_COLORS.text }}>
-              Hi, {selectedMember.display_name}!
+              {isResumed ? 'Welcome back, ' : 'Hi, '}{selectedMember.display_name}!
             </p>
             <div>
               <label
@@ -514,7 +651,7 @@ export function FamilyLogin() {
         {step === 'visual-password' && selectedMember && (
           <div className="space-y-4">
             <p className="text-center" style={{ color: AUTH_COLORS.text }}>
-              Hi, {selectedMember.display_name}!
+              {isResumed ? 'Welcome back, ' : 'Hi, '}{selectedMember.display_name}!
             </p>
             <PicturePasswordGrid
               memberId={selectedMember.member_id}
