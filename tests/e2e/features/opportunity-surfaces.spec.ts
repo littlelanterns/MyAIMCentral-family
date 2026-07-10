@@ -103,6 +103,12 @@ async function memberId(name: string): Promise<string> {
 }
 
 async function cleanup() {
+  // VOICE-INPUT-REPAIR item 3: financial_transactions rows created by the
+  // money-reward completion tests (tests 7 + 8). Append-only from the app's
+  // perspective (Convention #223) — service-role test cleanup deletes them
+  // directly, same pattern as opportunity-fixes.spec.ts.
+  await supabase.from('financial_transactions').delete()
+    .eq('source_type', 'task_completion').ilike('description', 'Completed: OPPSURF%')
   // Any claim-bridge tasks a stray click may have created
   await supabase.from('tasks').delete().eq('family_id', familyId).ilike('title', 'OPPSURF%')
   const { data: lists } = await supabase
@@ -456,6 +462,30 @@ test.describe('Opportunity Surfaces Restoration', () => {
     })
     expect(consumed.is_available).toBe(false)
     expect(consumed.completed_instances).toBe(1)
+
+    // VOICE-INPUT-REPAIR item 3: grant_money_for_task_completion is ALSO
+    // wired at the Play tap-to-complete call site (useTasks.ts useCompleteTask).
+    // The play board's default_reward_amount is $1 — assert exactly one
+    // ledger row landed for this completion.
+    const completion = await pollDb(async () => {
+      const { data } = await supabase
+        .from('task_completions')
+        .select('id')
+        .eq('task_id', bridgeTask.id)
+        .maybeSingle()
+      return data ?? null
+    })
+    const txns = await pollDb(async () => {
+      const { data } = await supabase
+        .from('financial_transactions')
+        .select('id, amount, family_member_id, source_type, source_reference_id')
+        .eq('source_type', 'task_completion')
+        .eq('source_reference_id', completion.id)
+      return data && data.length > 0 ? data : null
+    })
+    expect(txns.length).toBe(1)
+    expect(Number(txns[0].amount)).toBe(1)
+    expect(txns[0].family_member_id).toBe(ruthie)
   })
 
   // ── 8. Teen write-back via the TaskCard toggle path ───────────────────────
@@ -513,5 +543,30 @@ test.describe('Opportunity Surfaces Restoration', () => {
     })
     expect(consumed.is_available).toBe(false)
     expect(consumed.completed_instances).toBe(1)
+
+    // VOICE-INPUT-REPAIR item 3: grant_money_for_task_completion is wired at
+    // this exact call site (useTaskCompletion.ts). The restricted board's
+    // default_reward_amount is $2 (money reward) — assert the server-computed
+    // amount landed EXACTLY ONCE in the append-only ledger, keyed to this
+    // completion (the idempotency guarantee the RPC delegates to grant_money).
+    const completion = await pollDb(async () => {
+      const { data } = await supabase
+        .from('task_completions')
+        .select('id')
+        .eq('task_id', bridgeTask.id)
+        .maybeSingle()
+      return data ?? null
+    })
+    const txns = await pollDb(async () => {
+      const { data } = await supabase
+        .from('financial_transactions')
+        .select('id, amount, family_member_id, source_type, source_reference_id')
+        .eq('source_type', 'task_completion')
+        .eq('source_reference_id', completion.id)
+      return data && data.length > 0 ? data : null
+    })
+    expect(txns.length).toBe(1)
+    expect(Number(txns[0].amount)).toBe(2)
+    expect(txns[0].family_member_id).toBe(alex)
   })
 })

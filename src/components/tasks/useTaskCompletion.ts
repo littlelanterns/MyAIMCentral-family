@@ -21,7 +21,7 @@ import type { Task } from '@/hooks/useTasks'
 import { useActedBy } from '@/hooks/useActedBy'
 import { todayLocalIso } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
-import { grantMoney } from '@/lib/financial/grantMoney'
+import { grantMoneyForTaskCompletion } from '@/lib/financial/grantMoneyForTaskCompletion'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 import { getChoreCycleStart } from '@/hooks/useOpportunityLists'
 import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
@@ -194,25 +194,12 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
       // Forward financial write: when an opportunity task with a money reward
       // is completed, create the financial_transactions row that the
       // reverse_opportunity_earning RPC expects to find on uncomplete.
+      // FE-FOLLOWUP item 3: amount is now computed server-side inside
+      // grant_money_for_task_completion (reads task_rewards itself) instead
+      // of being read client-side and passed as a parameter — closes the
+      // same-family amount-tamper vector migration 100311 documented.
       if (task.task_type?.startsWith('opportunity') && completionRow?.id) {
-        const { data: rewards } = await supabase
-          .from('task_rewards')
-          .select('reward_type, reward_value')
-          .eq('task_id', task.id)
-          .limit(1)
-          .maybeSingle()
-
-        if (rewards?.reward_type === 'money' && rewards.reward_value?.amount) {
-          grantMoney({
-            familyId,
-            memberId,
-            amount: Number(rewards.reward_value.amount),
-            transactionType: 'opportunity_earned',
-            description: `Completed: ${task.title}`,
-            sourceType: 'task_completion',
-            sourceReferenceId: completionRow.id,
-          })
-        }
+        grantMoneyForTaskCompletion(completionRow.id)
       }
 
       // KIDS-REWARDS-PAGE Q7: privileges/family_activities reward → earned_prizes.

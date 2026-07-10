@@ -7,7 +7,7 @@ import { useActedBy } from './useActedBy'
 import { computeViewSync } from '@/utils/computeViewSync'
 import { todayLocalIso, localIsoDaysFromToday } from '@/utils/dates'
 import { fireDeed } from '@/lib/connector/fireDeed'
-import { grantMoney } from '@/lib/financial/grantMoney'
+import { grantMoneyForTaskCompletion } from '@/lib/financial/grantMoneyForTaskCompletion'
 import { awardCustomRewardForCompletion } from '@/lib/connector/awardCustomReward'
 import { writeBackOpportunityCompletion, invalidateOpportunityBoardCaches } from '@/lib/tasks/opportunityListWriteBack'
 import { invalidateFamilyGoalQueries } from './useFamilyGoals'
@@ -286,29 +286,14 @@ export function useCompleteTask() {
       }
 
       // Forward financial write: opportunity task with money reward → financial_transactions row.
+      // FE-FOLLOWUP item 3: amount is now computed server-side inside
+      // grant_money_for_task_completion (reads task_rewards itself) instead
+      // of being read client-side and passed as a parameter — closes the
+      // same-family amount-tamper vector migration 100311 documented.
+      // grantMoneyForTaskCompletion never throws (Convention #199), so the
+      // try/catch this replaced is no longer needed.
       if (!requireApproval && updatedTask.task_type?.startsWith('opportunity')) {
-        try {
-          const { data: rewards } = await supabase
-            .from('task_rewards')
-            .select('reward_type, reward_value')
-            .eq('task_id', taskId)
-            .limit(1)
-            .maybeSingle()
-
-          if (rewards?.reward_type === 'money' && rewards.reward_value?.amount) {
-            grantMoney({
-              familyId: updatedTask.family_id,
-              memberId,
-              amount: Number(rewards.reward_value.amount),
-              transactionType: 'opportunity_earned',
-              description: `Completed: ${updatedTask.title}`,
-              sourceType: 'task_completion',
-              sourceReferenceId: completion.id,
-            })
-          }
-        } catch (err) {
-          console.warn('[useCompleteTask] opportunity forward financial write failed (non-blocking):', err)
-        }
+        grantMoneyForTaskCompletion(completion.id)
       }
 
       // KIDS-REWARDS-PAGE Q7: privileges/family_activities reward → earned_prizes.

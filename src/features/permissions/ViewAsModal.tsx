@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback, createContext, useContext, type ReactNode } from 'react'
+import { useEffect, useRef, useMemo, useState, useCallback, createContext, useContext, type ReactNode, type CSSProperties } from 'react'
 import { Lock } from 'lucide-react'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useTheme } from '@/lib/theme'
@@ -293,11 +293,42 @@ export function ViewAsModal() {
     }
   }, [isViewingAs])
 
-  // Lock body scroll
+  // Lock body scroll.
+  // FE-FOLLOWUP item 1 (2026-07-10, founder-reported): `overflow:
+  // hidden` on <body> alone does NOT reliably block touch-scroll of the
+  // page behind a `position: fixed` overlay on mobile Safari/iOS — the
+  // browser still lets a touchmove starting inside the modal "fall through"
+  // and scroll the real document once it can't find (or exhausts) a
+  // scrollable ancestor. The robust fix is to pin body in place with
+  // `position: fixed` at its current scroll offset, then restore that
+  // offset on close so mom's page doesn't jump.
   useEffect(() => {
     if (isViewingAs) {
-      document.body.style.overflow = 'hidden'
-      return () => { document.body.style.overflow = '' }
+      const scrollY = window.scrollY
+      const body = document.body
+      const prev = {
+        position: body.style.position,
+        top: body.style.top,
+        left: body.style.left,
+        right: body.style.right,
+        width: body.style.width,
+        overflow: body.style.overflow,
+      }
+      body.style.position = 'fixed'
+      body.style.top = `-${scrollY}px`
+      body.style.left = '0'
+      body.style.right = '0'
+      body.style.width = '100%'
+      body.style.overflow = 'hidden'
+      return () => {
+        body.style.position = prev.position
+        body.style.top = prev.top
+        body.style.left = prev.left
+        body.style.right = prev.right
+        body.style.width = prev.width
+        body.style.overflow = prev.overflow
+        window.scrollTo(0, scrollY)
+      }
     }
   }, [isViewingAs])
 
@@ -318,6 +349,7 @@ export function ViewAsModal() {
 
       {/* Modal — full shell experience */}
       <div
+        data-testid="view-as-modal"
         className="fixed flex flex-col overflow-hidden"
         style={{
           zIndex: 55,
@@ -350,7 +382,15 @@ export function ViewAsModal() {
             black-screening the whole app. The ViewAsBanner above stays OUTSIDE
             the boundary so Exit/Return-to-Hub remains usable even if the inner
             content fails; the fallback also offers its own Exit affordance. */}
-        <div className="flex-1 overflow-y-auto">
+        <div
+          data-testid="view-as-scroll-region"
+          className="flex-1 overflow-y-auto"
+          // overscroll-behavior: contain stops a scroll gesture that hits
+          // this container's own top/bottom boundary from "chaining" to
+          // whatever's behind the modal (the body-scroll-lock above closes
+          // the same hole from the other side — belt and suspenders).
+          style={{ overscrollBehaviorY: 'contain', WebkitOverflowScrolling: 'touch' } as CSSProperties}
+        >
           <ErrorBoundary
             // Re-mount the boundary (clearing its error state) when the
             // View-As target or the current page changes, so navigating away

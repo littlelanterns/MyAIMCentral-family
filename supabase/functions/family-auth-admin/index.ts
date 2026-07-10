@@ -27,10 +27,23 @@
  *
  *   ensure_pin_shadow_account  (mom JWT required)
  *     { action, member_id, pin }
- *     Creates/updates {member_id}@pin.myaimcentral.app with the PIN as
- *     password and links family_members.user_id. Used by the PIN-set flow
- *     and the backfill of members whose PIN verifies but can't create a
- *     session.
+ *     Creates/updates {member_id}@pin.myaimcentral.app with a SERVER-DERIVED
+ *     secret as password (never the raw PIN — see FE-FOLLOWUP item 2
+ *     below) and links family_members.user_id. Used by the PIN-set flow and
+ *     the backfill of members whose PIN verifies but can't create a session.
+ *
+ *   pin_login  (no JWT — verified server-side with lockout)
+ *     { action, member_id, pin }
+ *     Mirrors picture_login: verifies the PIN via verify_member_pin (5-try/
+ *     15-min lockout), then signs the member's shadow account in with the
+ *     server-derived secret and returns session tokens for
+ *     supabase.auth.setSession(). FE-FOLLOWUP item 2 (2026-07-10,
+ *     founder-ruled): 4-digit PINs are kept — the raw PIN was previously
+ *     used directly as the Supabase Auth shadow-account password, which
+ *     silently failed the project's 6-char minimum_password_length policy
+ *     (Convention #273 known gap), so PIN sessions never minted even though
+ *     verify_member_pin succeeded. The fix mirrors the picture-password
+ *     derived-secret pattern instead of relaxing the PIN or Auth policy.
  *
  *   set_member_picture  (mom JWT required)
  *     { action, member_id, asset_id }
@@ -83,11 +96,20 @@ function json(body: unknown, status = 200): Response {
 }
 
 /**
- * Server-derived shadow-account password for picture-password members.
- * HMAC-SHA256 keyed by the service role key — deterministic, never stored,
- * never sent to a client. The kid's picture choice is verified separately;
- * this secret only exists so the shadow account has a strong password that
- * is NOT the (low-entropy, grid-exposed) picture id.
+ * Server-derived shadow-account password for a member's PIN/pin.myaimcentral
+ * shadow account, regardless of which auth_method (picture or PIN) is
+ * currently active for them. HMAC-SHA256 keyed by the service role key —
+ * deterministic, never stored, never sent to a client. Both picture taps and
+ * PIN digits are verified separately server-side (verify_member_picture_password
+ * / verify_member_pin); this secret only exists so the ONE shared shadow
+ * account has a strong password that is never the low-entropy credential
+ * itself (a picture id, or — FE-FOLLOWUP item 2 — a 4-digit PIN,
+ * which additionally fails Supabase Auth's minimum_password_length policy
+ * if used directly). The HMAC message intentionally keeps its original
+ * "member-picture-secret" literal — changing it would rotate every existing
+ * picture-password member's derived secret; picture_login's rotate-and-retry
+ * fallback would recover them, but there's no reason to force that churn
+ * just to rename an internal string.
  */
 async function deriveMemberSecret(memberId: string): Promise<string> {
   const enc = new TextEncoder()
@@ -303,7 +325,15 @@ Deno.serve(async (req) => {
       if (famError) throw new Error(famError.message)
       if (!family) return json({ success: false, reason: 'not_authorized' }, 403)
 
-      const { userId } = await upsertShadowAccount(pinEmail(memberId), pin, {
+      // FE-FOLLOWUP item 2: the raw PIN was used directly as the
+      // shadow-account password here, which fails Supabase Auth's 6-char
+      // minimum_password_length policy for every 4-digit PIN — this call
+      // used to silently 400/500 and the account never minted a working
+      // session. `pin` is still validated above (mom is setting a real
+      // PIN, hashed separately via hash_member_pin), but the shadow
+      // account password is always the derived secret, mirroring the
+      // picture-password pattern.
+      const { userId } = await upsertShadowAccount(pinEmail(memberId), await deriveMemberSecret(memberId), {
         rotateIfExists: true,
       })
 
@@ -325,6 +355,91 @@ Deno.serve(async (req) => {
       }
 
       return json({ success: true })
+    }
+
+    // ------------------------------------------------------------------
+    // pin_login — no JWT; verify PIN server-side (lockout), mint a session
+    // FE-FOLLOWUP item 2: mirrors picture_login exactly. The client
+    // (FamilyLogin.handlePinSubmit) previously called verify_member_pin
+    // directly and then tried supabase.auth.signInWithPassword with the raw
+    // PIN as the password — which always failed the Auth project's 6-char
+    // minimum_password_length policy for a 4-digit PIN, so the "verified"
+    // PIN never actually produced a working session. Collapsing verify +
+    // session-mint into one server-side action (like the picture flow
+    // already does) means the shadow account password is always the
+    // derived secret, never the raw PIN.
+    // ------------------------------------------------------------------
+    if (action === 'pin_login') {
+      const memberId = body.member_id as string
+      const pin = body.pin as string
+      if (!memberId || !pin) {
+        return json({ error: 'member_id and pin are required' }, 400)
+      }
+
+      const { data: verify, error: verifyError } = await admin.rpc('verify_member_pin', {
+        p_member_id: memberId,
+        p_pin: pin,
+      })
+      if (verifyError) throw new Error(verifyError.message)
+      if (!verify?.success) {
+        // Pass through not_found/invalid/locked unchanged — the client's
+        // lockout countdown UI reads attempts_remaining/remaining_seconds
+        // straight off this shape, same contract verify_member_pin always had.
+        return json(verify ?? { success: false, reason: 'invalid' })
+      }
+
+      // Members linked to a REAL email account (not a shadow) sign in with
+      // their email — mirrors picture_login's identical guard.
+      const { data: member } = await admin
+        .from('family_members')
+        .select('user_id')
+        .eq('id', memberId)
+        .maybeSingle()
+      if (member?.user_id) {
+        const { data: linked } = await admin.auth.admin.getUserById(member.user_id)
+        const linkedEmail = linked?.user?.email ?? ''
+        if (linkedEmail && !linkedEmail.endsWith('@pin.myaimcentral.app')) {
+          return json({ success: true, requires_email_login: true })
+        }
+      }
+
+      // Self-healing: make sure the shadow account exists with the derived
+      // secret, then sign in and hand the tokens to the device.
+      const secret = await deriveMemberSecret(memberId)
+      const { userId } = await upsertShadowAccount(pinEmail(memberId), secret, {
+        rotateIfExists: false,
+      })
+
+      if (member && !member.user_id) {
+        await admin.from('family_members').update({ user_id: userId }).eq('id', memberId)
+      }
+
+      const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+      const signInClient = createClient(SUPABASE_URL, anonKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      })
+      let signIn = await signInClient.auth.signInWithPassword({
+        email: pinEmail(memberId),
+        password: secret,
+      })
+      if (signIn.error) {
+        // Account predates this fix (password is an old raw PIN, or never
+        // minted at all) — rotate to the derived secret and retry once.
+        await upsertShadowAccount(pinEmail(memberId), secret, { rotateIfExists: true })
+        signIn = await signInClient.auth.signInWithPassword({
+          email: pinEmail(memberId),
+          password: secret,
+        })
+      }
+      if (signIn.error || !signIn.data.session) {
+        throw new Error(`pin session sign-in failed: ${signIn.error?.message}`)
+      }
+
+      return json({
+        success: true,
+        access_token: signIn.data.session.access_token,
+        refresh_token: signIn.data.session.refresh_token,
+      })
     }
 
     // ------------------------------------------------------------------

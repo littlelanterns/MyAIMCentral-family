@@ -4,6 +4,8 @@ import { Home, CheckSquare, Library, Gem, MoreHorizontal, X, ChevronRight, Info 
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useEffectiveShell } from '@/hooks/useEffectiveShell'
 import { useEffectiveMember } from '@/hooks/useEffectiveMember'
+import { useViewAs } from '@/lib/permissions/ViewAsProvider'
+import { useViewAsNav } from '@/features/permissions/ViewAsModal'
 import { useShowMyRewards } from '@/hooks/useShowMyRewards'
 import { useResolvedFeatureAccess } from '@/hooks/useResolvedFeatureAccess'
 import { useManagementGrants } from '@/lib/permissions/useManagementGrants'
@@ -74,6 +76,20 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = useState(false)
   const [showDescriptions, setShowDescriptions] = useState(false)
   const location = useLocation()
+  // FE-FOLLOWUP item 1 (2026-07-10): BottomNav is the mobile-only nav
+  // for Independent/Adult/Mom (Sidebar covers desktop). Unlike Sidebar and
+  // the Guided/Play shells' own bottom navs, it never forked on isViewingAs —
+  // every tap called react-router's real NavLink, which changes the ACTUAL
+  // browser location (the single app-wide <BrowserRouter> both the modal and
+  // mom's page behind it share), while the modal's own `renderPage(currentPath)`
+  // state never moved. Net effect on mobile View-As: tapping Tasks/AI Vault/
+  // any More-menu item silently changed mom's real page behind the overlay
+  // without updating what the overlay showed — found while building a
+  // scroll-verification tour for a long Tasks list inside View-As, which
+  // this bug made impossible to drive. Mirrors the exact fork already used
+  // by Sidebar.tsx's SidebarNavItem and PlayShell/GuidedBottomNav's own nav.
+  const { isViewingAs } = useViewAs()
+  const { currentPath, navigate: viewAsNav } = useViewAsNav()
   // Auth user — drives the "member" pill at the top of the More menu
   // (whose avatar appears, etc.). Stays as the auth user even inside
   // View-As because the More menu header reflects the human at the
@@ -117,25 +133,46 @@ export function BottomNav() {
     .filter(section => section.items.length > 0)
 
   const renderNavItem = (item: BottomNavItem) => {
-    const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+    const isActive = isViewingAs
+      ? currentPath.split('?')[0] === item.path
+      : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'))
     const illustratedUrl = iconUrls[item.featureKey]
-    return (
-      <NavLink
-        key={item.path}
-        to={item.path}
-        className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
-        style={{
-          color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
-          textDecoration: 'none',
-          transition: 'color 0.2s ease',
-        }}
-      >
+    const content = (
+      <>
         {illustratedUrl ? (
           <img src={illustratedUrl} alt="" width={20} height={20} className="shrink-0 rounded-sm" />
         ) : (
           <item.icon size={20} />
         )}
         <span className="text-[10px] font-medium">{item.label}</span>
+      </>
+    )
+    const sharedStyle = {
+      color: isActive ? 'var(--surface-primary, var(--color-btn-primary-bg))' : 'var(--color-text-secondary)',
+      textDecoration: 'none',
+      transition: 'color 0.2s ease',
+    }
+    if (isViewingAs) {
+      return (
+        <button
+          key={item.path}
+          type="button"
+          onClick={() => viewAsNav(item.path)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
+          style={{ ...sharedStyle, background: 'transparent', border: 'none' }}
+        >
+          {content}
+        </button>
+      )
+    }
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        className="flex-1 flex flex-col items-center justify-center gap-0.5 min-h-[44px]"
+        style={sharedStyle}
+      >
+        {content}
       </NavLink>
     )
   }
@@ -144,6 +181,7 @@ export function BottomNav() {
     <>
       {/* Bottom tab bar — mobile only */}
       <nav
+        data-testid="bottom-nav"
         className="fixed bottom-0 left-0 right-0 z-40 flex items-stretch md:hidden"
         style={{
           height: '56px',
@@ -157,25 +195,47 @@ export function BottomNav() {
 
         {/* Center: BookShelf — raised circle button */}
         <div className="flex-1 flex items-center justify-center" style={{ position: 'relative' }}>
-          <NavLink
-            to="/bookshelf"
-            className="flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
-            style={{
-              width: '52px',
-              height: '52px',
-              background: 'var(--surface-primary, var(--color-btn-primary-bg))',
-              color: 'var(--color-btn-primary-text, #fff)',
-              border: '3px solid var(--color-bg-nav, var(--color-bg-card))',
-              position: 'absolute',
-              top: '-14px',
-              minHeight: 'unset',
-              padding: 0,
-              textDecoration: 'none',
-            }}
-            aria-label="Open BookShelf"
-          >
-            <Library size={22} />
-          </NavLink>
+          {isViewingAs ? (
+            <button
+              type="button"
+              onClick={() => viewAsNav('/bookshelf')}
+              className="flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
+              style={{
+                width: '52px',
+                height: '52px',
+                background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                color: 'var(--color-btn-primary-text, #fff)',
+                border: '3px solid var(--color-bg-nav, var(--color-bg-card))',
+                position: 'absolute',
+                top: '-14px',
+                minHeight: 'unset',
+                padding: 0,
+              }}
+              aria-label="Open BookShelf"
+            >
+              <Library size={22} />
+            </button>
+          ) : (
+            <NavLink
+              to="/bookshelf"
+              className="flex items-center justify-center rounded-full shadow-lg active:scale-95 transition-transform"
+              style={{
+                width: '52px',
+                height: '52px',
+                background: 'var(--surface-primary, var(--color-btn-primary-bg))',
+                color: 'var(--color-btn-primary-text, #fff)',
+                border: '3px solid var(--color-bg-nav, var(--color-bg-card))',
+                position: 'absolute',
+                top: '-14px',
+                minHeight: 'unset',
+                padding: 0,
+                textDecoration: 'none',
+              }}
+              aria-label="Open BookShelf"
+            >
+              <Library size={22} />
+            </NavLink>
+          )}
           <span
             className="text-[10px] font-medium absolute"
             style={{ bottom: '2px', color: 'var(--color-text-secondary)' }}
@@ -289,36 +349,64 @@ export function BottomNav() {
                   >
                     {section.title}
                   </p>
-                  {section.items.map((item) => (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      onClick={() => setMoreOpen(false)}
-                      className="flex items-center gap-3 px-5 py-2.5 min-h-[44px]"
-                      style={({ isActive }) => ({
-                        color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
-                        backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
-                        textDecoration: 'none',
-                        transition: 'background-color 0.15s ease',
-                      })}
-                    >
-                      <span className="shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
-                        {item.icon}
-                      </span>
-                      <div className="flex-1">
-                        <span className="text-sm font-medium">{item.label}</span>
-                        {showDescriptions && item.tooltip && (
-                          <span
-                            className="block text-xs"
-                            style={{ color: 'var(--color-text-secondary)' }}
-                          >
-                            {item.tooltip}
-                          </span>
-                        )}
-                      </div>
-                      <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
-                    </NavLink>
-                  ))}
+                  {section.items.map((item) => {
+                    const moreItemIsActive = isViewingAs
+                      ? currentPath.split('?')[0] === item.path
+                      : location.pathname === item.path
+                    const moreItemContent = (
+                      <>
+                        <span className="shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }}>
+                          {item.icon}
+                        </span>
+                        <div className="flex-1">
+                          <span className="text-sm font-medium">{item.label}</span>
+                          {showDescriptions && item.tooltip && (
+                            <span
+                              className="block text-xs"
+                              style={{ color: 'var(--color-text-secondary)' }}
+                            >
+                              {item.tooltip}
+                            </span>
+                          )}
+                        </div>
+                        <ChevronRight size={14} style={{ color: 'var(--color-text-secondary)', opacity: 0.4 }} />
+                      </>
+                    )
+                    if (isViewingAs) {
+                      return (
+                        <button
+                          key={item.path}
+                          type="button"
+                          onClick={() => { viewAsNav(item.path); setMoreOpen(false) }}
+                          className="flex items-center gap-3 px-5 py-2.5 min-h-[44px] w-full text-left"
+                          style={{
+                            color: moreItemIsActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                            backgroundColor: moreItemIsActive ? 'var(--color-bg-secondary)' : 'transparent',
+                            border: 'none',
+                            transition: 'background-color 0.15s ease',
+                          }}
+                        >
+                          {moreItemContent}
+                        </button>
+                      )
+                    }
+                    return (
+                      <NavLink
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setMoreOpen(false)}
+                        className="flex items-center gap-3 px-5 py-2.5 min-h-[44px]"
+                        style={({ isActive }) => ({
+                          color: isActive ? 'var(--color-btn-primary-bg)' : 'var(--color-text-primary)',
+                          backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
+                          textDecoration: 'none',
+                          transition: 'background-color 0.15s ease',
+                        })}
+                      >
+                        {moreItemContent}
+                      </NavLink>
+                    )
+                  })}
                 </div>
               ))}
             </div>

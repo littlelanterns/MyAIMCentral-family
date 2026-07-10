@@ -22,13 +22,18 @@ interface LoginMember {
   role?: string | null
 }
 
-// Shape returned by the updated verify_member_pin RPC
+// Shape returned by the family-auth-admin `pin_login` action — a superset
+// of verify_member_pin's result (FE-FOLLOWUP item 2: verify + session
+// mint now happen server-side in one call, mirroring picture_login).
 interface PinVerifyResult {
   success: boolean
   reason?: 'not_found' | 'invalid' | 'locked'
   attempts_remaining?: number
   locked_until?: string
   remaining_seconds?: number
+  requires_email_login?: boolean
+  access_token?: string
+  refresh_token?: string
 }
 
 type Step = 'family-name' | 'member-select' | 'pin-entry' | 'visual-password'
@@ -323,15 +328,22 @@ export function FamilyLogin() {
     setLoading(true)
     setError('')
 
-    const { data, error: verifyError } = await supabase.rpc('verify_member_pin', {
-      p_member_id: selectedMember!.member_id,
-      p_pin: pin,
+    // FE-FOLLOWUP item 2 (2026-07-10): verify + session-mint happen
+    // in ONE server-side call now, mirroring picture_login. Previously this
+    // called verify_member_pin directly and then tried
+    // supabase.auth.signInWithPassword with the raw PIN as the password —
+    // which always failed Supabase Auth's 6-char minimum_password_length
+    // policy for a 4-digit PIN (founder-ruled: keep 4-digit PINs, fix the
+    // password derivation instead), so a "successfully verified" PIN never
+    // actually produced a working session.
+    const { data, error: invokeError } = await supabase.functions.invoke('family-auth-admin', {
+      body: { action: 'pin_login', member_id: selectedMember!.member_id, pin },
     })
 
     setLoading(false)
     setPin('')
 
-    if (verifyError) {
+    if (invokeError) {
       setError('Something went wrong. Please try again.')
       return
     }
@@ -339,18 +351,27 @@ export function FamilyLogin() {
     const result = data as PinVerifyResult
 
     if (result.success) {
-      // PIN verified — now create a real Supabase auth session
-      // PIN members have auth accounts with email: {member_id}@pin.myaimcentral.app
-      const pinEmail = `${selectedMember!.member_id}@pin.myaimcentral.app`
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: pinEmail,
-        password: pin,
-      })
+      if (result.requires_email_login) {
+        setError('This member signs in with their own email. Please use email sign-in.')
+        return
+      }
 
-      if (signInError) {
-        // If sign-in fails (account not created yet), still navigate
-        // but the session won't persist — mom may need to re-set the PIN
-        console.warn('PIN auth session failed:', signInError.message)
+      if (result.access_token && result.refresh_token) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: result.access_token,
+          refresh_token: result.refresh_token,
+        })
+        if (sessionError) {
+          // Session couldn't be established — don't navigate into a
+          // dashboard the member isn't actually authenticated for.
+          console.warn('PIN auth session failed:', sessionError.message)
+          setError('Something went wrong. Please try again.')
+          return
+        }
+      } else {
+        console.warn('pin_login succeeded but returned no session tokens')
+        setError('Something went wrong. Please try again.')
+        return
       }
 
       navigate('/dashboard')

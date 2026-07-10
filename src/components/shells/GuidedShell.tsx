@@ -111,12 +111,31 @@ function GuidedShellInner({ children }: { children: ReactNode }) {
       {/* Write Drawer — slides from right */}
       <WriteDrawer />
 
-      {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-4 md:p-6">
+      {/* Main content.
+          FE-FOLLOWUP item 1 (2026-07-10, mobile View-As scroll bug):
+          previously this had its own `overflow-y-auto`, making it a SECOND
+          independently-scrollable region nested inside ViewAsModal's own
+          scroll wrapper (both boxes computed from svh-based heights, both
+          genuinely overflowing). On touch devices that ambiguity is exactly
+          how a drag can get routed to the wrong scroller and (once it hits
+          a boundary) chain past both into the real page underneath. Every
+          other shell (Play/Independent/Adult/Mom) relies on a single
+          ancestor scroll region + a `position: fixed` bottom nav instead of
+          an internal main-scroll — bringing Guided in line with that
+          pattern (see the nav below) removes the second scroll container
+          entirely, standalone and embedded alike. pb-24 leaves clearance
+          for the now-fixed nav, matching PlayShell's convention. */}
+      <main className="flex-1 p-4 md:p-6 pb-24">
         {children}
       </main>
 
-      {/* Bottom navigation — View As-aware */}
+      {/* Bottom navigation — View As-aware. `fixed` (not a normal flex
+          sibling) so it doesn't depend on main's own scroll box to stay
+          visible — matches PlayShell's nav and the shared BottomNav used by
+          Independent/Adult/Mom. Inside ViewAsModal this stays confined to
+          the modal's own box via the modal root's `transform: translateZ(0)`
+          containing-block trick (see ViewAsModal.tsx); standalone it pins to
+          the real viewport, matching the prior visual behavior exactly. */}
       <GuidedBottomNav />
     </div>
   )
@@ -216,7 +235,7 @@ function GuidedBottomNav() {
   return (
     <>
       <nav
-        className="shrink-0 flex items-center justify-around border-t py-2 z-20"
+        className="fixed bottom-0 left-0 right-0 flex items-center justify-around border-t py-2 z-20"
         style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
       >
         {routeNavItems.map((item, idx) => {
