@@ -296,3 +296,63 @@ session from done.**
 attorney = external. **≈ 2–3 weeks of build to cohort-1 readiness**, with the attorney
 turnaround the only piece that can't be scheduled. Gate 3 (video library) remains separately
 outstanding ahead of Gate 4 / LiLa training — unchanged, not this gate.
+
+---
+
+# GATE UPDATE + RECORD CORRECTION — 2026-07-10
+
+> Fable seat, evidence against `main` @ `d9fc77c`. Two purposes: (1) close criteria 3 & 4;
+> (2) correct an overstatement in both the 07-09 delta above and the PRD-30 record.
+
+## Criteria 3 & 4: ✅ CLOSED — the Convention #247 gate is CLEARED
+
+**The Phase-4 flip landed 2026-07-10 on founder GO.** `ENFORCEMENT_MODE 'shadow'→'enforcing'`,
+all 40 ethics-guard-importing functions redeployed enforcing (commit `d9fc77c`). Pre-flip
+evidence: safety-beta-gate 58/58; ethics-enforcement 10/10 **including all 4 deity-block
+bypass tests** (criterion 4); calibration 100% Tier-1 recall / 100% Tier-2 reject / **0%
+false positives** on 124 benign items. Post-flip live verification: violating output →
+retracted end-to-end; violating input → reframe + rejection row; both crons green under
+enforcing; no false-positive retraction flood. Full evidence: the Phase-4 section of
+`.claude/completed-builds/2026-07/SAFETY-BETA-GATE.md`. Rollback lever pre-authorized
+(enforcing→shadow + redeploy).
+
+## Correction: criterion 6 (PRD-30) was overstated in the 07-09 delta
+
+The delta above reported PRD-30 "✅ COMPLETE" with Layer-2 working post-model-ID-fix. **That
+was wrong.** PRD-30 shipped through founder sign-off with two silent defects, surfaced by the
+Phase-4 Step-0 functional check and fixed 2026-07-09/10 (`e82fadb`, `0c4ffb8`):
+
+1. **Fenced-JSON parse brittleness** — Haiku wraps verdicts in a code fence (sometimes with
+   trailing prose); the fence-only strip regex failed, so Layer-2 classification was
+   non-deterministically lossy: 12 monitored-kid conversations permanently stuck unscanned,
+   and a real concern was droppable the same way. The conversation-starter path had never
+   produced output in production. The same bug class was then found in `validate-ai-output`
+   (Tier-2) and `lila-board-of-directors` (deity-block gate, failing closed — all persona
+   creation bricked). All three now route through `_shared/json-extract.ts`, red-team-pinned.
+2. **FK-dead cost telemetry** — the zero-UUID sentinel member id violated
+   `ai_usage_tracking`'s FK, so `safety_classification` and `ethics_validation` cost rows had
+   silently failed forever, blinding the Convention #241 pattern-8 diagnostic. Real ids
+   threaded; the shared cost-logger now warns on failure.
+
+**Post-fix, criterion 6 is now genuinely ✅ and live-proven:** 23/23 monitored conversations
+scanned (the 12 cleared); a seeded self-harm message produced the full pipeline — critical
+flag via Layer-2, a real conversation starter, high-priority mom notification (DND-bypassing,
+correct for a locked category); telemetry flowing. Lesson for the record: "signed off" and
+"verified end-to-end against production" are different claims — the Step-0 check exists
+because of exactly this gap, and it caught it.
+
+## Scoreboard after 2026-07-10
+
+| # | Criterion | Status |
+|---|---|---|
+| 1 | COPPA (dormant framework + cohort-1 scoping) | 🟡 Slice 1 of 6 live — **blocked only on founder Stripe test keys** |
+| 2 | Child data handling | 🟡 registry + CI pin live; export/cascade = PRD-40 Slice 4 |
+| 3 | Layer-1 ethics enforcement, red-team tested | ✅ **LIVE + CLEARED 2026-07-10** |
+| 4 | Deity-block adversarially tested | ✅ 4/4 bypass tests green against the live function |
+| 5 | Safe Harbor | ⬜ N/A (superseded) |
+| 6 | PRD-30 core wired | ✅ (corrected + live-proven end-to-end, above) |
+| 7 | HITM coverage | ✅ (HITM-CLOSURE, Convention #279) |
+| 8 | Legal review | 🟡 founder-external (send the package) |
+| 9 | Founder declaration | ⬜ awaits 1, 2, 8 |
+
+**Beta-critical path is now purely: Stripe keys → PRD-40 Slices 2–6 → attorney → declaration.**

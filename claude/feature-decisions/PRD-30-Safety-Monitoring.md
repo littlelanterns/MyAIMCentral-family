@@ -375,3 +375,36 @@ Both registered in `feature_key_registry` + `feature_access_v2` (idempotent upse
 Three doc discrepancies found; all corrected same day by the seat: (1) the TIER_GATE_ENABLED stub registered in STUB_REGISTRY (was promised at SM-A checkpoint, missed at close-out), (2) CLAUDE.md Pattern #8's "not yet fixed" clause updated for the encore, (3) this file's grandfathered-pair row flipped to ✅ Fixed. Full verifier report in the coordination-seat session record.
 
 **Awaiting: founder sign-off** → then archive the build file to `.claude/completed-builds/2026-07/` and add the feature-decisions README index row.
+
+---
+
+## RECORD CORRECTION — 2026-07-10 (post-signoff defects found by the Phase-4 Step-0 check)
+
+This build was signed off 2026-07-08 as "48 wired / 4 stubbed / 0 missing," including Layer-2
+conversation classification. **Two silent defects shipped through that sign-off** and were
+surfaced 2026-07-09/10 by the Phase-4 flip session's Step-0 functional check ("confirm
+safety-classify actually scans a monitored kid's conversation end-to-end"):
+
+1. **Fenced-JSON parse brittleness in `classifyTranscript`** — the fence-only strip regex
+   failed on Haiku's fenced-JSON-plus-trailing-prose responses; failed conversations were left
+   unscanned and retried forever (deterministic at temperature 0). 12 monitored-kid
+   conversations were permanently stuck in production, and a genuinely concerning conversation
+   was droppable the same way. The conversation-starter path had never produced a starter in
+   production. Fixed via `_shared/json-extract.ts` (`e82fadb`), red-team-pinned; the same class
+   was fixed in `validate-ai-output` and `lila-board-of-directors` (`0c4ffb8`).
+2. **FK-dead cost telemetry** — `logAICost` used a zero-UUID sentinel member id that violates
+   `ai_usage_tracking_member_id_fkey`; every `safety_classification` cost row silently failed,
+   which also blinded the Convention #241 pattern-8 "check the cost table" diagnostic this
+   build itself documented. Real member ids threaded; shared cost-logger now warns on failure.
+   (Residual: `safety-weekly-digest` and `embed` still pass the sentinel — they now warn+skip
+   visibly; threading real ids is queued in the SMFX pile.)
+
+**Post-fix live proof (2026-07-10):** 23/23 monitored conversations scanned; seeded self-harm
+message → critical Layer-2 flag + real conversation starter + high-priority mom notification,
+end-to-end, fixture swept. Layer-2 is now verified against production for the first time.
+
+**Why the E2E suite missed it:** the SM-A/B/C Playwright tests exercised Layer-2 through
+seams and fixtures that never depended on parsing a *live* Haiku response shape. The durable
+lesson: any pipeline whose correctness depends on a model's response FORMAT needs at least one
+pin fed by a live-captured response, not a synthetic fixture — `tests/redteam/json-extract.test.ts`
+now carries exactly that for all three fixed functions.

@@ -1,7 +1,19 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-07-09 (FDWA+PINR, GDCX close-out).
+> Updated each build session. Last updated: 2026-07-10 (Phase-4 flip — ethics enforcement LIVE).
+
+## SAFETY-BETA-GATE Phase-4 Flip + Step-0 Repairs (2026-07-10)
+
+Convention #247 gate CLEARED. Full record: `.claude/completed-builds/2026-07/SAFETY-BETA-GATE.md` + the PRD-30 record correction in `claude/feature-decisions/PRD-30-Safety-Monitoring.md`.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| LiLa runtime ethics enforcement (PRD-41 Layer 1) | `ENFORCEMENT_MODE='enforcing'` live across all 40 ethics-guard-importing functions; violating output → retraction card + mom notification; violating input → gentle reframe | **Wired (LIVE)** | Founder GO 2026-07-10; calibration 0% false positives; rollback = shadow + redeploy (pre-authorized). Commit `d9fc77c` |
+| PRD-30 Layer-2 conversation classification (was silently lossy since ship) | Fenced-JSON parse hardened via `_shared/json-extract.ts` in `safety-classify`, `validate-ai-output`, `lila-board-of-directors` (deity gate un-bricked) | **Wired (repaired + live-proven)** | 23/23 monitored conversations scanned; seeded self-harm → flag + starter + DND-bypassing mom notification end-to-end. Red-team pin on live-captured response shapes |
+| Safety/ethics cost telemetry (was FK-dead since ship) | Real member ids threaded; shared cost-logger warns+skips on sentinel ids, warns on insert failure | **Wired** | Residual: `safety-weekly-digest` + `embed` still pass the sentinel (now visibly warn) — SMFX pile |
+| RPC-EXECUTE sweep (migration 100312) | 3 in-body gates (incl. new server-computed `grant_money_for_task_completion`) + 13 service_role-only + 2 anon-closed + permanent CI pin `tests/rpc-grant-audit.test.ts` | **Wired** | 26/26 rls-verifier probes; `grant_money_for_task_completion` frontend wiring is a queued follow-up |
+| OpenRouter JSON.parse sweep (route every response-parse site through `extractJsonObject`) | — | Stub | Queued follow-up — the fenced-JSON class hit 3 functions; close it platform-wide |
 
 ## FDWA + PINR — Family-Device Writes + Personal-Device PIN Relock (2026-07-09)
 

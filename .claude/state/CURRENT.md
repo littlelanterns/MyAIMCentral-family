@@ -1,45 +1,89 @@
-# Current State — 2026-07-09 evening (RESTING — all in-flight work pushed, no lanes active)
+# Current State — 2026-07-10 midday (Convention #247 GATE CLEARED — enforcement LIVE; no lanes active)
 
 > Rebuild the full picture from: this file → `claude/dispatch-factory/MANIFEST.md` (build queue)
 > → `.claude/rules/current-builds/*` (in-flight) → `.claude/completed-builds/README.md` (history).
-> Everything below is on `main` through commit `da51059`. Tree clean, nothing unpushed.
+> Everything below is on `main` through commit `d9fc77c` + the close-out docs batch. Tree clean.
 
-## What landed 2026-07-09 (all committed + pushed, one clean batch da51059)
+## What landed 2026-07-09 evening → 2026-07-10 (all committed + pushed)
 
-- **SECURITY EMERGENCY — RESOLVED.** Adversarial safety-stack review (ran on Opus — Fable's dual-use guardrails flag adversarial authoring) found 4 CRITICAL, 3 live. All closed LIVE in production + pushed: grant_money + apply_permission_profile in-body auth gates (100311), 3-function leaf-RPC lockdown (100310), lila-chat crisis-500 (HTTP 500→200, 988 hotline now returned — live-verified), validate-ai-output fail-open (retries/parks instead of auto-clearing). Report: `SAFETY_STACK_ADVERSARIAL_REVIEW.md`.
-- **RPC-grant audit DONE + seat-verified:** ~15 remaining anon-executable SECURITY DEFINER fns are all BOUNDED (self-gated with in-body admin checks, or legit-idempotent-rightful-owner-target only). → ONE follow-up sweep migration, NOT an emergency.
-- **GDCX** — Guided Dashboard completion (4 slices): Next Best Thing re-enabled (was dark since 2026-05-03), DailyCelebration steps unstubbed, Progress→/my-rewards, Victories nav restored, unread badge. Migration 100307.
-- **FDWA + PINR** — family-device writes (100306, 35 RLS policies + update_member_appearance RPC) + 2 pre-existing P0 conversation_space_members recursion fixes (100308/100309) + personal-device PIN relock.
+- **PHASE-4 FLIP LIVE — Convention #247 beta gate CLEARED (2026-07-10, founder GO).**
+  `ENFORCEMENT_MODE 'shadow'→'enforcing'` across all 40 ethics-guard-importing functions.
+  Pre-flip: safety-beta-gate 58/58, ethics 10/10 (incl. 4/4 deity-block), calibration 100%
+  Tier-1 recall / 100% Tier-2 reject / 0% false positives. Post-flip live-verified: retraction
+  + reframe end-to-end, crons green, no false-positive flood. Rollback pre-authorized
+  (shadow + redeploy). SAFETY-BETA-GATE archived to completed-builds. Commit `d9fc77c`.
+- **Step-0 pre-flip check caught a REAL shipped defect (twice-corrected record):** PRD-30
+  Layer-2 was silently lossy since ship — fenced-JSON parse bug (12 monitored-kid
+  conversations permanently stuck; deity gate bricked fail-closed in a 3rd function) + FK-dead
+  cost telemetry (zero safety/ethics cost rows ever). Fixed via `_shared/json-extract.ts`
+  across 3 functions + real-id cost logging; live-proven (23/23 scanned; seeded self-harm →
+  flag + starter + mom notification end-to-end). Commits `e82fadb`, `0c4ffb8`. Record
+  corrections appended to `claude/feature-decisions/PRD-30-Safety-Monitoring.md` and
+  `Beta-Readiness-Report-2026-07.md` (criterion-6 overstatement corrected).
+- **RPC-EXECUTE sweep COMPLETE** (migration 100312, commit `0fe3bfb`): 3 in-body gates incl.
+  new server-computed `grant_money_for_task_completion` (built+gated, NOT yet wired to its 2
+  frontend call sites), 13 fns → service_role-only (incl. pin-caught `upsert_book_library`),
+  2 anon-closed, permanent CI pin `tests/rpc-grant-audit.test.ts`. 26/26 rls-verifier probes.
+- **FDWA+PINR + GDCX Checkpoint-6 docs cascade** (`e550cbd`) — STUB/WIRING/#273/archives.
+- **07-12 Fable deliverables ready** (`bf8310a`): Beta Readiness delta (now further updated
+  with the gate closure) + `claude/orchestration/Model-Routing-Repin-2026-07-12.md`.
 
-## Immediate queue (next seat sequences — nothing is blocked)
+## Beta scoreboard (from the Beta Readiness report, 2026-07-10 update)
 
-1. **Phase-4 flip** (the big one): LiLa's ethics enforcement goes shadow→enforcing = clears the Convention #247 beta gate. UNBLOCKED now (crisis-500 + fail-open deployed, OpenRouter credits restored). Remaining before flip: re-run the calibration + fresh-dev-server safety-beta-gate 58-suite → then GO (calibration was 0% false-positive — the founder's core fear is disproven). **Runs on Opus** (safety/adversarial content). FIRST check the functional item below.
-   - **Functional check (Phase-4 readiness):** 73 of 84 lila_conversations are unscanned by safety-classify. Likely the review's test conversations on non-monitored members, or the scanner catching up post-model-fix. Zero cost impact — but confirm safety-classify actually scans monitored kids' conversations end-to-end before the flip.
-2. **Follow-up builds (Sonnet, not urgent):**
-   - **Kid PIN session-mint fix** — FOUNDER RULED keep 4-digit PINs. Fix = picture-password derived-secret pattern (Convention #273; mirror `family-auth-admin` picture path ~lines 384/509). Do NOT force 6-digit / weaken Auth policy.
-   - **Teen mom-initiated invite** (founder feature request) — mom creates username/password OR email login for a teen, sent by her, teen under her family. PRD-01 accept-invite territory.
-   - **RPC-EXECUTE sweep** — in-body gates or service_role lock for the ~15 bounded fns + grant_money same-family amount-tamper (server-computed award amounts). Add the permanent RPC-grant audit pin (class has bitten twice).
-   - **csm_insert_admin_or_parent** RLS branch mystery (PRD-15) — diagnosed, not chased.
-3. **Dispatch-factory queue** (`MANIFEST.md`): PRD-40 Slice 2 (needs founder Stripe test keys), then the P2/P3/P4/P5 chains. PRD-40 Slice 1 + PRD-31 pre-build already done.
+Criteria 3, 4, 6, 7 ✅ · 5 N/A · **remaining path: Stripe test keys → PRD-40 Slices 2–6 →
+attorney package → founder declaration.** Criteria 1/2 🟡 (PRD-40 Slice 1 live), 8 🟡
+(founder-external), 9 ⬜.
+
+## Immediate queue
+
+1. **PRD-40 Slice 2 (Stripe foundation)** — blocked ONLY on founder test keys. Dispatch
+   prompt ready in `.claude/rules/current-builds/PRD-40-coppa.md`.
+2. **Frontend follow-up lane (Sonnet, one session, now unblocked — no suites running):**
+   kid-PIN derived-secret fix (founder ruled: KEEP 4-digit PINs; mirror `family-auth-admin`
+   picture path) · wire `grant_money_for_task_completion` into `useTasks.ts` +
+   `useTaskCompletion.ts` (retire the client-computed amount) · teen mom-initiated invite.
+3. **JSON.parse sweep (small Sonnet task):** route every OpenRouter-response parse site
+   through `_shared/json-extract.ts` — the fenced-JSON class hit 3 functions; close it
+   platform-wide. Include digest/embed cost-logger real-id threading.
+4. **Dispatch-factory queue** (`MANIFEST.md`): STUDIO-EXPERIENCE ST-A prompt ready; SMFX;
+   BSB1 unblocked; P3 chains per pack edges.
+5. **csm_insert_admin_or_parent branch-1 mystery** (PRD-15) — diagnosed, not chased.
 
 ## Standing operating rules
 
-- **Model routing: security/adversarial → Opus (Fable flags it) — firm re-pin data point for 07-12.** Two-step /model headers on every dispatch (manual founder step). ONE shared Playwright suite at a time across windows (seat serializes; tree-level result counts for all lanes).
-- Seat-executed release batches: schema commit (migrations + live_schema) first, then per-lane code commits (selective staging, own files), then shared-docs sweep (STUB_REGISTRY etc. once, citing all lanes). **Founder standing push-after-review authorization.** Production migrations / Edge deploys / destructive ops = founder per-instance.
-- Pre-commit hook false-positives on PROSE describing banned date-patterns → reword, never override. Pre-push state-file guard: commit ALL lanes' state files (don't --no-verify; don't sweep another lane's file). Migration numbers re-checked at apply time (100311 latest).
-- Convention #277 Claude-driven eyes-on tours are load-bearing (caught 3 invisible-UI defect classes this sprint). DB-asserted pins are the only accepted proof.
+- **Model routing: security/adversarial → Opus (Fable flags it — firm, permanent).** Two-step
+  /model headers on every dispatch (manual founder step). ONE shared Playwright suite at a
+  time across windows (seat serializes). Live-captured-response pins for any pipeline that
+  parses model output (new lesson, 2026-07-10 — synthetic fixtures missed the fenced-JSON bug).
+- Seat-executed release batches: schema commit first, then per-lane code commits (selective
+  staging, own files), then shared-docs sweep. **Founder standing push-after-review
+  authorization.** Production migrations / Edge deploys / destructive ops = founder
+  per-instance (deploy method of record: `--use-api`, Docker not running; migrations via
+  `db query --linked -f`, never `db push` — ledger lags ~20 files, see repair-history item).
+- Pre-commit prose false-positives → reword, never override. Migration numbers re-checked at
+  apply time (**100312 latest**).
+- Convention #277 tours + DB-asserted pins are the only accepted proof.
 
 ## Founder-only open items
 
-1. **Stripe test-mode keys** → unblocks PRD-40 Slice 2. **Resend signup + DNS** → safety + Out-of-Nest emails.
-2. **PECON kid-device feel-pass** (Reward Shop) · **VOICE mic feel-pass** · attorney package (~2 wks).
-3. **"repair history"** — ~20 migrations applied via one-file method aren't in Supabase's migration-history ledger; a future naive `db push` would replay them (they're idempotent, but a landmine). Non-destructive reconcile, ~2 min, seat runs it on the word.
-4. **2026-07-12 Fable full-price revisit — BOTH DELIVERABLES READY (prepared 2026-07-09, decision still yours on the 12th; NOTHING re-pinned yet):** Beta Readiness delta appended to `claude/feature-decisions/Beta-Readiness-Report-2026-07.md` (headline: gate moved from ~4–6 weeks to ~2–3 weeks + attorney; criteria 6 & 7 now ✅); re-pin rec at `claude/orchestration/Model-Routing-Repin-2026-07-12.md` (recommends: judgment tier back to Opus, Fable escalation-only, security→Opus permanent; exact edits listed, seat executes on your word).
-5. OpenRouter privity support ticket (no-training-verification.md §6).
+1. **Stripe test-mode keys** (`sk_test_` + optional `whsec_`) → unblocks PRD-40 Slice 2; the
+   seat sets them via `supabase secrets set` on receipt. **Attorney package**: 3 contact
+   blanks (mailing address, privacy email, phone) → seat fills the legal-drafts → founder
+   sends. **Resend signup + DNS** → safety + Out-of-Nest emails.
+2. **2026-07-12 Fable full-price decision** — both deliverables ready (see above); NOTHING
+   re-pinned until she rules. **PECON kid-device feel-pass** · **VOICE mic feel-pass**.
+3. **"repair history"** migration-ledger reconcile (~2 min, seat runs on the word — now ~22
+   one-file-applied migrations incl. 100312).
+4. OpenRouter privity support ticket (no-training-verification.md §6).
 
 ## Seat's SMFX pile (fold into an SMFX dispatch)
 
-CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token — GDCX + KitchenCompass + SM-B all hit variants) · nameless dashboard greeting · pre-commit banned-pattern grep should exclude comment lines (multiple false positives this sprint) · obligations Layer-2 grace-buffer gap (#271 next-toucher) · PECON C5 follow-ups: rider-3 pin literal shape (D1) + refund idempotency key (D2).
+CSS token misuse sweep (backgroundColor+gradient ~15 files; var(--color-bg) ghost token) ·
+nameless dashboard greeting · pre-commit banned-pattern grep excludes comment lines ·
+obligations Layer-2 grace-buffer gap (#271 next-toucher) · PECON C5 follow-ups (rider-3 pin
+literal shape, refund idempotency key) · `safety-weekly-digest` + `embed` cost-logger real-id
+threading (currently warn+skip) · completed-builds README 2026-07 index backfill (9 archived
+builds missing rows — drift note in the README).
 
 ---
 *Overwritten at every close-out and baton-pass. History: HISTORY.md.*
