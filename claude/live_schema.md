@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-10
+> Auto-generated from live Supabase on 2026-07-11
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -128,7 +128,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 539 rows
+### `view_as_sessions` — 553 rows
 
 | # | Column |
 |---|---|
@@ -140,7 +140,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 419 rows
+### `view_as_feature_exclusions` — 433 rows
 
 | # | Column |
 |---|---|
@@ -398,7 +398,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 899 rows
+### `ai_usage_tracking` — 913 rows
 
 | # | Column |
 |---|---|
@@ -808,7 +808,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2122 rows
+### `routine_step_completions` — 2153 rows
 
 | # | Column |
 |---|---|
@@ -896,7 +896,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 58 rows
+### `lists` — 55 rows
 
 | # | Column |
 |---|---|
@@ -949,7 +949,7 @@
 | 47 | `include_in_shopping_mode` |
 | 48 | `subject_member_id` |
 
-### `list_items` — 201 rows
+### `list_items` — 197 rows
 
 | # | Column |
 |---|---|
@@ -2657,7 +2657,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 336 rows
+### `activity_log_entries` — 339 rows
 
 | # | Column |
 |---|---|
@@ -2873,7 +2873,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 73 rows
+### `ai_output_scans` — 82 rows
 
 | # | Column |
 |---|---|
@@ -3155,7 +3155,7 @@
 | 6 | `sort_order` |
 | 7 | `created_at` |
 
-### `contract_grant_log` — 39 rows
+### `contract_grant_log` — 57 rows
 
 | # | Column |
 |---|---|
@@ -3244,7 +3244,7 @@
 | 13 | `source` |
 | 14 | `created_at` |
 
-### `deed_firings` — 20 rows
+### `deed_firings` — 26 rows
 
 | # | Column |
 |---|---|
@@ -3374,7 +3374,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 122 rows
+### `financial_transactions` — 114 rows
 
 | # | Column |
 |---|---|
@@ -3890,7 +3890,7 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
-### `point_transactions` — 26 rows
+### `point_transactions` — 32 rows
 
 | # | Column |
 |---|---|
@@ -4621,7 +4621,7 @@
 | 15 | `extraction_count` |
 | 16 | `discovered_sections` |
 
-### `platform_intelligence.ethics_pattern_library` — 151 rows
+### `platform_intelligence.ethics_pattern_library` — 156 rows
 
 | # | Column |
 |---|---|
