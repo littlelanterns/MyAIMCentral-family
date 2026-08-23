@@ -1,4 +1,25 @@
-# Current State — 2026-07-10 midday (Convention #247 GATE CLEARED — enforcement LIVE; no lanes active)
+# Current State — 2026-08-23 (founder back from ~6-week gap; THREE lanes active; PRD-31 Slice 1 COMMITTED)
+
+## 2026-08-23 session delta (read this first; the 07-10 baseline below still applies where not superseded)
+
+- **Fable ruling:** Fable added to normal plan usage — judgment tier + daily driver, no cost
+  constraint. Security/adversarial stays Opus (permanent). `model-routing.md` amended.
+- **Three parallel lanes dispatched** (all accidentally on Fable — harmless post-ruling):
+  Window A = PRD-40 Slice 3 (consent UX; code-complete, holding at gates), Window B = PRD-31
+  Slice 1 (**COMPLETE — committed `090a751` + `668833e`**), Window C = STUDIO-EXPERIENCE ST-A
+  (in flight; owns migration 100317, unapplied).
+- **Migrations:** 100315 (commit_consented_members) applied + repaired by the seat on founder
+  GO. 100316 (PRD-31 Slice 1) applied + repaired by its lane. **100314 (TEEN-CRED orphan)
+  was discovered ALREADY APPLIED to prod since 2026-07-11** — file now committed (live-but-
+  uncommitted gap closed); the TEEN-CRED feature itself is still an open founder decision.
+  Latest applied: 100316. 100317 pending (ST-A's).
+- **PRD-40 Slice 3 remaining gates:** founder adds `VITE_STRIPE_PUBLISHABLE_KEY` to
+  .env.local (copy value from the last `STRIPE_PUBLISHABLE_KEY` line) → E2E run (serialize
+  suites — seat grants slots) → rls-verifier on the RPC → Conv #277 tour → commit.
+- **PRD-31 Slice 2 hand-off fact:** PRD-40's Stripe webhook router is live — Slice 2 EXTENDS
+  it, never builds a second one.
+- Slice-4 parking note from the Slice-1 RLS pass: `feature_access_v2` read policy is TO
+  public (anon-readable) — revisit when the tier gate goes live.
 
 > Rebuild the full picture from: this file → `claude/dispatch-factory/MANIFEST.md` (build queue)
 > → `.claude/rules/current-builds/*` (in-flight) → `.claude/completed-builds/README.md` (history).
@@ -70,8 +91,11 @@ attorney package → founder declaration.** Criteria 1/2 🟡 (PRD-40 Slice 1 li
    seat sets them via `supabase secrets set` on receipt. **Attorney package**: 3 contact
    blanks (mailing address, privacy email, phone) → seat fills the legal-drafts → founder
    sends. **Resend signup + DNS** → safety + Out-of-Nest emails.
-2. **2026-07-12 Fable full-price decision** — both deliverables ready (see above); NOTHING
-   re-pinned until she rules. **PECON kid-device feel-pass** · **VOICE mic feel-pass**.
+2. ~~2026-07-12 Fable full-price decision~~ **RESOLVED 2026-08-23 (founder ruling):** Fable
+   was added to normal plan usage — no cost constraint; Fable = judgment tier + daily driver,
+   usable freely. The Repin doc's demote recommendation is obsolete; its security carve-out
+   survives (security/adversarial → Opus, permanent). `model-routing.md` + memory updated.
+   Still open: **PECON kid-device feel-pass** · **VOICE mic feel-pass**.
 3. ~~"repair history" migration-ledger reconcile~~ **DONE 2026-07-10** (founder word, seat
    executed): 24 versions (100289–100312) marked applied via `supabase migration repair`;
    ledger verified at 316 recorded / latest 100312; 100313 correctly pending (Stripe Slice 2,
