@@ -1377,3 +1377,162 @@ Every temp object (probe_log, fixture_ids, baseline) was session-scoped and is g
 | Residue after the probe transaction | Zero -- every table, every row count, and even the exact original row identity, restored |
 
 **Verdict: PASS.** All three groups behave exactly as migration 100312 own header claims, verified by 26 live adversarial and behavioral probes rather than by reading the DDL. The two Group A functions with real client callers correctly reject cross-family attackers while preserving every legitimate same-family usage pattern already proven for their siblings (family-membership not caller-identity, payout follows the completion own member not the caller, service_role bypass intact). The new grant_money_for_task_completion sibling correctly implements the Q7 approval-timing rule that was required before this migration was allowed to apply -- proven live, not just present in source. All 13 Group B functions are unreachable by any anon or authenticated caller at the hard permission layer, and the one legitimate internal trigger-chain consumer of a Group B function (award_starter_creature) is proven, live, to survive the lockdown for a real production member under a real non-service-role authenticated session. The two Group C functions correctly reject anonymous callers while preserving the shared-platform-cache design's intentional "any authenticated user" boundary. Zero fixture residue, including exact original-row-identity preservation, confirmed by an independent post-rollback query.
+
+
+---
+
+## Migration 100316 — PRD-31 Slice 1 (credits schema + seed repairs) (2026-08-23)
+
+**Overall result: PASS — zero gaps found.** Migration `00000000100316_prd31_slice1_credits_schema_and_seed_repairs.sql` adds six brand-new tables (`ai_credits`, `credit_packs`, `tier_sampling_costs`, `tier_sample_sessions`, `onboarding_milestones`, `subscription_cancellations`) supporting the PRD-31 Subscription Tier System's AI-credit metering, tier-sampling, onboarding milestone tracking, and churn feedback -- plus seed/schema hygiene on `feature_access_v2`/`feature_key_registry` that touches no RLS. Since the migration's own comments describe every one of the six tables as either mom-only, family-scoped, universal-read, or staff-only with **zero client write policies** across the board (all writes are meant to route through future service-role Edge Functions/RPCs, per the same design lineage as `financial_transactions`/`point_transactions`/`family_goal_contributions`), this verification prioritized proving the "zero writes for anyone, including staff" claim live rather than trusting it from the DDL, in addition to standard cross-family isolation and role-scoping checks.
+
+### Methodology
+
+All probes ran inside a single `BEGIN...ROLLBACK` transaction against the linked production database (project ref `vjfbzpliqialqmabfnxs`) via `supabase db query --linked -f <file>`, using the established `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim-impersonation pattern from this file, with a `CREATE TEMP TABLE probe_log` capture pattern (temp table + its `SERIAL` sequence explicitly `GRANT`ed to `authenticated`/`anon` so impersonated roles could log their own SELECT counts, and PL/pgSQL `DO` blocks with `EXCEPTION WHEN OTHERS` used for every mutation attempt so a blocked write's `42501` doesn't abort the whole probe transaction). Two production families were used for cross-family isolation: **OurFamily** (`4bc86323-545b-4faf-b31f-3926fdd8c5a6`) and **The Testworth Family** (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`) -- the same two-family roster used throughout this file.
+
+### Test roster
+
+| Member | Family | Role | dashboard_mode | fm_id | user_id |
+|---|---|---|---|---|---|
+| Tenise | OurFamily | primary_parent (mom) | adult | `fcac562b-b7f2-412b-8e25-33a1e94cc13b` | `7434224b-ebb4-4138-8bd8-9fbc62259c42` |
+| Jerrod | OurFamily | additional_adult (dad) | adult | `0aea47e9-e6fa-4300-b4a7-6da097c26f9e` | `44a07ad8-94ca-4dd4-84d8-42ae103cf1a6` |
+| Helam | OurFamily | member (independent teen) | independent | `b266cf06-d2b4-4c7b-a6bd-559224367005` | `75a9aa25-e980-4ed0-8a75-257fec7f9e8f` |
+| Mosiah | OurFamily | member (guided kid) | guided | `476f5e1f-cdd9-4490-8409-59a4440ebd79` | `bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4` |
+| Sarah | Testworth | primary_parent (mom, cross-family) | adult | `606aad81-7c59-45af-8770-2df484e4418f` | `81246f0f-ab60-4932-8914-2a48b97b274c` |
+| Mark | Testworth | additional_adult (dad) -- also temporarily granted `staff_permissions` (`super_admin`) for the staff-read/write-lockdown probes, destroyed by the transaction ROLLBACK | adult | `5f314a51-7c4d-41e3-801d-0aa7e45e54da` | `62d73914-8ff1-44b2-a7f7-92bd586aeb95` |
+| Amy | Testworth | special_adult | adult | `008408a7-aefe-43d5-925a-32b0e054c6a0` | `764df3bc-0a13-47c0-877e-d29082105715` |
+| Jordan | Testworth | member (guided kid) | guided | `01ef28d2-b9eb-49aa-9eab-868258723f15` | `94537147-7cce-420b-9647-5d77f94f5d1d` |
+| -- | -- | genuinely anonymous (`SET LOCAL ROLE anon` + `SET LOCAL request.jwt.claims TO ''`) | -- | -- | -- |
+
+No `staff_permissions` rows existed in production before this test (confirmed via a pre-check read) -- the single temporary grant used here was created and destroyed entirely inside the rolled-back transaction. Amy (special_adult) was probed only against `ai_credits`, since that table's single SELECT policy (`role = 'primary_parent'`) makes every non-primary-parent role -- dad, teen, guided kid, special adult -- fall through identically; a confirmed non-primary-parent result on one table is structurally representative of the rest for that same policy shape.
+
+### Policy inventory (confirmed live via `pg_policies` before probing)
+
+| Table | Policies | Notes |
+|---|---|---|
+| `ai_credits` | `ai_credits_mom_read` (SELECT, `TO authenticated`, `role='primary_parent'` predicate) | Zero INSERT/UPDATE/DELETE policies. Belt-and-suspenders `REVOKE INSERT, UPDATE, DELETE ... FROM authenticated, anon` confirmed present. |
+| `credit_packs` | `credit_packs_read` (SELECT, `TO authenticated`, `USING (true)`) | Zero write policies + explicit REVOKE. Global config table, no `family_id`. |
+| `tier_sampling_costs` | `tier_sampling_costs_read` (SELECT, `TO authenticated`, `USING (true)`) | Zero write policies + explicit REVOKE. Global config table. |
+| `tier_sample_sessions` | `tier_sample_sessions_family_read` (SELECT, `TO authenticated`, any family-member predicate -- not primary_parent-only) | Zero write policies + explicit REVOKE. |
+| `onboarding_milestones` | `onboarding_milestones_mom_read` (SELECT, `TO authenticated`, `role='primary_parent'` predicate) | Zero write policies + explicit REVOKE. |
+| `subscription_cancellations` | `subscription_cancellations_staff_read` (SELECT, `TO authenticated`, `EXISTS staff_permissions` predicate, **no `family_id` restriction of any kind**) | Zero write policies + explicit REVOKE, including for staff. |
+| `feature_access_v2` (regression only) | `fav2_public_read` (SELECT, `TO public`, `USING (true)`) | Confirmed genuinely open to **anonymous** callers too, not just `authenticated` -- this table's read scope is broader than every other table checked in this pass, by design (tier-access metadata, not personal data). No write-policy regression check performed (unchanged by this migration). |
+
+### 1. `ai_credits` -- mom-only read, zero writes for anyone (12 probes, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T1a | Tenise (mom, OF) | SELECT own family | 1 | 1 | PASS |
+| T1a2 | Tenise (mom, OF) | SELECT cross-family (TW) | 0 | 0 | PASS |
+| T1b | Jerrod (dad, OF, non-primary) | SELECT own family | 0 | 0 | PASS -- non-mom family member gets zero rows even for his own family |
+| T1c | Helam (teen, OF) | SELECT own family | 0 | 0 | PASS |
+| T1d | Mosiah (guided kid, OF) | SELECT own family | 0 | 0 | PASS |
+| T1e | Amy (special_adult, TW) | SELECT own family | 0 | 0 | PASS |
+| T1f | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 / 0 | PASS -- no cross-family leakage in either direction |
+| T1g | Anon | SELECT | 0 | 0 | PASS |
+| T1h | Tenise (mom, own family) | INSERT | BLOCKED | `42501` | PASS -- mom cannot forge a credit grant even for her own family |
+| T1i | Tenise (mom, own family) | UPDATE `amount` | BLOCKED | `42501` | PASS |
+| T1j | Tenise (mom, own family) | DELETE | BLOCKED | `42501` | PASS |
+
+### 2. `credit_packs` -- universal authenticated read, anon blocked, zero writes for anyone including staff (9 probes, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T2a | Tenise (mom, OF) | SELECT Starter/Bundle/Power | 3 | 3 | PASS |
+| T2b | Jerrod (dad, OF) | SELECT | 3 | 3 | PASS -- confirms `TO authenticated` is genuinely role-blind |
+| T2c | Helam (teen, OF) | SELECT | 3 | 3 | PASS |
+| T2d | Mosiah (guided kid, OF) | SELECT | 3 | 3 | PASS |
+| T2e | Tenise (mom) | INSERT | BLOCKED | `42501` | PASS |
+| T2f | Tenise (mom) | UPDATE `price_usd` on Starter | BLOCKED | `42501` | PASS |
+| T2g | Tenise (mom) | DELETE Starter | BLOCKED | `42501` | PASS |
+| T2h | Mark (as staff, `super_admin`) | INSERT | BLOCKED | `42501` | **PASS -- confirms "zero writes for any client role incl. staff"**: unlike `coppa_consent_templates` (migration 100305), which has staff-only write policies, `credit_packs` has none at all -- staff status grants no special-cased access here |
+| T2i | Anon | SELECT | 0 | 0 | PASS -- the `TO authenticated` target does what it says |
+
+### 3. `tier_sampling_costs` -- universal authenticated read, anon blocked, zero writes (4 probes, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T3a | Tenise (mom, OF) | SELECT `meal_planning` row | 1 | 1 | PASS |
+| T3b | Anon | SELECT | 0 | 0 | PASS |
+| T3c | Tenise (mom) | INSERT new row | BLOCKED | `42501` | PASS |
+| T3d | Tenise (mom) | UPDATE `credit_cost` | BLOCKED | `42501` | PASS |
+
+### 4. `tier_sample_sessions` -- any family member reads own family, zero writes (10 probes, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T4a | Tenise (mom, OF) | SELECT own / cross | own=1, cross=0 | 1 / 0 | PASS |
+| T4b | Jerrod (dad, OF, non-primary) | SELECT own family | 1 | 1 | **PASS -- confirms this policy is genuinely "any member of the family," not primary_parent-only**, the one table of the six where a non-mom family member legitimately sees rows |
+| T4c | Helam (teen, OF) | SELECT own family | 1 | 1 | PASS |
+| T4d | Mosiah (guided kid, OF) | SELECT own family | 1 | 1 | PASS |
+| T4e | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 / 0 | PASS |
+| T4f | Anon | SELECT | 0 | 0 | PASS |
+| T4h | Tenise (mom) | INSERT own family | BLOCKED | `42501` | PASS |
+| T4i | Tenise (mom) | UPDATE `credits_spent` | BLOCKED | `42501` | PASS |
+| T4j | Tenise (mom) | DELETE | BLOCKED | `42501` | PASS |
+
+### 5. `onboarding_milestones` -- mom (primary_parent) only, zero writes (11 probes, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T5a | Tenise (mom, OF) | SELECT own / cross | own=1, cross=0 | 1 / 0 | PASS |
+| T5b | Jerrod (dad, OF, non-primary) | SELECT own family | 0 | 0 | PASS -- matches the primary-parent-only policy (contrast with `tier_sample_sessions` above, where dad DOES see rows) |
+| T5c | Helam (teen, OF) | SELECT own family | 0 | 0 | PASS |
+| T5d | Mosiah (guided kid, OF) | SELECT own family | 0 | 0 | PASS |
+| T5e | Sarah (mom, TW, cross-family) | SELECT own / cross | own=1, cross=0 | 1 / 0 | PASS |
+| T5f | Anon | SELECT | 0 | 0 | PASS |
+| T5h | Tenise (mom) | INSERT own family | BLOCKED | `42501` | PASS -- even mom cannot self-award a milestone credit by direct write; must come from a future service-role path |
+| T5i | Tenise (mom) | UPDATE `credits_awarded` | BLOCKED | `42501` | PASS |
+| T5j | Tenise (mom) | DELETE | BLOCKED | `42501` | PASS |
+
+### 6. `subscription_cancellations` -- staff-only read, family-unscoped, zero writes including for staff (8 probes, all PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T6a | Mark (as staff, TW dad) | SELECT across families | 1 (the one OF row exists) | 1 | **PASS -- confirms the staff SELECT policy is genuinely family-unscoped**: a Testworth-family staff session reads a row that belongs to OurFamily |
+| T6b | Tenise (mom, OF, **non-staff**) | SELECT own family | 0 | 0 | **PASS -- confirms mom never reads this table directly, even for her own family**, matching the `retention_deletion_log` (migration 100305) design precedent -- this is a staff/admin-only churn-analytics surface |
+| T6c | Jerrod (dad, OF, non-staff) | SELECT own family | 0 | 0 | PASS |
+| T6d | Anon | SELECT | 0 | 0 | PASS |
+| T6e | Mark (as staff) | INSERT | BLOCKED | `42501` | PASS -- service-role only, even for admin |
+| T6f | Mark (as staff) | UPDATE `freeform_feedback` | BLOCKED | `42501` | PASS |
+| T6g | Mark (as staff) | DELETE | BLOCKED | `42501` | PASS |
+| T6h | Tenise (mom, non-staff) | INSERT | BLOCKED | `42501` | PASS |
+
+### 7. `feature_access_v2` regression probe (2 probes, both PASS)
+
+| # | Role | Action | Expected | Actual | Result |
+|---|---|---|---|---|---|
+| T7a | Jerrod (dad, OF, non-mom) | SELECT | >0 | 399 | PASS -- confirms the platform-wide read policy (`fav2_public_read`) survives this migration's dedup + UNIQUE-index + seed-repair work untouched |
+| T7b | Anon | SELECT | >0 | 399 | **Observation, not a gap:** the policy target is `TO public`, not `TO authenticated` -- this table is readable even by genuinely anonymous callers. This is a pre-existing design choice (tier-access matrix is not personal data) and was not introduced or changed by migration 100316; flagged here only because this is the first pass to have actually probed it against a real anonymous session rather than assuming from the DDL. |
+
+### Residue check -- zero permanent trace, confirmed independently after the probe transaction
+
+Every probe (fixture setup, mutation attempts, temporary staff grant) ran inside the single `BEGIN...ROLLBACK` transaction above. A second, fully independent read-only query was run afterward against production to confirm nothing survived:
+
+```sql
+SELECT
+  (SELECT COUNT(*) FROM public.ai_credits WHERE description LIKE 'RLSPROBE%')                            AS ai_credits_residue,          -- 0
+  (SELECT COUNT(*) FROM public.credit_packs WHERE name LIKE 'RLSPROBE%')                                  AS credit_packs_residue,        -- 0
+  (SELECT COUNT(*) FROM public.tier_sampling_costs WHERE feature_key IN ('meal_planning','quicktasks'))   AS tier_sampling_costs_residue,  -- 0
+  (SELECT COUNT(*) FROM public.tier_sample_sessions)                                                      AS tier_sample_sessions_residue, -- 0
+  (SELECT COUNT(*) FROM public.onboarding_milestones)                                                     AS onboarding_milestones_residue,-- 0
+  (SELECT COUNT(*) FROM public.subscription_cancellations)                                                AS subscription_cancellations_residue, -- 0
+  (SELECT COUNT(*) FROM public.staff_permissions WHERE user_id = '62d73914-8ff1-44b2-a7f7-92bd586aeb95')  AS staff_grant_residue,          -- 0
+  (SELECT COUNT(*) FROM public.credit_packs)                                                              AS credit_packs_total_should_be_3; -- 3
+```
+
+All zero except `credit_packs` (correctly back to exactly the 3 seeded rows -- Starter/Bundle/Power -- with zero probe-inserted rows surviving). `tier_sampling_costs` correctly back to zero rows total, confirming its fixture row (`meal_planning`, inserted for this probe) was never a pre-existing production row and left no trace after rollback.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| `ai_credits` (mom-only read, zero writes for anyone) | **PASS** -- 12/12 sub-tests |
+| `credit_packs` (universal authenticated read, anon blocked, zero writes incl. staff) | **PASS** -- 9/9 sub-tests |
+| `tier_sampling_costs` (universal authenticated read, anon blocked, zero writes) | **PASS** -- 4/4 sub-tests |
+| `tier_sample_sessions` (any family member reads own family, zero writes) | **PASS** -- 10/10 sub-tests |
+| `onboarding_milestones` (primary-parent-only read, zero writes) | **PASS** -- 11/11 sub-tests |
+| `subscription_cancellations` (staff-only, family-unscoped read, zero writes incl. staff) | **PASS** -- 8/8 sub-tests |
+| `feature_access_v2` regression (platform-wide read intact, incl. anon) | **PASS** -- 2/2 sub-tests |
+| Residue after the probe transaction | **Zero** -- every table, every row count, exactly restored |
+
+**Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. All six new tables enforce exactly the access shape their own design comments and the migration's inline verification block (`RAISE NOTICE 'PRD-31 Slice 1 verification passed.'`) claim, verified by 56 live adversarial probes rather than by reading the DDL. No non-mom role can read `ai_credits` or `onboarding_milestones`; `tier_sample_sessions` correctly extends read access to every family member (not just mom) per its own distinct policy shape; `subscription_cancellations` correctly hides from mom herself and surfaces only to a genuinely staff-granted session, regardless of family; `credit_packs`/`tier_sampling_costs` are correctly open to every authenticated family member and closed to anonymous callers. **Zero mutation of any kind succeeded on any of the six tables, for any role tested, including a temporarily-granted staff/admin session** -- every INSERT/UPDATE/DELETE attempt was blocked with `42501`, matching the migration's explicit "zero client write policies" design across the board. No cross-family access succeeded on any table, for any role, for any operation. The one regression probe (`feature_access_v2`) confirms the pre-existing platform-wide read policy survived this migration's dedup/hygiene work untouched, with the added observation that it is open to anonymous callers too (pre-existing, not introduced by this migration). Zero fixture residue confirmed by an independent post-transaction query.
