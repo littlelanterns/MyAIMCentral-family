@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-07-11
+> Auto-generated from live Supabase on 2026-08-23
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -92,6 +92,7 @@
 | 42 | `emergency_locked` |
 | 43 | `coppa_age_bracket` |
 | 44 | `is_suspended_for_deletion` |
+| 45 | `login_username` |
 
 ### `special_adult_assignments` — 2 rows
 
@@ -229,8 +230,11 @@
 | 11 | `past_due_since` |
 | 12 | `created_at` |
 | 13 | `updated_at` |
+| 14 | `is_founding_family` |
+| 15 | `founding_rate_monthly` |
+| 16 | `founding_rate_yearly` |
 
-### `feature_key_registry` — 224 rows
+### `feature_key_registry` — 226 rows
 
 | # | Column |
 |---|---|
@@ -240,8 +244,11 @@
 | 4 | `description` |
 | 5 | `prd_source` |
 | 6 | `created_at` |
+| 7 | `category` |
+| 8 | `is_lite_version` |
+| 9 | `lite_version_of` |
 
-### `feature_access_v2` — 392 rows
+### `feature_access_v2` — 399 rows
 
 | # | Column |
 |---|---|
@@ -269,29 +276,76 @@
 | 10 | `applied_profile_level` |
 | 11 | `updated_at` |
 
-### `ai_credits`
+### `ai_credits` — 0 rows
 
-*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `amount` |
+| 4 | `source` |
+| 5 | `description` |
+| 6 | `feature_key` |
+| 7 | `expires_at` |
+| 8 | `stripe_payment_id` |
+| 9 | `milestone_id` |
+| 10 | `created_at` |
 
-### `credit_packs`
+### `credit_packs` — 3 rows
 
-*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `name` |
+| 3 | `ai_actions` |
+| 4 | `price_usd` |
+| 5 | `stripe_price_id` |
+| 6 | `sort_order` |
+| 7 | `is_active` |
+| 8 | `created_at` |
+| 9 | `updated_at` |
 
-### `tier_sampling_costs`
+### `tier_sampling_costs` — 0 rows
 
-*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
+| # | Column |
+|---|---|
+| 1 | `feature_key` |
+| 2 | `credit_cost` |
+| 3 | `updated_at` |
 
-### `tier_sample_sessions`
+### `tier_sample_sessions` — 0 rows
 
-*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `user_id` |
+| 4 | `feature_key` |
+| 5 | `credits_spent` |
+| 6 | `session_started_at` |
+| 7 | `session_ended_at` |
 
-### `onboarding_milestones`
+### `onboarding_milestones` — 0 rows
 
-*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `milestone_key` |
+| 4 | `completed_at` |
+| 5 | `credits_awarded` |
 
-### `subscription_cancellations`
+### `subscription_cancellations` — 0 rows
 
-*(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `tier_at_cancellation` |
+| 4 | `reasons` |
+| 5 | `freeform_feedback` |
+| 6 | `was_founding_family` |
+| 7 | `cancelled_at` |
 
 ---
 
@@ -398,7 +452,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 913 rows
+### `ai_usage_tracking` — 961 rows
 
 | # | Column |
 |---|---|
@@ -533,7 +587,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 23 rows
+### `notepad_tabs` — 25 rows
 
 | # | Column |
 |---|---|
@@ -677,7 +731,7 @@
 | 18 | `reward_image_url` |
 | 19 | `reward_image_asset_key` |
 
-### `tasks` — 193 rows
+### `tasks` — 212 rows
 
 | # | Column |
 |---|---|
@@ -767,7 +821,7 @@
 | 84 | `reward_visibility` |
 | 85 | `reward_shared_with` |
 
-### `task_assignments` — 64 rows
+### `task_assignments` — 73 rows
 
 | # | Column |
 |---|---|
@@ -784,7 +838,7 @@
 | 11 | `is_active` |
 | 12 | `updated_at` |
 
-### `task_completions` — 42 rows
+### `task_completions` — 43 rows
 
 | # | Column |
 |---|---|
@@ -808,7 +862,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2153 rows
+### `routine_step_completions` — 2476 rows
 
 | # | Column |
 |---|---|
@@ -848,7 +902,7 @@
 | 20 | `life_area_tags` |
 | 21 | `allow_out_of_order` |
 
-### `task_claims` — 3 rows
+### `task_claims` — 12 rows
 
 | # | Column |
 |---|---|
@@ -863,7 +917,7 @@
 | 9 | `released` |
 | 10 | `released_at` |
 
-### `task_rewards` — 3 rows
+### `task_rewards` — 12 rows
 
 | # | Column |
 |---|---|
@@ -873,7 +927,7 @@
 | 4 | `reward_value` |
 | 5 | `created_at` |
 
-### `studio_queue` — 41 rows
+### `studio_queue` — 45 rows
 
 | # | Column |
 |---|---|
@@ -1038,7 +1092,7 @@
 | 8 | `can_edit` |
 | 9 | `is_hidden` |
 
-### `list_templates` — 12 rows
+### `list_templates` — 13 rows
 
 | # | Column |
 |---|---|
@@ -1189,7 +1243,7 @@
 | 10 | `created_at` |
 | 11 | `updated_at` |
 
-### `calendar_events` — 46 rows
+### `calendar_events` — 54 rows
 
 | # | Column |
 |---|---|
@@ -1237,7 +1291,7 @@
 | 42 | `option_group_title` |
 | 43 | `calendar_subtype` |
 
-### `event_attendees` — 95 rows
+### `event_attendees` — 114 rows
 
 | # | Column |
 |---|---|
@@ -1788,7 +1842,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 24 rows
+### `notifications` — 101 rows
 
 | # | Column |
 |---|---|
@@ -2563,7 +2617,7 @@
 | 4 | `added_by` |
 | 5 | `created_at` |
 
-### `mindsweep_events` — 16 rows
+### `mindsweep_events` — 20 rows
 
 | # | Column |
 |---|---|
@@ -2581,7 +2635,7 @@
 | 12 | `processing_cost_cents` |
 | 13 | `created_at` |
 
-### `mindsweep_approval_patterns` — 23 rows
+### `mindsweep_approval_patterns` — 27 rows
 
 | # | Column |
 |---|---|
@@ -2657,7 +2711,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 339 rows
+### `activity_log_entries` — 348 rows
 
 | # | Column |
 |---|---|
@@ -2873,7 +2927,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 82 rows
+### `ai_output_scans` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2975,7 +3029,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 60 rows
+### `allowance_periods` — 95 rows
 
 | # | Column |
 |---|---|
@@ -3155,7 +3209,7 @@
 | 6 | `sort_order` |
 | 7 | `created_at` |
 
-### `contract_grant_log` — 57 rows
+### `contract_grant_log` — 67 rows
 
 | # | Column |
 |---|---|
@@ -3244,7 +3298,7 @@
 | 13 | `source` |
 | 14 | `created_at` |
 
-### `deed_firings` — 26 rows
+### `deed_firings` — 29 rows
 
 | # | Column |
 |---|---|
@@ -3258,7 +3312,7 @@
 | 8 | `idempotency_key` |
 | 9 | `created_at` |
 
-### `deferred_grants` — 3 rows
+### `deferred_grants` — 5 rows
 
 | # | Column |
 |---|---|
@@ -3362,7 +3416,7 @@
 | 4 | `feature_key` |
 | 5 | `dismissed_at` |
 
-### `feature_expansion_dismissals` — 2 rows
+### `feature_expansion_dismissals` — 3 rows
 
 | # | Column |
 |---|---|
@@ -3374,7 +3428,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 114 rows
+### `financial_transactions` — 168 rows
 
 | # | Column |
 |---|---|
@@ -3890,7 +3944,7 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
-### `point_transactions` — 32 rows
+### `point_transactions` — 34 rows
 
 | # | Column |
 |---|---|
@@ -4198,7 +4252,7 @@
 | 15 | `created_at` |
 | 16 | `updated_at` |
 
-### `rhythm_completions` — 36 rows
+### `rhythm_completions` — 40 rows
 
 | # | Column |
 |---|---|
@@ -4297,7 +4351,7 @@
 | 5 | `notification_channels` |
 | 6 | `created_at` |
 
-### `safety_pattern_summaries` — 14 rows
+### `safety_pattern_summaries` — 91 rows
 
 | # | Column |
 |---|---|
@@ -4423,6 +4477,14 @@
 | 6 | `original_visibility` |
 | 7 | `new_visibility` |
 | 8 | `created_at` |
+
+### `username_check_log` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `checked_by` |
+| 3 | `created_at` |
 
 ### `view_as_permissions` — 0 rows
 
@@ -4664,7 +4726,7 @@
 
 ---
 
-> **Summary:** 140 API-exposed tables in domain sections | 96 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 20 DOMAIN_ORDER entries missing from live database
+> **Summary:** 146 API-exposed tables in domain sections | 97 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
