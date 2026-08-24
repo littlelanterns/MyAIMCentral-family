@@ -26,6 +26,7 @@ import { FrequencyBadge } from './FrequencyRulesEditor'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { useSmartDraw, useSmartDrawCompletion, useListItemMemberTracking } from '@/hooks/useSmartDraw'
 import { useActiveDrawCount } from '@/hooks/useRandomizerDraws'
+import { useRevealOnCompletion } from '@/hooks/useRevealOnCompletion'
 import { supabase } from '@/lib/supabase/client'
 import type { ListItem, PoolMode, DrawMode } from '@/types/lists'
 
@@ -99,6 +100,12 @@ export function Randomizer({
   // Smart draw hooks
   const { data: memberTracking = [] } = useListItemMemberTracking(listId, assigningMemberId)
   const completeDraw = useSmartDrawCompletion()
+
+  // ST-F (STUDIO-EXPERIENCE, 2026-08-23): checks for a reward_reveal_attachments
+  // row on this list (source_type='list') and queues the celebration when one
+  // is attached (e.g. via ListRevealAssignmentWizard's draw flavor). No-ops
+  // silently when no attachment exists — safe to call unconditionally.
+  const checkAndQueueReveal = useRevealOnCompletion()
 
   // Build J: count currently-active draws for slot management
   const effectiveDrawMode: DrawMode = drawMode ?? 'focused'
@@ -197,11 +204,21 @@ export function Randomizer({
           .eq('id', item.id)
       }
 
+      // ST-F: fire the list's reveal celebration (if one is attached) now
+      // that the draw has actually landed a task on memberId's dashboard.
+      // No-ops silently when this list has no reward_reveal_attachments row.
+      void checkAndQueueReveal({
+        sourceType: 'list',
+        sourceId: listId,
+        memberId,
+        familyId,
+      })
+
       onItemAssigned?.(item.id, taskData.id)
     } finally {
       setAssigning(false)
     }
-  }, [familyId, assigningMemberId, onItemAssigned, completeDraw, listId, poolMode])
+  }, [familyId, assigningMemberId, onItemAssigned, completeDraw, checkAndQueueReveal, listId, poolMode])
 
   // Format next available time
   const nextAvailableLabel = useMemo(() => {

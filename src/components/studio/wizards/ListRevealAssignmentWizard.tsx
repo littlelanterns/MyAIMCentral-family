@@ -5,7 +5,11 @@
  *   Opportunity: kids browse a list, claim items, earn money/points/rewards
  *   Draw: spin/reveal picks from list, result assigned as task
  *
- * Composes contracts under the hood for automatic reward delivery.
+ * Rewards flow through the proven claim-bridge-task pipeline (money/points/
+ * privilege/custom on opportunity items) and the reveal-attachment queue
+ * (draw-flavor celebration animation) — not through wizard-authored
+ * contracts (ST-F, STUDIO-EXPERIENCE, 2026-08-23; see F-14 in
+ * claude/feature-decisions/Studio-Experience.md).
  * Integrates useWizardDraft for save-and-return (Convention 250).
  */
 
@@ -19,8 +23,7 @@ import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardDraft } from './useWizardDraft'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import type { RevealAttachmentConfig } from '@/components/reward-reveals/AttachRevealSection'
-import { useCreateContract } from '@/hooks/useContracts'
-import { useRevealAnimations } from '@/hooks/useRewardReveals'
+import { useRevealAnimations, useCreateRewardReveal, useAttachReveal } from '@/hooks/useRewardReveals'
 import { useShareList } from '@/hooks/useLists'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
@@ -28,7 +31,6 @@ import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import { isChildMember, isOptInAdult } from '@/lib/members/isChildMember'
 import type { OpportunityRewardType, FrequencyPeriod } from '@/types/lists'
 import { ItemRecurrenceConfig, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
-import type { GodmotherType, PresentationMode } from '@/types/contracts'
 import {
   DndContext,
   closestCenter,
@@ -436,7 +438,8 @@ export function ListRevealAssignmentWizard({
   const { data: revealAnimations = [] } = useRevealAnimations()
 
   // Mutations
-  const createContract = useCreateContract()
+  const createRewardReveal = useCreateRewardReveal()
+  const attachReveal = useAttachReveal()
   const shareList = useShareList()
   const queryClient = useQueryClient()
 
@@ -818,6 +821,10 @@ Return ONLY a JSON array. No markdown, no preamble.`
         listPayload.default_claim_lock_duration = state.claimLockHours
         listPayload.default_claim_lock_unit = 'hours'
         listPayload.default_reward_type = 'money'
+        // ST-F fix (STUDIO-EXPERIENCE, 2026-08-23): "Approval required for
+        // payout" was checked in the wizard but never written anywhere —
+        // every claimed job paid straight through regardless of the toggle.
+        listPayload.default_require_approval = state.approvalRequired
       }
 
       if (!isOpportunity) {
@@ -879,127 +886,71 @@ Return ONLY a JSON array. No markdown, no preamble.`
         }
       }
 
-      // 4. Create contracts
-      if (isOpportunity) {
-        // Per-item contracts for items with rewards
-        for (const item of validItems) {
-          if (!item.rewardType) continue
-
-          const godmother: GodmotherType =
-            item.rewardType === 'money' ? 'money_godmother' :
-            item.rewardType === 'points' ? 'points_godmother' :
-            'custom_reward_godmother'
-
-          const presentation: PresentationMode = item.rewardType === 'money' ? 'toast' : 'toast'
-
-          try {
-            await createContract.mutateAsync({
+      // 4. Reward wiring — ST-F fix (STUDIO-EXPERIENCE, 2026-08-23).
+      //
+      // This wizard used to author contracts against deed source types
+      // NOTHING ever fires ('list_item_completion' / 'randomizer_drawn') —
+      // see claude/feature-decisions/Studio-Experience.md F-14. They sat as
+      // dead rows on mom's /contracts page and never paid anything. Real
+      // payment for opportunity boards already flows through the claim-
+      // bridge-task pipeline (useOpportunityLists snapshots each item's
+      // reward onto the bridge task's task_rewards / points_override at
+      // claim time — step 2 above already wrote reward_type/reward_amount
+      // onto the list_items rows), independent of any contract:
+      //   money      -> task_rewards + grant_money_for_task_completion
+      //   points     -> tasks.points_override + the standing per-family
+      //                 points_godmother resolution, fired on the ordinary
+      //                 task_completion deed
+      //   privilege/
+      //   custom     -> task_rewards + award_custom_reward_for_completion
+      // No contract is needed for the opportunity flavor at all.
+      //
+      // For the draw flavor, task creation on assignment already works via
+      // Randomizer.tsx's handleAssign (generic to every randomizer list,
+      // independent of this wizard) — no contract needed there either. The
+      // one real promise this wizard makes that has no other home is the
+      // reveal ANIMATION mom picked. That machinery already exists
+      // end-to-end (RewardRevealProvider mounted in every shell,
+      // useRevealOnCompletion wired into Randomizer.tsx's draw-assign flow)
+      // — it just needs a real reward_reveal_attachments row instead of a
+      // dead contract's presentation_config.
+      if (!isOpportunity && state.revealConfig) {
+        try {
+          const cfg = state.revealConfig
+          let revealId = cfg.libraryRevealId
+          if (!revealId && cfg.animationIds.length > 0) {
+            const created = await createRewardReveal.mutateAsync({
               family_id: familyId,
               created_by: memberId,
-              status: 'active',
-              source_type: 'list_item_completion',
-              source_id: listId,
-              source_category: 'opportunity_wizard',
-              family_member_id: null,
-              if_pattern: 'every_time',
-              if_n: null,
-              if_floor: null,
-              if_window_kind: null,
-              if_window_starts_at: null,
-              if_window_ends_at: null,
-              if_calendar_pattern: null,
-              if_offset: 0,
-              godmother_type: godmother,
-              godmother_config_id: null,
-              payload_amount: item.rewardAmount,
-              payload_text: item.rewardType === 'privilege' || item.rewardType === 'custom' ? item.name : null,
-              payload_config: null,
-              stroke_of: 'immediate',
-              stroke_of_time: null,
-              recurrence_details: null,
-              inheritance_level: 'family_default',
-              override_mode: 'replace',
-              presentation_mode: presentation,
-              presentation_config: null,
+              animation_ids: cfg.animationIds,
+              animation_rotation: cfg.animationRotation,
+              prize_mode: cfg.prizeMode,
+              // The in-wizard picker only lets mom choose a celebration
+              // style, never a prize (empty prizeText) — 'celebration_only'
+              // is the honest type for that: RewardRevealProvider already
+              // skips writing an earned_prizes row for it.
+              prize_type: cfg.prizeText.trim() ? cfg.prizeType : 'celebration_only',
+              prize_text: cfg.prizeText || null,
+              prize_name: cfg.prizeName || null,
+              prize_image_url: cfg.prizeImageUrl || null,
+              prize_asset_key: cfg.prizeAssetKey || null,
+              prize_pool: cfg.prizePool.length > 0 ? cfg.prizePool : null,
             })
-          } catch (err) {
-            console.warn('Contract creation warning:', err)
+            revealId = created.id
           }
-        }
-
-        // Allowance registration contract
-        try {
-          await createContract.mutateAsync({
-            family_id: familyId,
-            created_by: memberId,
-            status: 'active',
-            source_type: 'list_item_completion',
-            source_id: listId,
-            source_category: 'opportunity_wizard',
-            family_member_id: null,
-            if_pattern: 'every_time',
-            if_n: null,
-            if_floor: null,
-            if_window_kind: null,
-            if_window_starts_at: null,
-            if_window_ends_at: null,
-            if_calendar_pattern: null,
-            if_offset: 0,
-            godmother_type: 'allowance_godmother',
-            godmother_config_id: null,
-            payload_amount: null,
-            payload_text: null,
-            payload_config: null,
-            stroke_of: 'immediate',
-            stroke_of_time: null,
-            recurrence_details: null,
-            inheritance_level: 'family_default',
-            override_mode: 'replace',
-            presentation_mode: 'silent',
-            presentation_config: null,
-          })
-        } catch {
-          // Non-critical
-        }
-      } else {
-        // Draw flavor: assign_task_godmother contract
-        try {
-          await createContract.mutateAsync({
-            family_id: familyId,
-            created_by: memberId,
-            status: 'active',
-            source_type: 'randomizer_drawn',
-            source_id: listId,
-            source_category: 'draw_wizard',
-            family_member_id: null,
-            if_pattern: 'every_time',
-            if_n: null,
-            if_floor: null,
-            if_window_kind: null,
-            if_window_starts_at: null,
-            if_window_ends_at: null,
-            if_calendar_pattern: null,
-            if_offset: 0,
-            godmother_type: 'assign_task_godmother',
-            godmother_config_id: null,
-            payload_amount: null,
-            payload_text: null,
-            payload_config: {
-              person_pick_mode: state.personPickMode,
-              kid_can_skip: state.kidCanSkip,
-            },
-            stroke_of: 'immediate',
-            stroke_of_time: null,
-            recurrence_details: null,
-            inheritance_level: 'family_default',
-            override_mode: 'replace',
-            presentation_mode: state.revealConfig ? 'reveal_animation' : 'toast',
-            presentation_config: state.revealConfig ? {
-              reveal: state.revealConfig,
-            } : null,
-          })
+          if (revealId) {
+            await attachReveal.mutateAsync({
+              family_id: familyId,
+              reward_reveal_id: revealId,
+              source_type: 'list',
+              source_id: listId,
+              is_repeating: cfg.isRepeating,
+              reveal_trigger_mode: cfg.triggerMode,
+              reveal_trigger_n: cfg.triggerN,
+            })
+          }
         } catch (err) {
-          console.warn('Draw contract creation warning:', err)
+          console.warn('Reveal attachment warning (non-critical):', err)
         }
       }
 
@@ -1029,7 +980,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
 
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['lists', familyId] })
-      queryClient.invalidateQueries({ queryKey: ['contracts', familyId] })
+      queryClient.invalidateQueries({ queryKey: ['reward-reveal-attachments', 'list', listId] })
 
       clearDraft()
       setDeployed(true)
@@ -1039,7 +990,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
     } finally {
       setIsDeploying(false)
     }
-  }, [state, familyId, memberId, childMembers, createContract, shareList, clearDraft, queryClient])
+  }, [state, familyId, memberId, childMembers, createRewardReveal, attachReveal, shareList, clearDraft, queryClient])
 
   // ── Close handling ───────────────────────────────────────────
 

@@ -124,18 +124,31 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
         }
       }
 
-      // Step 1 & 2: Update task status to completed
+      // Step 1 & 2: Update task status.
+      // ST-F fix (STUDIO-EXPERIENCE, 2026-08-23): this unconditionally set
+      // status='completed', even for require_approval tasks — meaning a
+      // completion here NEVER showed up in mom's Family Overview Approvals
+      // queue (useTasksWithPendingApprovals filters tasks.status=
+      // 'pending_approval', a status this path never set), so require_
+      // approval tasks completed via the TaskCard checkbox could never
+      // actually BE approved. Mirrors useCompleteTask's (hooks/useTasks.ts)
+      // already-correct status branch.
+      const requireApproval = !!task.require_approval
       const { error: updateError } = await supabase
         .from('tasks')
         .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
+          status: requireApproval ? 'pending_approval' : 'completed',
+          completed_at: requireApproval ? null : new Date().toISOString(),
         })
         .eq('id', task.id)
 
       if (updateError) return { success: false, error: updateError.message }
 
-      // Step 2B: Insert task_completion record
+      // Step 2B: Insert task_completion record. approval_status mirrors
+      // useCompleteTask's pattern — explicit 'pending' rather than relying
+      // on the column's NULL default, so the Approvals queue and the
+      // require_approval-gated reward RPCs agree on what "not yet decided"
+      // looks like.
       const { data: completionRow, error: completionError } = await supabase
         .from('task_completions')
         .insert({
@@ -146,6 +159,7 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
           completion_note: completionNote ?? null,
           photo_url: photoUrl ?? null,
           acted_by: actedBy,
+          approval_status: requireApproval ? 'pending' : null,
         })
         .select('id')
         .single()
@@ -169,13 +183,18 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
       // OPPORTUNITY-SURFACES: consume the source list item for claim-bridge
       // tasks (completed_instances / is_available / last_completed_at).
       // Approval-required bridge tasks write back at approval time instead.
-      if (task.source === 'opportunity_list_claim' && !task.require_approval) {
+      if (task.source === 'opportunity_list_claim' && !requireApproval) {
         const writeBack = await writeBackOpportunityCompletion(task.id, 'complete')
         invalidateOpportunityBoardCaches(queryClient, writeBack)
       }
 
       // Phase 3 connector: fire deed for gamification, victory, money, points.
-      if (completionRow?.id) {
+      // ST-F fix: only when the task doesn't need approval (Convention #201 —
+      // "mom full control over when rewards actually flow to kids"; mirrors
+      // useCompleteTask's `if (!requireApproval)` gate exactly). Approval
+      // hooks (useApproveTaskCompletion / useApproveCompletion) fire their
+      // own deed at approval time.
+      if (completionRow?.id && !requireApproval) {
         fireDeed({
           familyId,
           memberId,
@@ -198,14 +217,20 @@ export function useTaskCompletion({ memberId, familyId, isPrimaryParent, onSpark
       // grant_money_for_task_completion (reads task_rewards itself) instead
       // of being read client-side and passed as a parameter — closes the
       // same-family amount-tamper vector migration 100311 documented.
-      if (task.task_type?.startsWith('opportunity') && completionRow?.id) {
+      // ST-F: gated on !requireApproval — the RPC's own Q7 check would skip
+      // it anyway, but firing it only at the real payout moment (completion
+      // for no-approval tasks, approval for gated ones) avoids a pointless
+      // early call that always returns skipped_pending_approval.
+      if (task.task_type?.startsWith('opportunity') && completionRow?.id && !requireApproval) {
         grantMoneyForTaskCompletion(completionRow.id)
       }
 
       // KIDS-REWARDS-PAGE Q7: privileges/family_activities reward → earned_prizes.
       // RPC self-filters (reward type, approval timing via task.require_approval,
       // idempotency) — covers tasks, routines, and opportunity claim-bridge tasks.
-      if (completionRow?.id) {
+      // ST-F: gated on !requireApproval, matching useCompleteTask's identical
+      // gate — approval hooks fire it again at approval time.
+      if (completionRow?.id && !requireApproval) {
         awardCustomRewardForCompletion(completionRow.id)
       }
 

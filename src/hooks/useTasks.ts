@@ -893,7 +893,7 @@ export function useApproveTaskCompletion() {
           completed_at: new Date().toISOString(),
         })
         .eq('id', taskId)
-        .select('id, family_id, title, victory_flagged, is_shared, life_area_tags')
+        .select('id, family_id, title, task_type, victory_flagged, is_shared, life_area_tags')
         .single()
 
       if (taskError) throw taskError
@@ -912,7 +912,7 @@ export function useApproveTaskCompletion() {
           sourceId: taskId,
           metadata: {
             task_title: data.title,
-            task_type: (data as Record<string, unknown>).task_type,
+            task_type: data.task_type,
             completion_id: completionId,
             victory_flagged: data.victory_flagged,
             approved_by: approvedById,
@@ -924,6 +924,17 @@ export function useApproveTaskCompletion() {
       // KIDS-REWARDS-PAGE Q7 timing rule: approval-required rewards award at
       // mom's approval. RPC is idempotent + self-filtering; never throws.
       awardCustomRewardForCompletion(completionId)
+
+      // ST-F fix (STUDIO-EXPERIENCE, 2026-08-23): approval-required opportunity
+      // tasks with a money reward never paid — this hook fired the privilege/
+      // custom reward RPC at approval but never called the money RPC, and the
+      // completion-time call in useCompleteTask self-skips via its own Q7 gate
+      // (skipped_pending_approval) for require_approval tasks. Same Q7 timing
+      // rule as the line above; grantMoneyForTaskCompletion self-filters
+      // (task-type + reward-type + idempotency) and never throws.
+      if ((data.task_type as string | undefined)?.startsWith('opportunity')) {
+        grantMoneyForTaskCompletion(completionId)
+      }
 
       // OPPORTUNITY-SURFACES: approval-required claim-bridge tasks consume
       // their source list item at approval time (same Q7 timing rule).

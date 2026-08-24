@@ -205,6 +205,13 @@ export function useClaimOpportunityItem() {
           max_completions: subtype === 'one_time' ? 1 : (listItem.max_instances ?? null),
           claim_lock_duration: listItem.claim_lock_duration ?? list.default_claim_lock_duration ?? null,
           claim_lock_unit: listItem.claim_lock_unit ?? list.default_claim_lock_unit ?? null,
+          // ST-F fix (STUDIO-EXPERIENCE, 2026-08-23): the board's "Approval
+          // required for payout" setting (lists.default_require_approval)
+          // was never read here — every claimed board job completed straight
+          // to paid, regardless of what mom configured. list_items has no
+          // per-item override column for this (only mastery-specific
+          // variants), so the list-level default is the whole story.
+          require_approval: list.default_require_approval ?? false,
           // Reward (via resolver)
           points_override: reward.points_override,
           victory_flagged: reward.victory_flagged,

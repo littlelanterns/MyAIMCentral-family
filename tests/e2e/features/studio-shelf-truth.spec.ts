@@ -68,21 +68,48 @@ async function resolveFamily() {
 async function sweep() {
   if (!FAMILY_ID) await resolveFamily()
 
-  // ── tasks (wizard deploys, guided-form assignments, sequential children) ──
-  const { data: tasks } = await sr
-    .from('tasks')
-    .select('id, title')
-    .eq('family_id', FAMILY_ID)
-    .or(`title.ilike.${PREFIX}%,title.in.("${SEED_TITLES.join('","')}")`)
-  const taskIds = (tasks ?? []).map((t) => t.id as string)
-
   // ── lists (boards, spinners, shared to-dos, universal-list deploys) ──
+  // Resolved BEFORE tasks: ST-F's claim-bridge / randomizer-draw tasks are
+  // titled after the LIST ITEM (mom's job/item name), not the PREFIX, so
+  // they're found via source_reference_id -> list_items.id, not by title.
   const { data: lists } = await sr
     .from('lists')
     .select('id, title')
     .eq('family_id', FAMILY_ID)
     .or(`title.ilike.${PREFIX}%,title.in.("${SEED_TITLES.join('","')}")`)
   const listIds = (lists ?? []).map((l) => l.id as string)
+
+  const { data: listItemRows } = listIds.length
+    ? await sr.from('list_items').select('id').in('list_id', listIds)
+    : { data: [] as { id: string }[] }
+  const listItemIds = (listItemRows ?? []).map((i) => i.id as string)
+
+  // ── tasks: PREFIX/SEED-titled (wizard deploys, sequential children, etc.)
+  //    PLUS any bridge/drawn task sourced from a swept list's items (ST-F
+  //    claim-bridge + randomizer-draw tasks, titled after the item, not PREFIX) ──
+  const { data: titledTasks } = await sr
+    .from('tasks')
+    .select('id')
+    .eq('family_id', FAMILY_ID)
+    .or(`title.ilike.${PREFIX}%,title.in.("${SEED_TITLES.join('","')}")`)
+  const { data: sourcedTasks } = listItemIds.length
+    ? await sr.from('tasks').select('id')
+        .eq('family_id', FAMILY_ID)
+        .in('source_reference_id', listItemIds)
+        .in('source', ['opportunity_list_claim', 'randomizer_draw'])
+    : { data: [] as { id: string }[] }
+  const taskIds = Array.from(new Set([
+    ...(titledTasks ?? []).map((t) => t.id as string),
+    ...(sourcedTasks ?? []).map((t) => t.id as string),
+  ]))
+
+  // ── reward reveals (ST-F draw-flavor attachment) ──
+  const { data: attachments } = listIds.length
+    ? await sr.from('reward_reveal_attachments').select('id, reward_reveal_id')
+        .eq('source_type', 'list').in('source_id', listIds)
+    : { data: [] as { id: string; reward_reveal_id: string }[] }
+  const attachmentIds = (attachments ?? []).map((a) => a.id as string)
+  const revealIds = (attachments ?? []).map((a) => a.reward_reveal_id as string).filter(Boolean)
 
   // ── contracts referencing either ──
   const sourceIds = [...taskIds, ...listIds]
@@ -97,21 +124,35 @@ async function sweep() {
     await sr.from('deed_firings').delete().in('source_id', sourceIds)
   }
 
+  if (attachmentIds.length) {
+    await sr.from('earned_prizes').delete().in('attachment_id', attachmentIds)
+    await sr.from('reward_reveal_attachments').delete().in('id', attachmentIds)
+  }
+  if (revealIds.length) {
+    await sr.from('reward_reveals').delete().in('id', revealIds)
+  }
+
+  if (taskIds.length) {
+    await sr.from('guided_form_responses').delete().in('task_id', taskIds)
+    await sr.from('task_rewards').delete().in('task_id', taskIds)
+    const { data: completions } = await sr.from('task_completions').select('id').in('task_id', taskIds)
+    const completionIds = (completions ?? []).map((c) => c.id as string)
+    if (completionIds.length) {
+      await sr.from('financial_transactions').delete()
+        .eq('source_type', 'task_completion').in('source_reference_id', completionIds)
+    }
+    await sr.from('task_completions').delete().in('task_id', taskIds)
+    await sr.from('task_assignments').delete().in('task_id', taskIds)
+    await sr.from('routine_step_completions').delete().in('task_id', taskIds)
+    await sr.from('tasks').delete().in('id', taskIds)
+  }
+
   if (listIds.length) {
     await sr.from('activity_log_entries').delete().in('source_reference_id', listIds)
     await sr.from('randomizer_draws').delete().in('list_id', listIds)
     await sr.from('list_shares').delete().in('list_id', listIds)
     await sr.from('list_items').delete().in('list_id', listIds)
     await sr.from('lists').delete().in('id', listIds)
-  }
-
-  if (taskIds.length) {
-    await sr.from('guided_form_responses').delete().in('task_id', taskIds)
-    await sr.from('task_rewards').delete().in('task_id', taskIds)
-    await sr.from('task_completions').delete().in('task_id', taskIds)
-    await sr.from('task_assignments').delete().in('task_id', taskIds)
-    await sr.from('routine_step_completions').delete().in('task_id', taskIds)
-    await sr.from('tasks').delete().in('id', taskIds)
   }
 
   // ── sequential collections ──
@@ -239,6 +280,30 @@ async function openStudioDialog(
   }
   await expect(dialog, `Expected a dialog to open from "${cardTitle}"`).toBeVisible({ timeout: 5000 })
   return dialog
+}
+
+/** Poll a DB read until it returns a truthy result (opportunity-surfaces.spec.ts pattern). */
+async function pollDb<T>(fn: () => Promise<T | null>, timeoutMs = 15000): Promise<T> {
+  const start = Date.now()
+  for (;;) {
+    const result = await fn()
+    if (result) return result
+    if (Date.now() - start > timeoutMs) throw new Error('pollDb timed out')
+    await new Promise((r) => setTimeout(r, 500))
+  }
+}
+
+/**
+ * waitForAppReady's `networkidle` wait never resolves in this session's
+ * environment (a persistent connection — Realtime or similar — keeps the
+ * network busy), silently eating the whole per-test timeout budget on
+ * whichever step happens to call it. `domcontentloaded` + a settle pause
+ * is what the ST-F tests use instead — local to these tests only, doesn't
+ * touch the shared helper other tests in this file rely on.
+ */
+async function waitForAppReadyFast(page: Page): Promise<void> {
+  await page.waitForLoadState('domcontentloaded')
+  await page.waitForTimeout(1200)
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -883,4 +948,316 @@ test('F-13/F-23: Honey-Do Use-as-is opens at sharing, deploys, shows success, re
     .maybeSingle()
   expect(wt, 'F-23: the shared_task_list provenance row must land').not.toBeNull()
   expect(wt?.template_source, 'template_source must be a legal CHECK value').toBe('family')
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// 15. ST-F — reward-wire truth: opportunity board money pays exactly once,
+//     at MOM'S APPROVAL (the wizard's "Approval required for payout" toggle
+//     is now actually wired; the dead per-item contracts are gone). Deploys
+//     its own board (self-contained — does not depend on serial ordering
+//     from other tests) with one money item, approvalRequired left at its
+//     wizard default (true).
+// ─────────────────────────────────────────────────────────────────────────
+test('ST-F: approval-required money item pays exactly once, only after mom approves', async ({ page }) => {
+  const boardTitle = `${PREFIX} Approval Jobs`
+  const itemName = `${PREFIX} Wash the car`
+
+  await loginAsMom(page)
+  await gotoStudio(page)
+
+  const dialog = await openStudioDialog(page, 'Setup Wizards', 'Extra Earning or Consequence Spinner')
+  await dialog.getByRole('button', { name: 'Opportunities' }).click()
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(400)
+
+  // Items step
+  await dialog.locator('input').first().fill(boardTitle)
+  await dialog.getByRole('button', { name: /add item/i }).click()
+  await dialog.getByPlaceholder('Item name').first().fill(itemName)
+  await page.waitForTimeout(300)
+  // Reward config row for the new item — money type, amount 4.
+  await dialog.locator('select').first().selectOption('money')
+  await page.waitForTimeout(200)
+  await dialog.locator('input[type="number"]').first().fill('4')
+  await page.waitForTimeout(300)
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(400)
+
+  // Sharing step — Alex only.
+  await dialog.getByText('Specific people').click()
+  await page.waitForTimeout(300)
+  await dialog.getByRole('button', { name: 'Alex' }).first().click({ force: true })
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(400)
+
+  // Claim Rules step — leave "Approval required for payout" at its default
+  // (checked = true). Just advance.
+  await expect(dialog.getByText(/approval required for payout/i)).toBeVisible({ timeout: 5000 })
+  const approvalCheckbox = dialog.getByRole('checkbox').first()
+  await expect(approvalCheckbox, 'ST-F: approval must default to checked').toBeChecked()
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(400)
+
+  await dialog.getByRole('button', { name: /^deploy$/i }).first().click({ force: true })
+  await page.waitForTimeout(4000)
+  await expect(dialog.getByRole('heading', { name: /opportunity board deployed/i })).toBeVisible({ timeout: 8000 })
+  await dialog.getByRole('button', { name: /^done$/i }).click()
+
+  const { data: board } = await sr
+    .from('lists')
+    .select('id, default_require_approval')
+    .eq('family_id', FAMILY_ID)
+    .eq('title', boardTitle)
+    .maybeSingle()
+  expect(board, 'Expected the board this test just deployed').not.toBeNull()
+  expect(board?.default_require_approval,
+    'ST-F: the wizard\'s "Approval required for payout" checkbox must actually persist (was: dead field, never written)')
+    .toBe(true)
+
+  const { data: item } = await sr
+    .from('list_items')
+    .select('id, content, reward_amount')
+    .eq('list_id', board!.id as string)
+    .eq('reward_type', 'money')
+    .maybeSingle()
+  expect(item, 'Expected the money-reward item on the board').not.toBeNull()
+
+  // Alex claims + completes via the Tasks page Opportunities tab (same UI
+  // path pinned by opportunity-surfaces.spec.ts's teen write-back test).
+  await loginAsAlex(page)
+  await page.goto('/tasks')
+  await waitForAppReadyFast(page)
+  await page.getByRole('tab', { name: 'Opportunities' }).click()
+  await expect(page.getByText(boardTitle)).toBeVisible({ timeout: 15000 })
+  await page.getByText(boardTitle).click()
+  await expect(page.getByText(itemName)).toBeVisible({ timeout: 15000 })
+
+  const itemCard = page
+    .locator('div')
+    .filter({ hasText: itemName })
+    .filter({ has: page.getByRole('button', { name: "I'll do this!" }) })
+    .last()
+  await itemCard.getByRole('button', { name: "I'll do this!" }).click()
+
+  const bridgeTask = await pollDb(async () => {
+    const { data } = await sr
+      .from('tasks')
+      .select('id, assignee_id, require_approval, status')
+      .eq('source', 'opportunity_list_claim')
+      .eq('source_reference_id', item!.id as string)
+      .order('created_at', { ascending: false })
+      .maybeSingle()
+    return data ?? null
+  })
+  expect(bridgeTask.assignee_id).toBe(MEMBER_IDS['alex'])
+  expect(bridgeTask.require_approval,
+    'ST-F: the claim-bridge task must inherit require_approval from the board (was: never set, always false)')
+    .toBe(true)
+
+  // Complete it via the TaskCard toggle. The claim-bridge task is an
+  // 'opportunity_claimable' task — it renders as a normal TaskCard on the
+  // "My Tasks" tab once the Opportunities inclusion pill is toggled on
+  // (FO-COMMAND-CENTER "what counts as a task" control), not inside the
+  // Opportunities tab's board-browse card (that view is claim-status only,
+  // no completion affordance).
+  await page.reload()
+  await waitForAppReadyFast(page)
+  await page.getByTestId('inclusion-pill-opportunities').click()
+  await page.waitForTimeout(500)
+  const cardRoot = page
+    .locator('div.relative')
+    .filter({ has: page.getByText(itemName, { exact: true }) })
+    .filter({ has: page.getByRole('button', { name: 'Mark complete' }) })
+    .first()
+  await expect(cardRoot).toBeVisible({ timeout: 15000 })
+  await cardRoot.getByRole('button', { name: 'Mark complete' }).click()
+  // require_approval tasks open the TaskCompletionExpander (note/photo +
+  // "Submit for Approval") instead of completing immediately.
+  await expect(page.getByRole('button', { name: /submit for approval/i })).toBeVisible({ timeout: 8000 })
+  await page.getByRole('button', { name: /submit for approval/i }).click({ force: true })
+  await page.waitForTimeout(1500)
+
+  // Q7 gate: completion alone must NOT pay yet — task goes pending_approval,
+  // completion row lands with approval_status NULL (no DB default — the RPCs
+  // read it via COALESCE(approval_status, 'pending'), the raw column stays
+  // NULL until mom acts), and zero financial_transactions rows exist.
+  const pendingCompletion = await pollDb(async () => {
+    const { data } = await sr
+      .from('task_completions')
+      .select('id, approval_status')
+      .eq('task_id', bridgeTask.id)
+      .maybeSingle()
+    return data && data.approval_status !== 'approved' ? data : null
+  })
+  // (TaskCard's onToggle path always sets tasks.status='completed' — the
+  // require_approval gate lives entirely in task_completions.approval_status,
+  // unlike the separate useCompleteTask/useApproveTaskCompletion path which
+  // uses a 'pending_approval' task status. Money-flow gating (what this test
+  // actually proves) reads task_completions.approval_status either way.)
+  const { data: prePayTxns } = await sr
+    .from('financial_transactions')
+    .select('id')
+    .eq('source_type', 'task_completion')
+    .eq('source_reference_id', pendingCompletion.id)
+  expect((prePayTxns ?? []).length,
+    'Money must NOT pay before approval (the exact gap this fix closes)').toBe(0)
+
+  // Mom approves via Family Overview → Approvals tab (PendingApprovalsSection,
+  // relocated per Convention #275) — fires useApproveTaskCompletion, the hook
+  // ST-F wired grantMoneyForTaskCompletion into.
+  await loginAsMom(page)
+  await page.goto('/dashboard?view=family_overview&fotab=approvals')
+  await waitForAppReadyFast(page)
+  await page.waitForTimeout(1000)
+
+  const approvalRow = page
+    .locator('div.px-4.py-3.flex.items-center.gap-3')
+    .filter({ hasText: itemName })
+    .first()
+  await expect(approvalRow, 'Expected the pending approval row on Family Overview').toBeVisible({ timeout: 15000 })
+  // Approve is the first (unlabeled, icon-only) action button in the row.
+  await approvalRow.locator('button').first().click({ force: true })
+
+  const txns = await pollDb(async () => {
+    const { data } = await sr
+      .from('financial_transactions')
+      .select('id, amount, family_member_id, source_type, source_reference_id')
+      .eq('source_type', 'task_completion')
+      .eq('source_reference_id', pendingCompletion.id)
+    return data && data.length > 0 ? data : null
+  })
+  expect(txns.length, 'Money must pay EXACTLY ONCE at approval (no double-pay)').toBe(1)
+  expect(Number(txns[0].amount)).toBe(Number(item!.reward_amount))
+  expect(txns[0].family_member_id).toBe(MEMBER_IDS['alex'])
+
+  // F-14: no dead contract exists for this deploy — the reward paid through
+  // the bridge-task pipeline alone, not through a source_type='list_item_
+  // completion' contract (which nothing has ever fired).
+  const { data: deadContracts } = await sr
+    .from('contracts')
+    .select('id')
+    .eq('family_id', FAMILY_ID)
+    .eq('status', 'active')
+    .eq('source_category', 'opportunity_wizard')
+  expect((deadContracts ?? []).length,
+    'F-14: the wizard must no longer author list_item_completion contracts').toBe(0)
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// 16. ST-F — reward-wire truth: draw-flavor spinner. Task creation on draw
+//     already worked (Randomizer.tsx, independent of the wizard); this pins
+//     the ONE real gap: the reveal celebration mom picks now persists as a
+//     real reward_reveal_attachments row and actually fires on draw-assign
+//     (was: written into a dead contract's presentation_config, never read).
+// ─────────────────────────────────────────────────────────────────────────
+test('ST-F: draw-flavor reveal attaches for real and fires when a kid draws + assigns', async ({ page }) => {
+  const title = `${PREFIX} Spinner Reveal`
+
+  await loginAsMom(page)
+  await gotoStudio(page)
+
+  const dialog = await openStudioDialog(page, 'Setup Wizards', 'Extra Earning or Consequence Spinner')
+  await dialog.getByRole('button', { name: 'Draw' }).click()
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(400)
+
+  // Items step
+  await dialog.locator('input').first().fill(title)
+  await dialog.getByRole('button', { name: /add item/i }).click()
+  await dialog.getByPlaceholder('Item name').first().fill(`${PREFIX} Spin Result`)
+  await page.waitForTimeout(300)
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(400)
+
+  // Reveal step — pick "Spinner" (any pick creates a real config).
+  await expect(dialog.getByText(/how should the drawn item be revealed/i)).toBeVisible({ timeout: 5000 })
+  await dialog.getByText('Spinner', { exact: true }).click({ force: true })
+  await page.waitForTimeout(300)
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(300)
+  // person_pick, skip_rules, target — accept defaults
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(300)
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(300)
+  await dialog.getByRole('button', { name: /^next/i }).first().click({ force: true })
+  await page.waitForTimeout(300)
+
+  await dialog.getByRole('button', { name: /^deploy$/i }).first().click({ force: true })
+  await page.waitForTimeout(4000)
+  await expect(dialog.getByRole('heading', { name: /spinner deployed/i })).toBeVisible({ timeout: 8000 })
+  await dialog.getByRole('button', { name: /^done$/i }).click()
+
+  const { data: list } = await sr
+    .from('lists')
+    .select('id, list_type')
+    .eq('family_id', FAMILY_ID)
+    .eq('title', title)
+    .maybeSingle()
+  expect(list, 'Expected the draw-flavor list row').not.toBeNull()
+  expect(list?.list_type).toBe('randomizer')
+
+  // The dead assign_task_godmother contract is gone.
+  const { data: deadContracts } = await sr
+    .from('contracts')
+    .select('id')
+    .eq('family_id', FAMILY_ID)
+    .eq('status', 'active')
+    .eq('source_category', 'draw_wizard')
+  expect((deadContracts ?? []).length, 'F-14: the wizard must no longer author a randomizer_drawn contract').toBe(0)
+
+  // The reveal mom picked is a REAL reward_reveal_attachments row (was:
+  // written only into the dead contract's presentation_config, never read).
+  const attachment = await pollDb(async () => {
+    const { data } = await sr
+      .from('reward_reveal_attachments')
+      .select('id, reward_reveal_id, times_revealed, source_type, source_id')
+      .eq('source_type', 'list')
+      .eq('source_id', list!.id as string)
+      .maybeSingle()
+    return data ?? null
+  })
+  expect(attachment.reward_reveal_id, 'Expected a real reward_reveals row backing the attachment').toBeTruthy()
+  expect(attachment.times_revealed).toBe(0)
+
+  // Draw + assign to Alex (as mom, from the Lists page).
+  await page.goto(`/lists?list=${list!.id}`)
+  await waitForAppReadyFast(page)
+  await page.getByRole('button', { name: /^draw$/i }).click()
+  await page.waitForTimeout(3000) // SPIN_DURATION_MS (2400ms) + settle
+
+  await page.getByRole('button', { name: /assign to/i }).click()
+  await page.getByRole('button', { name: 'Alex' }).click()
+  await page.getByRole('button', { name: /^confirm$/i }).click()
+
+  // Task on Alex's dashboard: real tasks row.
+  const drawnTask = await pollDb(async () => {
+    const { data } = await sr
+      .from('tasks')
+      .select('id, assignee_id, source, source_reference_id, title')
+      .eq('family_id', FAMILY_ID)
+      .eq('source', 'randomizer_draw')
+      .ilike('title', `${PREFIX}%`)
+      .order('created_at', { ascending: false })
+      .maybeSingle()
+    return data ?? null
+  })
+  expect(drawnTask.assignee_id).toBe(MEMBER_IDS['alex'])
+
+  // Reveal fired: RewardRevealProvider's onRevealed increments times_revealed
+  // ~2s after the modal queues (no user interaction required to fire it).
+  await pollDb(async () => {
+    const { data } = await sr
+      .from('reward_reveal_attachments')
+      .select('times_revealed')
+      .eq('id', attachment.id)
+      .single()
+    return (data?.times_revealed ?? 0) > 0 ? data : null
+  }, 10000)
+
+  // Alex's dashboard actually renders the drawn task.
+  await loginAsAlex(page)
+  await page.goto('/tasks')
+  await waitForAppReadyFast(page)
+  await expect(page.getByText(`${PREFIX} Spin Result`).first()).toBeVisible({ timeout: 15000 })
 })

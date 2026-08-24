@@ -15,8 +15,6 @@ import {
   GripVertical, Plus, Trash2, Shuffle, List, ArrowRight, BookOpen,
   Sparkles, Info, LayoutGrid, LayoutList,
 } from 'lucide-react'
-import type { GodmotherType, ContractIfPattern } from '@/types/contracts'
-
 // ─── State ───
 
 export type ActivityDisplayMode = 'random' | 'browse' | 'sequential_browse'
@@ -269,55 +267,23 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
         })
       }
 
-      // Create contracts for daily floor + reward earning
-      const godmotherType: GodmotherType =
-        state.rewardType === 'points' ? 'points_godmother' :
-        state.rewardType === 'creatures' ? 'creature_godmother' :
-        'page_unlock_godmother'
+      // ST-F fix (STUDIO-EXPERIENCE, 2026-08-23): this used to author two
+      // contracts per assigned member against source_type='list_item_
+      // completion' — a deed type NOTHING ever fires (see F-14 in
+      // claude/feature-decisions/Studio-Experience.md). They sat dead on
+      // mom's /contracts page. Removed rather than rewired: no deploy
+      // target below produces a "how many times were this list's items
+      // completed today/this period" signal a floor/threshold contract
+      // could match against, and inventing that counting infrastructure is
+      // out of this fix's scope (handed off, same as tracker-goal->prize
+      // firing). What already works with zero contract needed: ordinary
+      // gamification (points/creatures/pages) fires automatically via each
+      // kid's standing per-family contracts whenever a task tied to this
+      // subject is completed — the Segment Tile target below creates
+      // exactly such a task. The Rewards step now says this honestly
+      // instead of promising an "every Nth" bonus that never paid.
 
       for (const mid of state.assignedMemberIds) {
-        await supabase.from('contracts').insert({
-          family_id: family.id,
-          created_by: member.id,
-          status: 'active',
-          source_type: 'list_item_completion',
-          source_id: listRow.id,
-          source_category: 'activity_list',
-          family_member_id: mid,
-          if_pattern: 'above_daily_floor' as ContractIfPattern,
-          if_n: null,
-          if_floor: state.dailyFloor,
-          if_window_kind: 'day',
-          if_offset: 0,
-          godmother_type: 'allowance_godmother' as GodmotherType,
-          payload_amount: null,
-          stroke_of: 'immediate',
-          inheritance_level: 'kid_override',
-          override_mode: 'replace',
-          presentation_mode: 'silent',
-        })
-
-        await supabase.from('contracts').insert({
-          family_id: family.id,
-          created_by: member.id,
-          status: 'active',
-          source_type: 'list_item_completion',
-          source_id: state.rewardScope === 'per_subject' ? listRow.id : null,
-          source_category: state.rewardScope === 'combined' ? 'activity_list' : null,
-          family_member_id: mid,
-          if_pattern: 'every_nth' as ContractIfPattern,
-          if_n: state.rewardThreshold,
-          if_floor: null,
-          if_window_kind: null,
-          if_offset: 0,
-          godmother_type: godmotherType,
-          payload_amount: state.rewardType === 'points' ? 10 : 1,
-          stroke_of: 'immediate',
-          inheritance_level: 'kid_override',
-          override_mode: 'replace',
-          presentation_mode: 'toast',
-        })
-
         // Deploy targets per member
         const targets = state.deployTargets[mid] ?? DEFAULT_DEPLOY_TARGET
 
@@ -408,7 +374,6 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
       queryClient.invalidateQueries({ queryKey: ['lists'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] })
       queryClient.invalidateQueries({ queryKey: ['icon-launcher-widgets'] })
-      queryClient.invalidateQueries({ queryKey: ['contracts'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       clearProgress()
       onClose()
@@ -866,6 +831,30 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
           </p>
         </div>
 
+        {/* ST-F honesty note (STUDIO-EXPERIENCE, 2026-08-23): the threshold/
+            daily-floor bonus above doesn't have an automatic firing mechanism
+            yet (same gap class as tracker "Prize at Goal" fields — tracked
+            for a future build, not silently promised here). Ordinary
+            gamification (points/creatures/pages) DOES already fire on its
+            own whenever a task tied to this subject gets completed — no
+            extra setup needed for that part. */}
+        <div
+          className="flex items-start gap-2 p-3 rounded-lg text-xs"
+          style={{
+            backgroundColor: 'var(--color-bg-secondary)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+          }}
+        >
+          <Info size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--color-text-muted)' }} />
+          <p>
+            The threshold bonus above is a goal to track, not an automatic reward yet — you'll
+            want to check in and reward it yourself from Prize Board. Regular points, creatures,
+            and page unlocks already happen automatically whenever a task tied to this subject
+            gets completed — nothing extra to set up for that.
+          </p>
+        </div>
+
         {/* Reveal animation picker */}
         <div>
           <label className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>
@@ -1153,7 +1142,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
             <ul className="text-xs mt-1 space-y-0.5" style={{ color: 'var(--color-text-secondary)' }}>
               <li>• Creates "{state.subjectName}" activity list shared with {state.assignedMemberIds.length} {state.assignedMemberIds.length === 1 ? 'member' : 'members'}</li>
               <li>• Places it where you chose above for each kid</li>
-              <li>• Sets up daily requirement ({state.dailyFloor}/day) + reward contracts</li>
+              <li>• Sets up a daily requirement ({state.dailyFloor}/day) as a tracking goal</li>
             </ul>
           </div>
         )}

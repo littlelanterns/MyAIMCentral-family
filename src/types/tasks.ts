@@ -52,6 +52,7 @@ export type TaskSource =
   | 'rhythm_priority'
   | 'rhythm_mindsweep_lite'
   | 'randomizer_reveal'
+  | 'randomizer_draw'
   | 'allowance_makeup'
   | 'opportunity_list_claim'
   | 'list_promotion'

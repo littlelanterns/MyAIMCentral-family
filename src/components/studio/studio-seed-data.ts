@@ -864,7 +864,7 @@ export const PHASE37_WIZARD_TEMPLATES: StudioTemplate[] = [
     name: 'Extra Earning or Consequence Spinner',
     tagline: 'Opportunity boards with reveals, or consequence spinners — pick a flavor and customize.',
     description:
-      'Two flavors in one wizard. Opportunity: create an earning board where kids claim jobs for rewards, with optional reveal animations on completion. Draw: create a consequence or activity spinner that picks randomly from your list. Both compose contracts under the hood for automatic reward delivery.',
+      'Two flavors in one wizard. Opportunity: create an earning board where kids claim jobs for rewards — money, points, or a promised privilege — paid out on completion (or on your approval, if you require it). Draw: create a consequence or activity spinner that picks randomly from your list and lands the result as a real task, with an optional reveal animation.',
     exampleUseCases: [
       'Extra earning opportunities board',
       'Consequence spinner',
@@ -927,7 +927,7 @@ export const PHASE37_SEEDED_TEMPLATES: StudioTemplate[] = [
     name: 'Extra Earning Opportunities',
     tagline: 'Bonus jobs kids can claim for money or prizes, with optional celebration reveals.',
     description:
-      'A ready-to-deploy opportunity board with 6 household jobs ranging from $1 to $5. Kids browse available jobs, claim one, and complete it within the lock window. Mom approves and the reward (money, points, or a reveal animation) fires automatically. Pre-filled with common household tasks — customize amounts, add your own jobs, and pick which kids can see the board.',
+      'A ready-to-deploy opportunity board with 6 household jobs ranging from $1 to $5. Kids browse available jobs, claim one, and complete it within the lock window. The reward (money or points) pays out on completion, or on your approval if you require it. Pre-filled with common household tasks — customize amounts, add your own jobs, and pick which kids can see the board.',
     exampleUseCases: [
       'Extra chore earning board',
       'Summer job opportunities',

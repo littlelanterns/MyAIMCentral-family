@@ -107,6 +107,15 @@ const KNOWN_TASK_SOURCE_WRITERS: KnownWriter[] = [
     file: 'src/lib/rhythm/commitMindSweepLite.ts',
     pattern: /source:\s*'rhythm_mindsweep_lite'/,
   },
+  {
+    literal: 'randomizer_draw',
+    file: 'src/components/lists/Randomizer.tsx',
+    // ST-F (2026-08-23): the ONLY draw->task producer in the platform, used
+    // by every randomizer list regardless of how it was created. This value
+    // had NEVER existed in tasks_source_check — silently broken since the
+    // component shipped (found live driving the actual UI).
+    pattern: /source:\s*'randomizer_draw'/,
+  },
 ]
 
 function getMigrationsDir(): string {
