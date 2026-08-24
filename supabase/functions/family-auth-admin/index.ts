@@ -67,6 +67,40 @@
  *     supabase.auth.setSession(). The secret never leaves the server
  *     unexercised — only resulting tokens do.
  *
+ *   set_member_credentials  (mom JWT required — TEEN-CRED, 2026-08-23)
+ *     { action, member_id, mode: 'email' | 'username', email?, username?, password }
+ *     Mom-typed Door 3 credentials — a peer action to set_member_picture /
+ *     ensure_pin_shadow_account: instead of generating an invite link and
+ *     waiting, mom types a real email+password (mode='email') or a
+ *     username+password (mode='username', for members with no real email —
+ *     the auth "email" becomes the deterministic synthetic address
+ *     {username}@login.myaimcentral.app, see migration 100314) directly for
+ *     the member. Produces the exact same end-state as accept_family_invite:
+ *     a real auth.users row, family_members.user_id linked, auth_method =
+ *     'full_login'. Rejects if the member already has full_login
+ *     credentials (reason: already_has_credentials) — call
+ *     reset_member_credentials to rotate the password instead, never
+ *     silently overwrite. A member previously on a PIN/picture/none shadow
+ *     account is simply relinked to the new full_login account; the old
+ *     {member_id}@pin.myaimcentral.app shadow account (if any) is left
+ *     orphaned in auth.users — harmless once family_members.user_id no
+ *     longer points at it.
+ *
+ *   reset_member_credentials  (mom JWT required)
+ *     { action, member_id, password }
+ *     Rotates the password on an EXISTING full_login member's auth account.
+ *     Does not touch email/username — set_member_credentials owns creation,
+ *     this action only exists to change a forgotten/compromised password.
+ *
+ *   check_username_available  (mom JWT required — rate-limited, no-enumeration)
+ *     { action, username }
+ *     Mom-gated availability check backed by username_check_log (20 checks /
+ *     60s per calling mom, migration 100314). Deliberately NEVER an anon
+ *     endpoint — an unauthenticated availability check is itself an
+ *     enumeration surface. Platform-wide uniqueness (login_username is
+ *     globally unique across every family), not scoped to the caller's own
+ *     family.
+ *
  * Deployed with --no-verify-jwt (publishable keys are not JWTs — Silent
  * Tooling Failure Pattern #7). Authorization happens in code: mom actions
  * verify the JWT via authenticateRequest; family_door_sync requires the
@@ -89,6 +123,17 @@ function familyEmail(familyId: string): string {
 
 function pinEmail(memberId: string): string {
   return `${memberId}@pin.myaimcentral.app`
+}
+
+// TEEN-CRED: the deterministic synthetic address for a username-mode
+// full_login member — no lookup table, no resolution endpoint. Mirrors the
+// format enforced at the DB layer (migration 100314,
+// family_members_login_username_format_check).
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function loginUsernameEmail(username: string): string {
+  return `${username}@login.myaimcentral.app`
 }
 
 function json(body: unknown, status = 200): Response {
@@ -641,6 +686,207 @@ Deno.serve(async (req) => {
         access_token: signIn.data.session.access_token,
         refresh_token: signIn.data.session.refresh_token,
       })
+    }
+
+    // ------------------------------------------------------------------
+    // set_member_credentials — mom JWT; mom-typed Door 3 credentials
+    // (TEEN-CRED, 2026-08-23)
+    // ------------------------------------------------------------------
+    if (action === 'set_member_credentials') {
+      const auth = await authenticateRequest(req)
+      if (auth instanceof Response) return auth
+
+      const memberId = body.member_id as string
+      const mode = body.mode as string
+      const password = body.password as string
+      if (!memberId || (mode !== 'email' && mode !== 'username') || !password) {
+        return json({ error: 'member_id, mode (email|username), and password are required' }, 400)
+      }
+      if (!passwordIsStrong(password)) {
+        return json({ success: false, reason: 'weak_password' })
+      }
+
+      let targetEmail: string
+      let loginUsername: string | null = null
+      if (mode === 'email') {
+        const email = ((body.email as string) || '').trim().toLowerCase()
+        if (!EMAIL_RE.test(email)) return json({ success: false, reason: 'invalid_email' })
+        targetEmail = email
+      } else {
+        const username = ((body.username as string) || '').trim().toLowerCase()
+        if (!USERNAME_RE.test(username)) return json({ success: false, reason: 'invalid_username' })
+        targetEmail = loginUsernameEmail(username)
+        loginUsername = username
+      }
+
+      // Caller must be the primary parent of the member's family
+      const { data: member, error: memberError } = await admin
+        .from('family_members')
+        .select('id, family_id, user_id, auth_method')
+        .eq('id', memberId)
+        .maybeSingle()
+      if (memberError) throw new Error(memberError.message)
+      if (!member) return json({ error: 'member not found' }, 404)
+
+      const { data: family, error: famError } = await admin
+        .from('families')
+        .select('id')
+        .eq('id', member.family_id)
+        .eq('primary_parent_id', auth.user.id)
+        .maybeSingle()
+      if (famError) throw new Error(famError.message)
+      if (!family) return json({ success: false, reason: 'not_authorized' }, 403)
+
+      // Never silently overwrite existing full_login credentials — the
+      // client should call reset_member_credentials instead.
+      if (member.auth_method === 'full_login') {
+        return json({ success: false, reason: 'already_has_credentials' })
+      }
+
+      // Explicit pre-check (not upsertShadowAccount's silent reuse) — a
+      // collision here is a real "taken" state, not a retry to recover from.
+      const existing = await findAuthUserByEmail(targetEmail)
+      if (existing) {
+        return json({ success: false, reason: mode === 'email' ? 'email_taken' : 'username_taken' })
+      }
+
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email: targetEmail,
+        password,
+        email_confirm: true,
+        // Migration 100325: handle_new_user's AFTER INSERT ON auth.users
+        // trigger must NOT spin up a phantom family/primary_parent/
+        // subscription for this account — it belongs to an EXISTING family
+        // member, not a brand-new top-level signup. The @login.myaimcentral.app
+        // domain covers username mode by itself; this flag is what actually
+        // covers email mode, since a real email has no synthetic domain to
+        // match against.
+        user_metadata: { skip_auto_family: true },
+      })
+      if (createError || !created.user) {
+        // The platform-unique login_username index (or auth's own email
+        // uniqueness) can still race-reject between the check above and
+        // here — surface it as the same "taken" reason rather than a raw 500.
+        const msg = createError?.message ?? ''
+        if (/already been registered|duplicate/i.test(msg)) {
+          return json({ success: false, reason: mode === 'email' ? 'email_taken' : 'username_taken' })
+        }
+        throw new Error(`createUser failed: ${msg}`)
+      }
+
+      const { error: linkError } = await admin
+        .from('family_members')
+        .update({
+          user_id: created.user.id,
+          auth_method: 'full_login',
+          login_username: loginUsername,
+          invite_status: 'accepted',
+          invite_token: null,
+        })
+        .eq('id', memberId)
+      if (linkError) {
+        // Roll back the just-created auth user so we don't leave an orphan
+        // account nothing links to on a failed link step.
+        await admin.auth.admin.deleteUser(created.user.id).catch(() => {})
+        if (/family_members_login_username_format_check|uq_family_members_login_username/.test(linkError.message)) {
+          return json({ success: false, reason: 'username_taken' })
+        }
+        throw new Error(`user_id link failed: ${linkError.message}`)
+      }
+
+      return json({ success: true, email: targetEmail })
+    }
+
+    // ------------------------------------------------------------------
+    // reset_member_credentials — mom JWT; rotates password only
+    // ------------------------------------------------------------------
+    if (action === 'reset_member_credentials') {
+      const auth = await authenticateRequest(req)
+      if (auth instanceof Response) return auth
+
+      const memberId = body.member_id as string
+      const password = body.password as string
+      if (!memberId || !password) {
+        return json({ error: 'member_id and password are required' }, 400)
+      }
+      if (!passwordIsStrong(password)) {
+        return json({ success: false, reason: 'weak_password' })
+      }
+
+      const { data: member, error: memberError } = await admin
+        .from('family_members')
+        .select('id, family_id, user_id, auth_method')
+        .eq('id', memberId)
+        .maybeSingle()
+      if (memberError) throw new Error(memberError.message)
+      if (!member) return json({ error: 'member not found' }, 404)
+
+      const { data: family, error: famError } = await admin
+        .from('families')
+        .select('id')
+        .eq('id', member.family_id)
+        .eq('primary_parent_id', auth.user.id)
+        .maybeSingle()
+      if (famError) throw new Error(famError.message)
+      if (!family) return json({ success: false, reason: 'not_authorized' }, 403)
+
+      if (member.auth_method !== 'full_login' || !member.user_id) {
+        return json({ success: false, reason: 'not_full_login' })
+      }
+
+      const { error: updateError } = await admin.auth.admin.updateUserById(member.user_id, { password })
+      if (updateError) throw new Error(`password update failed: ${updateError.message}`)
+
+      return json({ success: true })
+    }
+
+    // ------------------------------------------------------------------
+    // check_username_available — mom JWT; rate-limited, no-enumeration
+    // ------------------------------------------------------------------
+    if (action === 'check_username_available') {
+      const auth = await authenticateRequest(req)
+      if (auth instanceof Response) return auth
+
+      // Caller must be SOME family's primary parent — availability is a
+      // platform-wide uniqueness question, not scoped to one family.
+      const { data: family, error: famError } = await admin
+        .from('families')
+        .select('id')
+        .eq('primary_parent_id', auth.user.id)
+        .limit(1)
+        .maybeSingle()
+      if (famError) throw new Error(famError.message)
+      if (!family) return json({ success: false, reason: 'not_authorized' }, 403)
+
+      const username = ((body.username as string) || '').trim().toLowerCase()
+      if (!USERNAME_RE.test(username)) {
+        return json({ success: false, reason: 'invalid_format' })
+      }
+
+      // Rate limit: 20 checks / 60s per calling mom (username_check_log,
+      // migration 100314 — service-role-only, append-only).
+      const windowStart = new Date(Date.now() - 60_000).toISOString()
+      const { count, error: countError } = await admin
+        .from('username_check_log')
+        .select('id', { count: 'exact', head: true })
+        .eq('checked_by', auth.user.id)
+        .gte('created_at', windowStart)
+      if (countError) throw new Error(countError.message)
+      if ((count ?? 0) >= 20) {
+        return json({ success: false, reason: 'rate_limited' })
+      }
+
+      await admin.from('username_check_log').insert({ checked_by: auth.user.id })
+
+      const { data: taken, error: takenError } = await admin
+        .from('family_members')
+        .select('id')
+        .eq('login_username', username)
+        .limit(1)
+        .maybeSingle()
+      if (takenError) throw new Error(takenError.message)
+
+      return json({ success: true, available: !taken })
     }
 
     return json({ error: `Unknown action: ${action}` }, 400)

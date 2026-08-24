@@ -14,6 +14,9 @@ export interface FamilyMember {
   dashboard_mode: 'adult' | 'independent' | 'guided' | 'play' | null
   avatar_url: string | null
   auth_method: 'full_login' | 'pin' | 'visual_password' | 'none' | null
+  /** TEEN-CRED: mom-chosen username for username-mode full_login members with
+   *  no real email. NULL for real-email full_login, PIN, picture, or none. */
+  login_username: string | null
   member_color: string | null
   calendar_color: string | null
   assigned_color: string | null

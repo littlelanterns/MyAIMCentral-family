@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles, Image as ImageIcon, Check } from 'lucide-react'
+import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles, Image as ImageIcon, Check, LogIn, AtSign } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
 import { useQueryClient } from '@tanstack/react-query'
-import { FeatureGuide } from '@/components/shared'
+import { FeatureGuide, ModalV2 } from '@/components/shared'
 import { GuidedManagementScreen } from '@/components/guided'
 import { GamificationSettingsModal } from '@/components/gamification/settings'
 import { MEMBER_COLORS } from '@/config/member_colors'
@@ -77,6 +77,7 @@ export function FamilyMembers() {
   const [pinModal, setPinModal] = useState<string | null>(null)
   const [pictureModal, setPictureModal] = useState<string | null>(null)
   const [inviteModal, setInviteModal] = useState<string | null>(null)
+  const [loginModal, setLoginModal] = useState<string | null>(null)
   const { data: consentTemplate } = useActiveConsentTemplate()
   const { data: parentVerification } = useParentVerification()
   const [coppaGate, setCoppaGate] = useState<CoppaEditGateState>({ kind: 'none' })
@@ -206,6 +207,7 @@ export function FamilyMembers() {
               onOpenPin={() => setPinModal(m.id)}
               onOpenPicture={() => setPictureModal(m.id)}
               onOpenInvite={() => setInviteModal(m.id)}
+              onOpenLogin={() => setLoginModal(m.id)}
               onSave={async (updates) => {
                 await supabase.from('family_members').update(updates).eq('id', m.id)
                 await queryClient.invalidateQueries({ queryKey: ['family-members'] })
@@ -255,6 +257,17 @@ export function FamilyMembers() {
             setPictureModal(null)
             queryClient.invalidateQueries({ queryKey: ['family-members'] })
           }}
+        />
+      )}
+
+      {/* Set Login Modal (TEEN-CRED) */}
+      {loginModal && (
+        <SetLoginModal
+          memberId={loginModal}
+          memberName={allMembers?.find((m) => m.id === loginModal)?.display_name ?? ''}
+          hasFullLogin={allMembers?.find((m) => m.id === loginModal)?.auth_method === 'full_login'}
+          onClose={() => setLoginModal(null)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ['family-members'] })}
         />
       )}
 
@@ -320,15 +333,18 @@ function MemberRow({
   onOpenPin,
   onOpenPicture,
   onOpenInvite,
+  onOpenLogin,
   onSave,
   onUnder13Transition,
 }: {
-  member: { id: string; family_id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null; coppa_age_bracket?: CoppaAgeBracket | null }
+  member: { id: string; family_id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null; login_username?: string | null; coppa_age_bracket?: CoppaAgeBracket | null }
   isEditing: boolean
   onToggleEdit: () => void
   onOpenPin: () => void
   onOpenPicture: () => void
   onOpenInvite: () => void
+  /** TEEN-CRED: peer action to Set PIN / Set Picture Login. */
+  onOpenLogin: () => void
   onSave: (updates: Record<string, unknown>) => Promise<void>
   /** PRD-40: bracket changed TO under_13 — parent routes through the consent gate. */
   onUnder13Transition: (updates: Record<string, unknown>) => void
@@ -388,6 +404,14 @@ function MemberRow({
             title="Set Picture Login"
           >
             <ImageIcon size={16} />
+          </button>
+          <button
+            onClick={onOpenLogin}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
+            title="Set Login"
+          >
+            <LogIn size={16} />
           </button>
           <button
             onClick={onOpenInvite}
@@ -748,6 +772,414 @@ function PictureModal({ memberId, memberName, onClose }: { memberId: string; mem
             </p>
           </>
         )}
+      </div>
+    </div>
+  )
+}
+
+const CRED_REASON_MESSAGES: Record<string, string> = {
+  weak_password: 'Password must be at least 8 characters with a letter and a number.',
+  invalid_email: 'Enter a valid email address.',
+  invalid_username: 'Username must be 3-20 lowercase letters, numbers, or underscores.',
+  invalid_format: 'Username must be 3-20 lowercase letters, numbers, or underscores.',
+  email_taken: 'That email is already in use by another account.',
+  username_taken: 'That username is already taken. Try another one.',
+  already_has_credentials: 'This member already has login credentials — use Reset Password instead.',
+  not_authorized: "You don't have permission to do that.",
+  not_full_login: "This member doesn't have login credentials set yet.",
+  rate_limited: 'Too many checks — wait a moment and try again.',
+}
+
+function credReasonMessage(reason: string | undefined): string {
+  return (reason && CRED_REASON_MESSAGES[reason]) || 'Something went wrong. Please try again.'
+}
+
+/**
+ * Set Login (TEEN-CRED, 2026-08-23) — mom types real Door 3 credentials for
+ * a member directly (email+password, or username+password for members with
+ * no real email) instead of generating an invite link and waiting. Produces
+ * the exact same end-state as accept_family_invite: auth_method='full_login'.
+ * No COPPA age-bracket gate here — matches Set PIN's posture exactly (PRD-40
+ * Slice 5 is where under-13 enforcement, if any, would land for this
+ * surface — not invented here).
+ */
+function SetLoginModal({
+  memberId,
+  memberName,
+  hasFullLogin,
+  onClose,
+  onSaved,
+}: {
+  memberId: string
+  memberName: string
+  hasFullLogin: boolean
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [credMode, setCredMode] = useState<'email' | 'username'>('email')
+  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>('idle')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [savedWith, setSavedWith] = useState('')
+  const [error, setError] = useState('')
+
+  const passwordValid = password.length >= 8 && /[a-zA-Z]/.test(password) && /[0-9]/.test(password)
+  const passwordsMatch = password.length > 0 && password === confirmPassword
+
+  // Live availability feedback, debounced — mirrors the rate-limited
+  // check_username_available action (mom-gated, 20/60s).
+  useEffect(() => {
+    if (hasFullLogin || credMode !== 'username') return
+    const trimmed = username.trim().toLowerCase()
+    if (!trimmed) {
+      setUsernameStatus('idle')
+      return
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(trimmed)) {
+      setUsernameStatus('invalid')
+      return
+    }
+    setUsernameStatus('checking')
+    const timer = setTimeout(async () => {
+      const { data, error: fnError } = await supabase.functions.invoke('family-auth-admin', {
+        body: { action: 'check_username_available', username: trimmed },
+      })
+      if (fnError || !data?.success) {
+        setUsernameStatus('idle')
+        return
+      }
+      setUsernameStatus(data.available ? 'available' : 'taken')
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [username, credMode, hasFullLogin])
+
+  async function handleCreate() {
+    setError('')
+    if (!passwordValid) {
+      setError(credReasonMessage('weak_password'))
+      return
+    }
+    if (!passwordsMatch) {
+      setError('Passwords do not match.')
+      return
+    }
+    if (credMode === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError(credReasonMessage('invalid_email'))
+      return
+    }
+    if (credMode === 'username') {
+      const trimmed = username.trim().toLowerCase()
+      if (!/^[a-z0-9_]{3,20}$/.test(trimmed)) {
+        setError(credReasonMessage('invalid_username'))
+        return
+      }
+      if (usernameStatus === 'taken') {
+        setError(credReasonMessage('username_taken'))
+        return
+      }
+    }
+
+    setSaving(true)
+    const { data, error: fnError } = await supabase.functions.invoke('family-auth-admin', {
+      body: {
+        action: 'set_member_credentials',
+        member_id: memberId,
+        mode: credMode,
+        email: credMode === 'email' ? email.trim() : undefined,
+        username: credMode === 'username' ? username.trim().toLowerCase() : undefined,
+        password,
+      },
+    })
+    setSaving(false)
+
+    if (fnError) {
+      setError('Something went wrong. Please try again.')
+      return
+    }
+    if (!data?.success) {
+      setError(credReasonMessage(data?.reason))
+      return
+    }
+
+    setSavedWith(credMode === 'email' ? email.trim() : username.trim().toLowerCase())
+    setSaved(true)
+    onSaved()
+  }
+
+  async function handleReset() {
+    setError('')
+    if (!passwordValid) {
+      setError(credReasonMessage('weak_password'))
+      return
+    }
+    if (!passwordsMatch) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setSaving(true)
+    const { data, error: fnError } = await supabase.functions.invoke('family-auth-admin', {
+      body: { action: 'reset_member_credentials', member_id: memberId, password },
+    })
+    setSaving(false)
+
+    if (fnError) {
+      setError('Something went wrong. Please try again.')
+      return
+    }
+    if (!data?.success) {
+      setError(credReasonMessage(data?.reason))
+      return
+    }
+
+    setSaved(true)
+    onSaved()
+  }
+
+  return (
+    <ModalV2
+      id={`set-login-${memberId}`}
+      isOpen
+      onClose={onClose}
+      type="transient"
+      size="sm"
+      title={saved ? 'Login Set!' : hasFullLogin ? `Reset Password for ${memberName}` : `Set Login for ${memberName}`}
+      icon={LogIn}
+    >
+      <div className="density-comfortable space-y-4" data-testid="set-login-modal">
+        {saved ? (
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              {hasFullLogin ? (
+                <>{memberName}&rsquo;s password has been updated.</>
+              ) : credMode === 'username' ? (
+                <>
+                  {memberName} signs in with the username <strong>{savedWith}</strong> and the password you just set.
+                </>
+              ) : (
+                <>
+                  {memberName} signs in with the email <strong>{savedWith}</strong> and the password you just set.
+                </>
+              )}
+            </p>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 rounded-lg font-medium text-white"
+              style={{ backgroundColor: 'var(--color-sage-teal)' }}
+            >
+              Done
+            </button>
+          </div>
+        ) : hasFullLogin ? (
+          <>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              {memberName} already signs in with their own credentials. Set a new password below — this
+              won&rsquo;t change how they log in, just what they type.
+            </p>
+            {error && <p className="text-sm" style={{ color: 'var(--color-error)' }}>{error}</p>}
+            <PasswordFields
+              password={password}
+              confirmPassword={confirmPassword}
+              showPassword={showPassword}
+              onPassword={setPassword}
+              onConfirmPassword={setConfirmPassword}
+              onToggleShow={() => setShowPassword((s) => !s)}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleReset}
+                disabled={saving || !passwordValid || !passwordsMatch}
+                className="flex-1 py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-sage-teal)' }}
+              >
+                {saving ? 'Saving...' : 'Reset Password'}
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-lg"
+                style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-secondary)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Type real login credentials for {memberName} right now, instead of sending an invite link and
+              waiting for them to sign up.
+            </p>
+            {error && <p className="text-sm" style={{ color: 'var(--color-error)' }}>{error}</p>}
+
+            <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--color-border)' }}>
+              <button
+                type="button"
+                onClick={() => setCredMode('email')}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium"
+                style={{
+                  backgroundColor: credMode === 'email' ? 'var(--color-sage-teal)' : 'var(--color-bg-primary)',
+                  color: credMode === 'email' ? '#fff' : 'var(--color-text-secondary)',
+                }}
+              >
+                <Mail size={14} /> Email
+              </button>
+              <button
+                type="button"
+                onClick={() => setCredMode('username')}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium"
+                style={{
+                  backgroundColor: credMode === 'username' ? 'var(--color-sage-teal)' : 'var(--color-bg-primary)',
+                  color: credMode === 'username' ? '#fff' : 'var(--color-text-secondary)',
+                }}
+              >
+                <AtSign size={14} /> Username
+              </button>
+            </div>
+
+            {credMode === 'email' ? (
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Email address
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                  placeholder="teen@example.com"
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  Username
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                  className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                  style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+                  placeholder="e.g., ruthie2026"
+                  autoFocus
+                  maxLength={20}
+                />
+                {usernameStatus === 'checking' && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>Checking…</p>
+                )}
+                {usernameStatus === 'available' && (
+                  <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--color-success, #16a34a)' }}>
+                    <Check size={12} /> Available
+                  </p>
+                )}
+                {usernameStatus === 'taken' && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-error)' }}>Already taken</p>
+                )}
+                {usernameStatus === 'invalid' && username.length > 0 && (
+                  <p className="text-xs mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+                    3-20 lowercase letters, numbers, or underscores
+                  </p>
+                )}
+              </div>
+            )}
+
+            <PasswordFields
+              password={password}
+              confirmPassword={confirmPassword}
+              showPassword={showPassword}
+              onPassword={setPassword}
+              onConfirmPassword={setConfirmPassword}
+              onToggleShow={() => setShowPassword((s) => !s)}
+            />
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleCreate}
+                disabled={
+                  saving ||
+                  !passwordValid ||
+                  !passwordsMatch ||
+                  (credMode === 'username' && (usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'idle'))
+                }
+                className="flex-1 py-2.5 rounded-lg font-medium text-white disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-sage-teal)' }}
+              >
+                {saving ? 'Saving...' : 'Set Login'}
+              </button>
+              <button
+                onClick={onClose}
+                className="px-4 py-2.5 rounded-lg"
+                style={{ color: 'var(--color-text-secondary)', backgroundColor: 'var(--color-bg-secondary)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </ModalV2>
+  )
+}
+
+function PasswordFields({
+  password,
+  confirmPassword,
+  showPassword,
+  onPassword,
+  onConfirmPassword,
+  onToggleShow,
+}: {
+  password: string
+  confirmPassword: string
+  showPassword: boolean
+  onPassword: (v: string) => void
+  onConfirmPassword: (v: string) => void
+  onToggleShow: () => void
+}) {
+  return (
+    <div className="space-y-2">
+      <div>
+        <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+          Password
+        </label>
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => onPassword(e.target.value)}
+            className="w-full px-3 py-2 pr-10 rounded-lg text-sm outline-none"
+            style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+            placeholder="At least 8 characters, a letter and a number"
+          />
+          <button
+            type="button"
+            onClick={onToggleShow}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
+            style={{ color: 'var(--color-text-secondary)' }}
+          >
+            {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+          Confirm password
+        </label>
+        <input
+          type={showPassword ? 'text' : 'password'}
+          value={confirmPassword}
+          onChange={(e) => onConfirmPassword(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+          style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
+          placeholder="Type it again"
+        />
       </div>
     </div>
   )

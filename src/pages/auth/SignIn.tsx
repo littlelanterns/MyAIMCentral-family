@@ -26,11 +26,19 @@ export function SignIn() {
     setError('')
 
     try {
-      const { data, error: authError } = await signIn(email, password)
+      // TEEN-CRED: username-mode full_login members sign in with the
+      // username mom set for them, not a real email. A non-email-shaped
+      // identifier is mapped, deterministically and with zero lookups, to
+      // the same synthetic address family-auth-admin's set_member_credentials
+      // constructed at creation time (migration 100314). Auth's own generic
+      // invalid-credentials failure preserves no-enumeration either way.
+      const trimmed = email.trim()
+      const identifier = trimmed.includes('@') ? trimmed : `${trimmed.toLowerCase()}@login.myaimcentral.app`
+      const { data, error: authError } = await signIn(identifier, password)
 
       if (authError) {
-        // PRD-01: Never reveal whether an email exists. Always show generic message.
-        setError('Invalid email or password. Please try again.')
+        // PRD-01: Never reveal whether an email/username exists. Always show generic message.
+        setError('Invalid email/username or password. Please try again.')
         setLoading(false)
         return
       }
@@ -38,7 +46,7 @@ export function SignIn() {
       if (data?.user) {
         navigate('/dashboard')
       } else {
-        setError('Invalid email or password. Please try again.')
+        setError('Invalid email/username or password. Please try again.')
         setLoading(false)
       }
     } catch {
@@ -55,7 +63,15 @@ export function SignIn() {
           Welcome Back
         </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* noValidate: TEEN-CRED widened this field to accept a username
+            (no '@') as well as a real email — the input keeps
+            type="email" (21 existing E2E specs locate it via
+            input[type="email"] to sign in as various moms; changing the
+            type attribute would break all of them for a purely cosmetic
+            reason). Native browser constraint validation would otherwise
+            block submission of a non-'@' value before handleSubmit ever
+            runs, so it's disabled here and handled entirely in JS instead. */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {error && (
             <p className="text-sm p-3 rounded-lg"
                style={{ backgroundColor: AUTH_COLORS.bgSecondary, color: AUTH_COLORS.error }}>
@@ -65,10 +81,11 @@ export function SignIn() {
 
           <div>
             <label className="block text-sm font-medium mb-1" style={{ color: AUTH_COLORS.text }}>
-              Email
+              Email or Username
             </label>
             <input
               type="email"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 rounded-lg outline-none"
@@ -77,7 +94,7 @@ export function SignIn() {
                 border: `1px solid ${AUTH_COLORS.border}`,
                 color: AUTH_COLORS.text,
               }}
-              placeholder="your@email.com"
+              placeholder="your@email.com or username"
               required
             />
           </div>
