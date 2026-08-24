@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-08-23
+> Auto-generated from live Supabase on 2026-08-24
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -13,7 +13,7 @@
 
 ## Auth & Family (PRD-01, PRD-02)
 
-### `families` — 3 rows
+### `families` — 11 rows
 
 | # | Column |
 |---|---|
@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 20 rows
+### `family_members` — 28 rows
 
 | # | Column |
 |---|---|
@@ -213,7 +213,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `family_subscriptions` — 2 rows
+### `family_subscriptions` — 10 rows
 
 | # | Column |
 |---|---|
@@ -325,7 +325,7 @@
 | 6 | `session_started_at` |
 | 7 | `session_ended_at` |
 
-### `onboarding_milestones` — 0 rows
+### `onboarding_milestones` — 8 rows
 
 | # | Column |
 |---|---|
@@ -731,7 +731,7 @@
 | 18 | `reward_image_url` |
 | 19 | `reward_image_asset_key` |
 
-### `tasks` — 212 rows
+### `tasks` — 232 rows
 
 | # | Column |
 |---|---|
@@ -950,7 +950,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 55 rows
+### `lists` — 71 rows
 
 | # | Column |
 |---|---|
@@ -1124,16 +1124,19 @@
 | 3 | `task_id` |
 | 4 | `family_member_id` |
 | 5 | `section_key` |
-| 6 | `response_content` |
+| 6 | `section_content` |
 | 7 | `response_metadata` |
 | 8 | `created_at` |
 | 9 | `updated_at` |
+| 10 | `filled_by` |
+| 11 | `completed_at` |
+| 12 | `lila_enabled` |
 
 ---
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 23 rows
+### `dashboard_configs` — 31 rows
 
 | # | Column |
 |---|---|
@@ -1149,7 +1152,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 50 rows
+### `dashboard_widgets` — 59 rows
 
 | # | Column |
 |---|---|
@@ -1316,7 +1319,7 @@
 | 8 | `sort_order` |
 | 9 | `created_at` |
 
-### `calendar_settings` — 3 rows
+### `calendar_settings` — 11 rows
 
 | # | Column |
 |---|---|
@@ -1517,7 +1520,7 @@
 | 9 | `acted_by` |
 | 10 | `created_at` |
 
-### `meal_settings` — 3 rows
+### `meal_settings` — 11 rows
 
 | # | Column |
 |---|---|
@@ -1616,7 +1619,7 @@
 
 ## Archives & Context (PRD-13)
 
-### `archive_folders` — 180 rows
+### `archive_folders` — 300 rows
 
 | # | Column |
 |---|---|
@@ -1662,7 +1665,7 @@
 | 21 | `is_negative_preference` |
 | 22 | `embedding` |
 
-### `archive_member_settings` — 18 rows
+### `archive_member_settings` — 26 rows
 
 | # | Column |
 |---|---|
@@ -2850,7 +2853,7 @@
 | 17 | `created_at` |
 | 18 | `updated_at` |
 
-### `parent_verification_attempts` — 0 rows
+### `parent_verification_attempts` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2895,7 +2898,7 @@
 | 9 | `job_run_id` |
 | 10 | `executed_at` |
 
-### `stripe_webhook_events` — 0 rows
+### `stripe_webhook_events` — 1 rows
 
 | # | Column |
 |---|---|
@@ -3228,7 +3231,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 72 rows
+### `contracts` — 90 rows
 
 | # | Column |
 |---|---|
@@ -3447,7 +3450,7 @@
 | 13 | `created_at` |
 | 14 | `pool_name` |
 
-### `gamification_configs` — 18 rows
+### `gamification_configs` — 26 rows
 
 | # | Column |
 |---|---|
@@ -3825,7 +3828,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 39 rows
+### `member_creature_collection` — 47 rows
 
 | # | Column |
 |---|---|
@@ -3853,7 +3856,7 @@
 | 7 | `verification_expires_at` |
 | 8 | `created_at` |
 
-### `member_page_unlocks` — 20 rows
+### `member_page_unlocks` — 28 rows
 
 | # | Column |
 |---|---|
@@ -3865,7 +3868,7 @@
 | 6 | `unlocked_trigger_type` |
 | 7 | `creatures_at_unlock` |
 
-### `member_sticker_book_state` — 18 rows
+### `member_sticker_book_state` — 26 rows
 
 | # | Column |
 |---|---|
@@ -4056,7 +4059,7 @@
 | 10 | `practice_count` |
 | 11 | `created_at` |
 
-### `reflection_prompts` — 352 rows
+### `reflection_prompts` — 640 rows
 
 | # | Column |
 |---|---|
@@ -4269,7 +4272,7 @@
 | 11 | `dismissed_at` |
 | 12 | `created_at` |
 
-### `rhythm_configs` — 68 rows
+### `rhythm_configs` — 108 rows
 
 | # | Column |
 |---|---|
@@ -4340,7 +4343,7 @@
 | 6 | `updated_at` |
 | 7 | `created_by` |
 
-### `safety_notification_recipients` — 3 rows
+### `safety_notification_recipients` — 11 rows
 
 | # | Column |
 |---|---|
