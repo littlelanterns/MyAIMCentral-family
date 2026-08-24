@@ -2714,7 +2714,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 366 rows
+### `activity_log_entries` — 367 rows
 
 | # | Column |
 |---|---|
@@ -2811,7 +2811,7 @@
 | 11 | `notes` |
 | 12 | `created_at` |
 
-### `parent_verifications` — 0 rows
+### `parent_verifications` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2853,7 +2853,7 @@
 | 17 | `created_at` |
 | 18 | `updated_at` |
 
-### `parent_verification_attempts` — 2 rows
+### `parent_verification_attempts` — 5 rows
 
 | # | Column |
 |---|---|
@@ -2883,7 +2883,7 @@
 | 8 | `downloaded_at` |
 | 9 | `ip_address` |
 
-### `retention_deletion_log` — 58 rows
+### `retention_deletion_log` — 77 rows
 
 | # | Column |
 |---|---|
@@ -2898,7 +2898,7 @@
 | 9 | `job_run_id` |
 | 10 | `executed_at` |
 
-### `stripe_webhook_events` — 2 rows
+### `stripe_webhook_events` — 5 rows
 
 | # | Column |
 |---|---|
@@ -3231,7 +3231,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 141 rows
+### `contracts` — 157 rows
 
 | # | Column |
 |---|---|
@@ -4557,6 +4557,17 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
+### `waitlist_signups` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `email` |
+| 3 | `name` |
+| 4 | `interested_pillars` |
+| 5 | `source_path` |
+| 6 | `created_at` |
+
 ### `wishlist_share_links` — 0 rows
 
 | # | Column |
@@ -4729,7 +4740,7 @@
 
 ---
 
-> **Summary:** 146 API-exposed tables in domain sections | 97 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
+> **Summary:** 146 API-exposed tables in domain sections | 98 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
