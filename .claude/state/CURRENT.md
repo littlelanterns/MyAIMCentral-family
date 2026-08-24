@@ -13,9 +13,20 @@
   was discovered ALREADY APPLIED to prod since 2026-07-11** — file now committed (live-but-
   uncommitted gap closed); the TEEN-CRED feature itself is still an open founder decision.
   Latest applied: 100316. 100317 pending (ST-A's).
-- **PRD-40 Slice 3 remaining gates:** founder adds `VITE_STRIPE_PUBLISHABLE_KEY` to
-  .env.local (copy value from the last `STRIPE_PUBLISHABLE_KEY` line) → E2E run (serialize
-  suites — seat grants slots) → rls-verifier on the RPC → Conv #277 tour → commit.
+- **ALL THREE LANES CLOSED SAME DAY (evening update):** PRD-40 Slice 3 committed `9465e45`
+  (8/8 E2E incl. real $1 TEST payment; rls-verifier 27/27; R-10 test referee-rerun) and
+  STUDIO ST-A committed `88993b0` (14/14 real-deploy E2E; kid-scoped boards; guided-form
+  assignment un-bricked via 100318) — schema batch `37dfc40` (100315/100317/100318).
+  `VITE_STRIPE_PUBLISHABLE_KEY` added to .env.local on founder authorization (test-mode,
+  prefix-verified). Next in queue: PRD-40 Slice 4 (rights + lifecycle) and ST-F
+  (reward-wire truth) — dispatch on founder word.
+- **New SMFX items from today's proofs:** stale `studio-intelligence-phase1` test 1C
+  (asserts the retired Tasks→Sequential tab — re-point) · Growth-section cards don't open
+  under synthetic 375px clicks (control-proven pre-existing; founder real-phone tap check) ·
+  GlitchReporter FAB overlap on mobile · unthemed-account modal wash (platform-wide,
+  pre-existing) · card-only polish for the COPPA intent function (Bank/Klarna show in the
+  Payment Element) · transient ModalHeader ignores subtitle/batchProgress (shared-component
+  gap, worked around in coppa modals).
 - **PRD-31 Slice 2 hand-off fact:** PRD-40's Stripe webhook router is live — Slice 2 EXTENDS
   it, never builds a second one.
 - Slice-4 parking note from the Slice-1 RLS pass: `feature_access_v2` read policy is TO
