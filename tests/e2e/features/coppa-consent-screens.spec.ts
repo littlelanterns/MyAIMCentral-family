@@ -190,14 +190,43 @@ async function sweep() {
     await sr.from('coppa_consents').delete().in('verification_id', createdVerificationIds)
     await sr.from('parent_verifications').delete().in('id', createdVerificationIds)
   }
-  // Non-founding fixture family teardown
+  // Non-founding fixture family teardown — the proven FK-order procedure
+  // (TEEN-CRED referee catch, 2026-08-24): auto_provision_member_resources
+  // creates member-owned rows (lists.owner_id is a NO-CASCADE FK), so the
+  // resources must go BEFORE the member rows, the members before the family,
+  // and the family before the auth user — otherwise the member delete fails
+  // silently, the families delete is FK-blocked, and deleteUser silently
+  // SOFT-deletes (scrubbed email, row kept) instead of hard-deleting, which
+  // accumulated 21 phantom "Mom's Family" rows in production before it was
+  // caught. Every step is loud; the auth delete is verified really gone.
   if (nfFamilyId) {
-    await sr.from('family_members').delete().eq('family_id', nfFamilyId)
-    await sr.from('families').delete().eq('id', nfFamilyId)
+    const { data: nfMembers } = await sr.from('family_members').select('id').eq('family_id', nfFamilyId)
+    const nfIds = (nfMembers ?? []).map((m) => m.id)
+    if (nfIds.length) {
+      for (const [table, col] of [
+        ['lists', 'owner_id'],
+        ['archive_folders', 'member_id'],
+        ['dashboard_configs', 'family_member_id'],
+        ['archive_member_settings', 'member_id'],
+        ['dashboard_widgets', 'family_member_id'],
+      ] as const) {
+        const d = await sr.from(table).delete().in(col, nfIds)
+        if (d.error) console.warn(`sweep: NF ${table} delete failed:`, d.error.message)
+      }
+      const dm = await sr.from('family_members').delete().in('id', nfIds)
+      if (dm.error) console.warn('sweep: NF family_members delete failed:', dm.error.message)
+    }
+    const df = await sr.from('families').delete().eq('id', nfFamilyId)
+    if (df.error) console.warn('sweep: NF families delete failed:', df.error.message)
     nfFamilyId = null
   }
   if (nfAuthUserId) {
-    await sr.auth.admin.deleteUser(nfAuthUserId)
+    const del = await sr.auth.admin.deleteUser(nfAuthUserId)
+    if (del.error) console.warn('sweep: NF auth deleteUser failed:', del.error.message)
+    // deleteUser falls back to a SOFT delete when a referencing FK survives —
+    // verify the user is really gone (a soft-deleted row still resolves).
+    const { data: still } = await sr.auth.admin.getUserById(nfAuthUserId)
+    if (still?.user) console.warn(`sweep: NF auth user ${nfAuthUserId} still exists (soft-deleted?) — investigate FK blockers`)
     nfAuthUserId = null
   }
 }

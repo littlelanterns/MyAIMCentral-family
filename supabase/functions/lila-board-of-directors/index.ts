@@ -28,7 +28,7 @@ import { embedText } from '../_shared/embedding.ts'
 import { assembleContext } from '../_shared/context-assembler.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
 import { extractJsonObject } from '../_shared/json-extract.ts'
-import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan } from '../_shared/ethics-guard.ts'
+import { handleEthicsInputReframe, scanStreamedOutput, enqueueOutputScan, computeIsUnder13 } from '../_shared/ethics-guard.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -736,7 +736,11 @@ Deno.serve(async (req) => {
       }
 
       let queueRowId: string | null = null
-      if (classifierMultiFamily === 'yes') {
+      // PRD-40 aggregation exclusion (L756/L1117): a persona authored by an
+      // under-13 member NEVER enters the cross-family promotion pipeline —
+      // the Tier-1 personal persona is created normally; only the Tier-2
+      // queue write is skipped. Pinned by scripts/check-under13-aggregation.cjs.
+      if (classifierMultiFamily === 'yes' && !(await computeIsUnder13(supabase, member_id))) {
         const queueEmbedding = await embedText(`${name}\n${description}`)
         const { data: queueRow, error: queueError } = await supabase
           .schema('platform_intelligence')
@@ -856,9 +860,12 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ error: 'Failed to create persona' }), { status: 500, headers: jsonHeaders })
       }
 
-      // Step 7: If classifier says multi-family-relevance yes, also write queue row
+      // Step 7: If classifier says multi-family-relevance yes, also write queue row.
+      // PRD-40 aggregation exclusion (L756/L1117): under-13-authored personas
+      // never enter the cross-family promotion pipeline — see the identical
+      // guard on the commit_persona path above.
       let queueRowId: string | null = null
-      if (classifier.multi_family_relevance === 'yes') {
+      if (classifier.multi_family_relevance === 'yes' && !(await computeIsUnder13(supabase, member_id))) {
         const queueEmbedding = await embedText(`${name}\n${description}`)
         const { data: queueRow, error: queueError } = await supabase
           .schema('platform_intelligence')

@@ -422,6 +422,8 @@ export function useArchiveMembers(familyId: string | undefined) {
         .eq('family_id', familyId)
         .eq('is_active', true)
         .neq('role', 'family')
+        // PRD-40 Slice 5: suspended-for-deletion members hidden from rosters
+        .eq('is_suspended_for_deletion', false)
         .order('display_name', { ascending: true })
 
       if (membersError) throw membersError
@@ -1007,6 +1009,8 @@ export function useContextExport(familyId: string | undefined) {
       .eq('family_id', familyId)
       .eq('is_active', true)
       .neq('role', 'family')
+      // PRD-40 Slice 5: suspended-for-deletion members hidden from rosters
+      .eq('is_suspended_for_deletion', false)
       .order('display_name', { ascending: true })
 
     if (membersError) throw membersError

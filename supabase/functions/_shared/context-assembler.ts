@@ -225,6 +225,10 @@ export async function assembleContext(
     .select('id, display_name, role, age, date_of_birth, relationship, nicknames')
     .eq('family_id', familyId)
     .eq('is_active', true)
+    // PRD-40 Slice 5: a suspended-for-deletion member's data is frozen during
+    // the revocation grace window (Screen 9) — they drop out of LiLa's Layer-1
+    // roster and, with it, name-detection Layer-2 context loading.
+    .eq('is_suspended_for_deletion', false)
 
   const roster = (members || []) as FamilyMember[]
   const nameMap = new Map(roster.map(m => [m.id, m.display_name]))

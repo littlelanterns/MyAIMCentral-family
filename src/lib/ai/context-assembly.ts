@@ -436,6 +436,9 @@ export async function assembleContext(
     .eq('family_id', familyId)
     .eq('is_active', true)
     .neq('role', 'family')
+    // PRD-40 Slice 5: a suspended-for-deletion member's data is frozen during
+    // the revocation grace window — they drop out of LiLa's family roster too.
+    .eq('is_suspended_for_deletion', false)
 
   if (membersData) {
     bundle.familyMembers = membersData.map(m => ({

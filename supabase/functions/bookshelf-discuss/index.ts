@@ -36,6 +36,7 @@ import {
   detectEthicsViolation, detectCrisisInOutput, buildReframeMessage,
   logEthicsRejection, enqueueOutputScan, ENFORCEMENT_MODE,
 } from '../_shared/ethics-guard.ts'
+import { checkCoppaWriteAllowed, COPPA_AI_BLOCKED_MESSAGE } from '../_shared/coppa-consent.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -568,6 +569,24 @@ Deno.serve(async (req) => {
         JSON.stringify({ crisis: true, content: CRISIS_RESPONSE }),
         { headers: jsonHeaders },
       )
+    }
+
+    // PRD-40 Slice 5 — COPPA AI-call gate. After crisis (crisis always
+    // wins), before any context assembly or model call. Blocks a
+    // suspended-for-deletion member always, and an unconsented under-13
+    // member once enforcement is active (R-8 dormancy until then). Same
+    // response shape as the ethics reframe — the client saves `content` as
+    // the assistant reply. This Edge check is the only gate on this path
+    // (service role bypasses the migration-100328 RLS write gates).
+    {
+      const coppa = await checkCoppaWriteAllowed(supabase, member_id)
+      if (!coppa.allowed) {
+        console.warn(`[bookshelf-discuss] COPPA gate blocked member ${member_id} (${coppa.status})`)
+        return new Response(
+          JSON.stringify({ coppa_blocked: true, coppa_status: coppa.status, content: COPPA_AI_BLOCKED_MESSAGE }),
+          { headers: jsonHeaders },
+        )
+      }
     }
 
     // PRD-41 Tier-0 ethics input pre-flight. The client already saved the

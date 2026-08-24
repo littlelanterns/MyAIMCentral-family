@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "prepare": "husky",
-    "prebuild": "eslint . && node scripts/check-function-jwt-config.cjs && node scripts/check-safe-harbor-filter.cjs",
+    "prebuild": "eslint . && node scripts/check-function-jwt-config.cjs && node scripts/check-safe-harbor-filter.cjs && node scripts/check-under13-aggregation.cjs",
     "check:jwt": "node scripts/check-function-jwt-config.cjs",
     "check:safe-harbor": "node scripts/check-safe-harbor-filter.cjs",
+    "check:under13-aggregation": "node scripts/check-under13-aggregation.cjs",
+    "coppa:gates": "npx tsx scripts/coppa-write-gates.ts --write supabase/migrations/00000000100328_coppa_write_gates_generated.sql",
     "build": "tsc -b && vite build && npx tsx scripts/check-hardcoded-colors.ts || true",
     "check:colors": "npx tsx scripts/check-hardcoded-colors.ts",
     "lint": "eslint .",

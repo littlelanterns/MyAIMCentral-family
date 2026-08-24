@@ -293,6 +293,107 @@ export interface ExportResult {
   warnings: string[]
 }
 
+// ── PRD-40 Slice 5 — consent-state hook + held-state helpers ────────────────
+
+/**
+ * The PRD-02 retrofit hook (PRD-40 L1045):
+ * `useCoppaConsent(childMemberId)` → 'active' | 'revoked' | 'superseded' |
+ * 'missing' | 'suspended_for_deletion', plus 'not_applicable' for 13+/adult
+ * members and `null` while loading. Server twin:
+ * supabase/functions/_shared/coppa-consent.ts `getCoppaConsentStatus()` —
+ * change both together.
+ *
+ * Mounted on mom surfaces (RLS on coppa_consents scopes reads to the primary
+ * parent; a non-mom session simply reads zero consent rows and resolves via
+ * the member's bracket/suspension flags, which every family member can read).
+ */
+export type CoppaConsentState =
+  | 'active'
+  | 'revoked'
+  | 'superseded'
+  | 'missing'
+  | 'suspended_for_deletion'
+  | 'not_applicable'
+
+export function useCoppaConsent(childMemberId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['coppa-consent-state', childMemberId],
+    queryFn: async (): Promise<CoppaConsentState> => {
+      if (!childMemberId) return 'not_applicable'
+      const { data: member, error: memberError } = await supabase
+        .from('family_members')
+        .select('coppa_age_bracket, is_suspended_for_deletion')
+        .eq('id', childMemberId)
+        .maybeSingle()
+      if (memberError) throw memberError
+      if (!member) return 'not_applicable'
+      if (member.is_suspended_for_deletion) return 'suspended_for_deletion'
+      if (member.coppa_age_bracket !== 'under_13') return 'not_applicable'
+
+      const { data: consents, error: consentError } = await supabase
+        .from('coppa_consents')
+        .select('revoked_at, superseded_at, consented_at')
+        .eq('child_member_id', childMemberId)
+        .order('consented_at', { ascending: false })
+      if (consentError) throw consentError
+      if (!consents?.length) return 'missing'
+      const active = consents.find((c) => !c.revoked_at && !c.superseded_at)
+      if (active) return 'active'
+      return consents[0].revoked_at ? 'revoked' : 'superseded'
+    },
+    enabled: !!childMemberId,
+  })
+}
+
+/**
+ * Held-state copy for a write blocked by the COPPA gates (PRD L548 — the
+ * gentle message dad/Special Adults see when acting on an unconsented
+ * under-13 child once enforcement is active). Per-surface wiring of this
+ * message is deferred until enforcement activation (STUB_REGISTRY, Slice 5):
+ * today no surface can reach a blocked state — suspended members are hidden
+ * from every roster, and the unconsented-under-13 rule is dormant (R-8).
+ */
+export const COPPA_HELD_PROFILE_MESSAGE = "This child's profile is not yet set up"
+
+/**
+ * R-8 dormancy check: enforcement is active only once a lawyer-approved,
+ * non-retired consent template exists. Templates are readable by all
+ * authenticated users (audit-replay design, migration 100305).
+ */
+export function useCoppaEnforcementActive() {
+  return useQuery({
+    queryKey: ['coppa-enforcement-active'],
+    queryFn: async (): Promise<boolean> => {
+      const { data, error } = await supabase
+        .from('coppa_consent_templates')
+        .select('version')
+        .not('lawyer_approved_at', 'is', null)
+        .is('retired_at', null)
+        .limit(1)
+        .maybeSingle()
+      if (error) throw error
+      return !!data
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+/**
+ * True when a consent state means writes for this member are gated.
+ * `enforcementActive` (from useCoppaEnforcementActive) is REQUIRED so no
+ * consumer can accidentally show held-state UI for an unconsented under-13
+ * member during R-8 dormancy — suspension is the only state that blocks
+ * regardless of dormancy.
+ */
+export function coppaWriteBlocked(
+  state: CoppaConsentState | null | undefined,
+  enforcementActive: boolean,
+): boolean {
+  if (state === 'suspended_for_deletion') return true
+  if (!enforcementActive) return false
+  return state === 'revoked' || state === 'missing' || state === 'superseded'
+}
+
 /** Invokes the coppa-export-child-data Edge Function directly (mom's session, R-10 in-code gate). */
 export async function requestChildDataExport(childMemberId: string): Promise<ExportResult> {
   const { data: { session } } = await supabase.auth.getSession()

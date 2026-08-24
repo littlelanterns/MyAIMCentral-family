@@ -45,6 +45,8 @@ export function MemberAssignmentModal({ open, onClose, item }: Props) {
       .eq('family_id', family.id)
       .eq('is_active', true)
       .neq('role', 'family')
+      // PRD-40 Slice 5: suspended-for-deletion members hidden from rosters
+      .eq('is_suspended_for_deletion', false)
       .order('role')
       .then(({ data }) => {
         if (data) setMembers(data as FamilyMemberRow[])

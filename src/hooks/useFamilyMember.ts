@@ -96,6 +96,11 @@ export function useFamilyMembers(familyId: string | undefined) {
         .eq('is_active', true)
         // The Family identity row is infrastructure, never a person in lists
         .neq('role', 'family')
+        // PRD-40 Slice 5: suspended-for-deletion members (14-day revocation
+        // grace, Screen 9) are hidden from every dashboard/roster surface.
+        // Screen 8's Pending Deletion section reads coppa_consents directly
+        // (useCoppaConsentRecords) and is unaffected.
+        .eq('is_suspended_for_deletion', false)
         .order('created_at')
 
       if (error) throw error

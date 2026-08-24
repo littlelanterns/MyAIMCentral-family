@@ -22,6 +22,7 @@ import { buildFeatureGuidePrompt } from '../_shared/feature-guide-knowledge.ts'
 import { assembleContext, type AssembledContext } from '../_shared/context-assembler.ts'
 import { detectRoutingIntent, buildHandoffResponseBody } from './routing-prescan.ts'
 import { callOpenRouter } from '../_shared/openrouter-client.ts'
+import { checkCoppaWriteAllowed, COPPA_AI_BLOCKED_MESSAGE } from '../_shared/coppa-consent.ts'
 
 const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
@@ -435,9 +436,40 @@ Deno.serve(async (req) => {
     // Get member info
     const { data: member } = await supabase
       .from('family_members')
-      .select('role, display_name')
+      .select('role, display_name, coppa_age_bracket, is_suspended_for_deletion')
       .eq('id', conversation.member_id)
       .single()
+
+    // PRD-40 Slice 5 — COPPA AI-call gate. Runs AFTER the crisis gate above
+    // (Convention #7: crisis always wins, resources always shown) and BEFORE
+    // the user message is persisted: for a suspended-for-deletion member or
+    // an unconsented under-13 member (once enforcement is active — R-8
+    // dormancy until a lawyer-approved template exists), even STORING the
+    // message is data collection. Nothing persists on a block; the friendly
+    // refusal streams in the same SSE shape as the ethics reframe so the
+    // client parser needs no special case. This Edge check is the ONLY gate
+    // on this path — lila-chat runs as service role, which bypasses the
+    // migration-100328 RLS write gates.
+    {
+      const coppa = await checkCoppaWriteAllowed(supabase, conversation.member_id, member ?? null)
+      if (!coppa.allowed) {
+        console.warn(`[lila-chat] COPPA gate blocked member ${conversation.member_id} (${coppa.status})`)
+        const encoder = new TextEncoder()
+        const blockedStream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'chunk', content: COPPA_AI_BLOCKED_MESSAGE })}\n\n`,
+            ))
+            controller.enqueue(encoder.encode(
+              `data: ${JSON.stringify({ type: 'metadata', coppa_blocked: true, coppa_status: coppa.status })}\n\n`,
+            ))
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'))
+            controller.close()
+          },
+        })
+        return new Response(blockedStream, { headers: sseHeaders })
+      }
+    }
 
     // Get guided mode info
     const modeKey = conversation.guided_subtype || conversation.mode || 'general'

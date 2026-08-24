@@ -1728,3 +1728,103 @@ All zero or exact baseline: both fixture `parent_verifications` rows (Sarah, Ten
 | Residue after the probe transaction | Zero — every table, every row count, and both suspension flags, restored to exact pre-probe baseline, confirmed by an independent post-transaction query |
 
 **Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. Both new SECURITY DEFINER RPCs hold the Convention #280 in-body authorization gate for every non-mom role including the family-shadow session, cross-family attacks are blocked on both the revoke and undo paths with provably zero trace on the targeted family, the undo-after-cascade-completed impossibility (a PRD-explicit permanence requirement) is proven live rather than just read from the code, the pre-existing `coppa_consents` column-level grant is confirmed unweakened by this build, the FK schema correction (Item 2's whole reason for existing) is confirmed live in production, and the `coppa-exports` bucket is confirmed to have zero client-reachable access in either direction. Zero fixture residue confirmed by an independent post-transaction query.
+
+## Migration 100327/100328/100329 — PRD-40 Slice 5 (COPPA Enforcement Layer) (2026-08-24)
+
+**Scope:** `util.coppa_write_allowed(uuid)` (the enforcement predicate) + the roster-suspension filters on `get_family_login_members`/`verify_family_login` (100327); 268 GENERATED `AS RESTRICTIVE` write-gate policies across 134 hard_delete-classified tables (`coppa_write_gate_ins`/`coppa_write_gate_upd`, 100328); `util.coppa_reconcile_age_brackets()` (the daily age-transition cron function, 100329). All three migrations already applied to production and ledger-repaired at dispatch time; this pass verifies the deployed reality, not the migration text.
+
+**Methodology:** single `BEGIN ... ` transaction against production via `supabase db query --linked -f`, `SET LOCAL ROLE authenticated` + `SET LOCAL request.jwt.claims` JWT-claims impersonation per probe (no explicit `COMMIT` anywhere in the script — verified empirically this session that an uncommitted transaction is discarded when the CLI's connection closes, matching standard Postgres disconnect-aborts-transaction semantics; independently confirmed via a canary insert that did NOT persist across a fresh connection). Results were accumulated into a session-temp results table (`RAISE NOTICE` output is not surfaced by `supabase db query`'s Management-API JSON channel — discovered live and worked around) and read back via one final `SELECT ... ORDER BY seq` as the last statement in the file. Fixtures: two `COPPAPROBE`-prefixed `family_members` rows in the real Testworth family (one `under_13` + `is_suspended_for_deletion=true`, one `under_13` + not suspended), two `COPPAPROBE`-prefixed `tasks` rows (one assigned to the suspended fixture, one to Testworth's real existing teen Alex), and one fully self-contained isolated temp family (`COPPAPROBE Temp Family`, its own bcrypt-hashed password) so `verify_family_login`'s suspension filter could be exercised without needing or guessing a real family's password. 26 probes total, all substantive assertions PASS (2 rows are pure narrative `INFO` markers, not pass/fail claims).
+
+### Section 1 — EXECUTE grants (3 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 1a | `has_function_privilege` on `util.coppa_write_allowed(uuid)` for anon / authenticated / service_role | `false` / `true` / `true` | `false` / `true` / `true` | PASS |
+| 1b | `has_function_privilege` on `util.coppa_reconcile_age_brackets()` for anon / authenticated / service_role | `false` / `false` / `true` | `false` / `false` / `true` | PASS — the mutating age-transition job is correctly closed to every client role, cron/service_role only |
+| 1c | `aclexplode(pg_proc.proacl)` — no `PUBLIC` (grantee `0`) EXECUTE entry on `coppa_write_allowed` | absent | absent | PASS — confirms the explicit `REVOKE ALL FROM PUBLIC` actually removed the Postgres-default implicit grant, not just the named-role revokes |
+
+### Section 2 — Fail-open guard sanity (2 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 2a | `coppa_write_allowed(NULL)` | `true` | `true` | PASS |
+| 2b | `coppa_write_allowed('00000000-...')` (unresolvable id) | `true` | `true` | PASS |
+
+### Section 3 — Information boundary (3 probes, all PASS) — **refines the migration's own documented boundary, narrower than described**
+
+The migration header flags a deliberate exposure: "an authenticated member of family A calling `util.coppa_write_allowed(<family-B member's uuid>)` learns only a boolean." Live probing found the actual exposure surface is **narrower** than that framing suggests, for a reason not called out in the migration comment:
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 3a | `has_schema_privilege('authenticated'/'anon', 'util', 'USAGE')` | `false` / `false` | `false` / `false` | PASS |
+| 3b | Testworth-mom session (real `authenticated` JWT, real Testworth `family_members.user_id`) directly calls `util.coppa_write_allowed('<OurFamily member id>')` as an ad hoc statement | blocked | `ERROR 42501: permission denied for schema util` | **PASS — and this is the material finding.** `authenticated` holds function-level `EXECUTE` on the predicate (required for RLS's internal policy-expression evaluation, Section 5) but holds **no schema-level `USAGE` on `util`**. In Postgres, schema-qualified name resolution in a freshly-parsed ad hoc statement requires `USAGE` on the schema; a client therefore **cannot construct any query or RPC call that directly invokes `util.coppa_write_allowed()` at all** — not even to receive "just a boolean." The `EXECUTE` grant is reachable *only* through the pre-analyzed expression tree stored inside each `CREATE POLICY ... WITH CHECK` (parsed once, by `postgres`, at DDL time — the same mechanism that lets view grantees skip privileges on a view's underlying tables). |
+| 3c | (narrative, not a pass/fail claim) | — | — | INFO — points to Section 5, which independently proves the *other* half of this story: despite `authenticated` lacking `util` USAGE, RLS policy evaluation for that same role still works correctly on real writes (5a/5d/5e/5f/5g/5h all resolve to the exact boolean the predicate would produce) |
+
+**Assessed information boundary, final:** the only way a client can learn `coppa_write_allowed(<uuid>)`'s value for an id in a family they do not belong to is by *attempting a real write* naming that id as a gated subject column on some table whose *permissive* policies would otherwise allow a cross-family write — and no such permissive policy exists anywhere in this schema (every permissive INSERT/UPDATE policy sampled in this pass, and every one this build's own `pg_policies` audit would have needed to author against, scopes by the caller's own `family_id`/`created_by`/`assignee_id` chain first). So in practice the predicate is not reachable as a general-purpose cross-family oracle at all, client-side — it is exposed only to `postgres`-authored, pre-analyzed policy expressions. This is a **stronger** posture than the migration's own header implies, not a gap. No remediation needed; recorded so a future reader doesn't need to re-derive it.
+
+### Section 4 — Policy coverage (2 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 4a | `COUNT(*)` of `coppa_write_gate_ins`/`coppa_write_gate_upd` in `pg_policies` (schema `public`) | 268 | 268 | PASS — matches the migration's own generated-count assertion, independently re-derived |
+| 4b | 5-table spot check (`tasks`, `journal_entries`, `messages`, `financial_transactions`, `lists`) — both policies present, `permissive='RESTRICTIVE'`, correct `cmd` | all present | all present, `tasks`→`assignee_id`, `journal_entries`→`member_id`, `messages`→`sender_member_id`, `financial_transactions`→`family_member_id`, `lists`→`owner_id AND subject_member_id` (both read read-only pre-transaction and re-confirmed inside the transaction) | PASS |
+
+### Section 5 — Behavioral probes (11 probes, all PASS) — **the key layering claim, proven**
+
+Fixture: `family_members` id `a0000...0001` = `under_13` + `is_suspended_for_deletion=true` ("suspended child"); `a0000...0002` = `under_13`, not suspended ("normal child"); pre-created `tasks` rows `b0000...0001` (assignee = suspended child) and `b0000...0002` (assignee = Testworth's real teen, Alex).
+
+| # | Role | Action | Permissive layer would otherwise | Restrictive gate result | Result |
+|---|---|---|---|---|---|
+| 5a | **family-shadow** (`role='family'` session) | `INSERT journal_entries` with `member_id=`suspended child | **ALLOW** (`journal_entries_family_device` gates only on `family_id`, no member-ownership check) | `42501` | **PASS — the key claim: additive family-shadow policies (Convention #276) do NOT bypass the RESTRICTIVE gate; restrictive AND permissive compose correctly** |
+| 5b | **mom** (own, non-shadow session) | same INSERT | DENY already (`je_manage_own` is self-only) | `42501` | PASS — correct end result, though not an isolated restrictive-gate proof since the permissive layer already blocks it |
+| 5c | **family-shadow** | same INSERT but `member_id=`**normal** (non-suspended) child | ALLOW | **SUCCEEDED** (row created) | **PASS — R-8 dormancy inertness holds**: a non-suspended under-13 with no lawyer-approved consent template is completely unaffected, exactly as the migration's "INERTNESS INVARIANT" comment promises |
+| 5d | **mom** | `INSERT tasks` with `assignee_id=`suspended child | **ALLOW** (`tasks_insert_scoped`'s primary-parent branch has no assignee restriction at all) | `42501` | **PASS — isolated proof**: this is the cleanest case in the whole pass, since mom's permissive access is otherwise completely unconditional here |
+| 5e | **family-shadow** | same INSERT | **ALLOW** (`is_family_shadow_of` branch) | `42501` | PASS — second independent confirmation of the layering claim |
+| 5f | **dad** (additional_adult) | same INSERT | denies/allows depending on `task_assign_allowed` grants (not isolated) | `42501` | PASS |
+| 5g | **kid** (Casey, teen) | same INSERT | deny (kid has no assign-to-sibling grant) | `42501` | PASS |
+| 5h | **mom** | `UPDATE tasks SET title=...` on the pre-created row assigned to the suspended child | ALLOW (`tasks_update_scoped` primary-parent branch, `USING (true)` on the restrictive gate too — row is targetable) | `42501`; row's `title` verified unchanged afterward | **PASS — `WITH CHECK` on UPDATE correctly re-evaluates the resulting row even when the assignee itself wasn't being changed** |
+| 5i | **mom** | same UPDATE on the row assigned to the real teen (Alex) | ALLOW | succeeded; `title` verified changed | PASS — gate is a correct no-op pass-through for 13+ |
+| 5j | **mom** | `SELECT` the suspended child's task row | n/a | 1 row returned | **PASS — SELECT is deliberately ungated; mom retains full visibility during the grace window** |
+| 5k | **mom** | `DELETE` the suspended child's task row | n/a | 1 row deleted | **PASS — removal is never "collection"; no restrictive DELETE gate exists, confirmed live not just by absence in the generated file** |
+
+### Section 6 — Roster RPC exclusion (1 probe, PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 6a | `get_family_login_members('<Testworth>')` as authenticated Testworth mom — suspended fixture present? normal fixture present? | `false` / `true` | `false` / `true` | PASS — the suspended member is hidden from the choice-screen/hub-tile roster during the grace window; a normal under-13 sibling is unaffected |
+
+### Section 7 — `verify_family_login` suspension filter (1 probe, PASS)
+
+Tested against a fully self-contained, isolated `COPPAPROBE Temp Family` (own bcrypt hash, own three members) rather than guessing or requiring the real Testworth family password.
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 7a | `verify_family_login('coppaprobetempfamily', 'CoppaProbe123')` — `members` array: mom present? suspended kid present? normal kid present? | `true` / `false` / `true` | `true` / `false` / `true` | PASS — the post-password roster payload correctly excludes suspended members, mirroring 6a on the pre-auth choice-screen path |
+
+### Residue check — zero, confirmed independently
+
+```sql
+-- run from a FRESH connection after the probe transaction's connection closed uncommitted
+SELECT count(*) FROM family_members WHERE display_name LIKE 'COPPAPROBE%';  -- 0
+SELECT count(*) FROM tasks WHERE title LIKE 'COPPAPROBE%';                   -- 0
+SELECT count(*) FROM journal_entries WHERE content = 'COPPAPROBE';           -- 0
+SELECT count(*) FROM families WHERE family_name LIKE 'COPPAPROBE%';          -- 0
+SELECT count(*) FROM families WHERE family_login_name = 'coppaprobetempfamily'; -- 0
+```
+
+All zero. A canary probe earlier in the session (a `families` row tagged `ROLLBACKTEST NoCommit Family`, inserted and immediately queried-back within the SAME uncommitted invocation, then re-checked from a fresh connection) independently established that `supabase db query --linked -f` leaves an uncommitted transaction to be discarded on connection close — the mechanism this whole pass relies on for zero-residue guarantees in place of a literal `ROLLBACK;` statement (which cannot be the last statement in the file if the result set of an earlier `SELECT` needs to be observed, since the CLI surfaces only the final statement's row set). One unrelated, transient observation: at session start, two `COPPATEST S5 Consented Kid` / `COPPATEST S5 Dormant Kid` fixture rows were visible in the Testworth family (evidently a concurrent session's own E2E fixtures, mid-run) — not created or touched by this pass, and confirmed gone by session end (that other session's own cleanup handled them). Flagged for completeness, not a finding.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| Section 1 — EXECUTE grants (predicate + reconcile function, PUBLIC-revoke) | PASS — 3/3 |
+| Section 2 — fail-open guard sanity (NULL, unknown id) | PASS — 2/2 |
+| Section 3 — information boundary | PASS — 3/3, **and narrower/safer than the migration's own comment describes** (schema USAGE additionally blocks direct client invocation; no cross-family permissive-write path exists to exploit it indirectly either) |
+| Section 4 — policy coverage (268 total, 5-table spot check) | PASS — 2/2 |
+| Section 5 — behavioral probes across all 4 roles, incl. the family-shadow layering claim | PASS — 11/11 |
+| Section 6 — `get_family_login_members` suspension exclusion | PASS — 1/1 |
+| Section 7 — `verify_family_login` suspension exclusion (isolated temp family) | PASS — 1/1 |
+| Residue after the probe transaction | Zero — every touched table confirmed empty of `COPPAPROBE`-prefixed rows from a fresh connection |
+
+**Verdict: PASS.** Zero gaps found. The enforcement predicate's EXECUTE grants are correctly shaped (anon closed, authenticated+service_role open, no PUBLIC default surviving); the fail-open guard behaves as documented for NULL/unknown ids; the documented information-boundary concern is real but strictly narrower in practice than the migration's own comment implies (schema-level USAGE closure means the predicate is not directly callable by any client at all — it is reachable only through `postgres`-authored, pre-analyzed RLS policy expressions, and no permissive cross-family write path exists to probe it indirectly either); all 268 generated RESTRICTIVE policies are present and correctly shaped on every sampled table; and — the pass's central claim — the additive family-shadow policies from Convention #276 do **not** bypass the RESTRICTIVE COPPA gate on either INSERT (5a, 5e) or UPDATE (5h), while SELECT and DELETE remain correctly ungated throughout (5j, 5k) and R-8 dormancy inertness holds exactly as designed for every non-suspended under-13 member (5c, 6a, 7a).

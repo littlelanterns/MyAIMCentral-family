@@ -189,6 +189,8 @@ export function useSpotlightSearch() {
           .eq('family_id', familyId)
           .eq('is_active', true)
           .neq('role', 'family')
+          // PRD-40 Slice 5: suspended-for-deletion members hidden from rosters
+          .eq('is_suspended_for_deletion', false)
           .ilike('display_name', searchPattern)
           .limit(10),
       ])

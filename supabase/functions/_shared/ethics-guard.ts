@@ -389,11 +389,20 @@ export interface EthicsContext {
 /**
  * Stamps member_is_under_13 at enqueue time (PRD-40 aggregation exclusion —
  * candidate harvesting must never draw from an under-13 member's surface).
- * Derived from date_of_birth when present, falling back to the age column.
+ *
+ * PRD-40 Slice 5 (ruling R-2): `family_members.coppa_age_bracket` is the
+ * CANONICAL under-13 source platform-wide — bracket 'under_13' returns true
+ * unconditionally. The date_of_birth/age derivation remains as a UNION
+ * fallback (a bracket that was never reviewed defaults to 'adult'; for
+ * aggregation exclusion the safe direction is "either signal says under 13
+ * ⇒ excluded"). Exported for reuse by other aggregation writers
+ * (lila-board-of-directors' persona-promotion exclusion) — the CI seed
+ * script scripts/check-under13-aggregation.cjs pins both consumers.
+ *
  * Never throws — defaults to false (excludes nothing extra; the harvest
  * query is the actual gate, this is just the stamp).
  */
-async function computeIsUnder13(
+export async function computeIsUnder13(
   // deno-lint-ignore no-explicit-any
   supabase: any,
   memberId: string | null | undefined,
@@ -402,10 +411,11 @@ async function computeIsUnder13(
   try {
     const { data } = await supabase
       .from('family_members')
-      .select('date_of_birth, age')
+      .select('date_of_birth, age, coppa_age_bracket')
       .eq('id', memberId)
       .single()
     if (!data) return false
+    if (data.coppa_age_bracket === 'under_13') return true
     if (data.date_of_birth) {
       const dob = new Date(data.date_of_birth as string)
       if (!Number.isNaN(dob.getTime())) {
