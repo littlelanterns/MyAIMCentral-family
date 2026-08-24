@@ -20,6 +20,10 @@ interface SequentialCreatorProps {
   onCancel: () => void
   /** Build J: optional initial defaults (used by Reading List template) */
   initialDefaults?: Partial<SequentialCreateDefaults>
+  /** ST-A (F-04): pre-filled title for example templates */
+  initialTitle?: string
+  /** ST-A (F-04): pre-filled item names for example templates — editable */
+  initialItems?: string[]
 }
 
 export interface SequentialCreateDefaults {
@@ -62,10 +66,12 @@ export function SequentialCreator({
   onSave,
   onCancel,
   initialDefaults,
+  initialTitle,
+  initialItems,
 }: SequentialCreatorProps) {
-  const [title, setTitle] = useState('')
+  const [title, setTitle] = useState(initialTitle ?? '')
   const [inputMethod, setInputMethod] = useState<'manual' | 'url' | 'image'>('manual')
-  const [rawText, setRawText] = useState('')
+  const [rawText, setRawText] = useState(initialItems?.length ? initialItems.join('\n') : '')
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [showCurriculumParse, setShowCurriculumParse] = useState(false)
   // Build J: when mom accepts curriculum-parsed items, they're cached here

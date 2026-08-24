@@ -85,6 +85,15 @@ export interface StudioTemplate {
   sectionStructure?: string[]
   /** Opportunity sub-type description */
   howItWorks?: string
+  /**
+   * ST-A (finding F-13): "Use as-is" previously aliased Customize on every
+   * example card — two buttons, one behavior. It now renders ONLY on
+   * examples that have a genuine fast-deploy path (content pre-decided,
+   * jump straight to the one remaining decision). Examples whose Customize
+   * surface already IS the minimal deploy surface don't get a duplicate
+   * button.
+   */
+  supportsUseAsIs?: boolean
 }
 
 interface StudioTemplateCardProps {
@@ -317,7 +326,7 @@ export function StudioTemplateCard({ template, onCustomize, onUseAsIs }: StudioT
       <div
         className={`flex gap-2 transition-all duration-200 ${showExpanded ? 'mt-4 opacity-100' : 'mt-3 md:opacity-0 md:group-hover:opacity-100 opacity-100'}`}
       >
-        {template.isExample && onUseAsIs && (
+        {template.isExample && template.supportsUseAsIs && onUseAsIs && (
           <button
             onClick={handleUseAsIs}
             className="flex-1 rounded-lg py-1.5 text-xs font-medium border transition-colors"

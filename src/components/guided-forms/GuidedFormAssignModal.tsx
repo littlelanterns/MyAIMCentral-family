@@ -40,6 +40,12 @@ interface GuidedFormAssignModalProps {
   assigningMemberId: string // mom's member ID
   eligibleChildren: FamilyMember[]
   onAssigned?: (taskIds: string[]) => void
+  /**
+   * ST-A (finding F-04): pre-filled mom-section content for example
+   * templates ("SODAS Sibling Conflict" etc.), keyed by section_key.
+   * Editable — this seeds the Step 1 editors, it never locks them.
+   */
+  initialMomValues?: Record<string, string>
 }
 
 // ─── Subtype Icon ────────────────────────────────────────────────
@@ -63,6 +69,7 @@ export function GuidedFormAssignModal({
   assigningMemberId,
   eligibleChildren,
   onAssigned,
+  initialMomValues,
 }: GuidedFormAssignModalProps) {
   const [step, setStep] = useState<1 | 2>(1)
 
@@ -72,8 +79,8 @@ export function GuidedFormAssignModal({
   const { assignableIds } = useAssignableMembers()
   const scopedChildren = eligibleChildren.filter((c) => assignableIds.has(c.id))
 
-  // Mom's filled values keyed by section_key
-  const [momValues, setMomValues] = useState<Record<string, string>>({})
+  // Mom's filled values keyed by section_key (example prefill seeds these)
+  const [momValues, setMomValues] = useState<Record<string, string>>(initialMomValues ?? {})
 
   // Selected children for assignment
   const [selectedChildIds, setSelectedChildIds] = useState<string[]>([])
@@ -113,6 +120,14 @@ export function GuidedFormAssignModal({
     try {
       const taskIds: string[] = []
 
+      // ST-A (B9/F-04 class): Studio's shelf tiles pass a SYNTHETIC template
+      // (id 'studio_sodas' etc.) — not a task_templates UUID. Writing that
+      // into tasks.template_id (UUID FK) threw 22P02 on EVERY Studio-launched
+      // guided-form assignment, silently killing the flow. Only link real
+      // template rows.
+      const isRealTemplateId =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(template.id)
+
       for (const childId of selectedChildIds) {
         // Create the task record
         const { data: taskData, error: taskError } = await supabase
@@ -121,7 +136,7 @@ export function GuidedFormAssignModal({
             family_id: familyId,
             created_by: assigningMemberId,
             assignee_id: childId,
-            template_id: template.id,
+            template_id: isRealTemplateId ? template.id : null,
             title: template.title,
             description: template.description ?? null,
             task_type: 'guided_form',
@@ -136,26 +151,33 @@ export function GuidedFormAssignModal({
         const taskId = taskData.id
         taskIds.push(taskId)
 
-        // Build response rows: mom's sections (pre-filled) + child's sections (blank)
-        const responseRows = sections.map(section => ({
-          task_id: taskId,
-          family_member_id:
-            section.filledBy === 'mom' ? assigningMemberId : childId,
-          section_key: section.key,
-          section_content: section.filledBy === 'mom'
-            ? (momValues[section.key] ?? '')
-            : '',
-          filled_by: section.filledBy,
-          completed_at:
-            section.filledBy === 'mom' ? new Date().toISOString() : null,
-          lila_enabled: lilaEnabled && section.filledBy === 'child',
-        }))
+        // Build response rows for MOM'S sections only (pre-filled at assign
+        // time). Child sections are created by the child's own fill flow —
+        // RLS (gfr_insert_own) scopes inserts to the authoring member, so
+        // mom cannot pre-create the child's blank rows, and the readers
+        // already treat an absent row as blank. family_id is NOT NULL on
+        // this table — its omission was one of the reasons every guided-form
+        // assignment write failed silently until ST-A (finding F-04c/B9).
+        const responseRows = sections
+          .filter(section => section.filledBy === 'mom')
+          .map(section => ({
+            family_id: familyId,
+            task_id: taskId,
+            family_member_id: assigningMemberId,
+            section_key: section.key,
+            section_content: momValues[section.key] ?? '',
+            filled_by: 'mom',
+            completed_at: new Date().toISOString(),
+            lila_enabled: false,
+          }))
 
-        const { error: responseError } = await supabase
-          .from('guided_form_responses')
-          .insert(responseRows)
+        if (responseRows.length > 0) {
+          const { error: responseError } = await supabase
+            .from('guided_form_responses')
+            .insert(responseRows)
 
-        if (responseError) throw responseError
+          if (responseError) throw responseError
+        }
       }
 
       onAssigned?.(taskIds)

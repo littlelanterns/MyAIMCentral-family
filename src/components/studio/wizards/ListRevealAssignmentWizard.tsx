@@ -25,6 +25,7 @@ import { useShareList } from '@/hooks/useLists'
 import { supabase } from '@/lib/supabase/client'
 import { useQueryClient } from '@tanstack/react-query'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
+import { isChildMember, isOptInAdult } from '@/lib/members/isChildMember'
 import type { OpportunityRewardType, FrequencyPeriod } from '@/types/lists'
 import { ItemRecurrenceConfig, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
 import type { GodmotherType, PresentationMode } from '@/types/contracts'
@@ -161,6 +162,32 @@ export const CONSEQUENCE_SPINNER_PREFILL: ListRevealPreFill = {
   personPickMode: 'person_first',
   kidCanSkip: false,
   deployTarget: 'standalone',
+}
+
+/**
+ * ST-A item 2a (finding F-04): the "Extra House Jobs Board" example promised
+ * "8 real chore jobs ($1–$3) and 2 connection items (5 stars each)" but loaded
+ * nothing. This prefill delivers the promised content per the founder spec
+ * (specs/studio-seed-templates.md Example 3).
+ */
+export const EXTRA_HOUSE_JOBS_PREFILL: ListRevealPreFill = {
+  flavor: 'opportunity',
+  listName: 'Extra House Jobs',
+  listDescription: 'Optional jobs kids can claim to earn — plus a couple of connection moments.',
+  items: [
+    { id: 'h1', name: 'Vacuum the living room', description: '', rewardType: 'money', rewardAmount: 1, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Quick Jobs' },
+    { id: 'h2', name: 'Wipe down kitchen counters', description: '', rewardType: 'money', rewardAmount: 1, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Quick Jobs' },
+    { id: 'h3', name: 'Help with dinner', description: '', rewardType: 'money', rewardAmount: 1.5, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Quick Jobs' },
+    { id: 'h4', name: 'Sweep and mop the kitchen', description: '', rewardType: 'money', rewardAmount: 2, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Medium Jobs' },
+    { id: 'h5', name: 'Fold and put away a load of laundry', description: '', rewardType: 'money', rewardAmount: 2, requireApproval: true, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Medium Jobs' },
+    { id: 'h6', name: 'Organize the pantry shelves', description: '', rewardType: 'money', rewardAmount: 2.5, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null, sectionName: 'Medium Jobs' },
+    { id: 'h7', name: 'Deep clean the bathroom', description: '', rewardType: 'money', rewardAmount: 3, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null, sectionName: 'Big Jobs' },
+    { id: 'h8', name: 'Clean out and vacuum the car', description: '', rewardType: 'money', rewardAmount: 3, requireApproval: true, isRepeatable: true, frequencyPeriod: 'week', cooldownHours: 168, maxInstances: null, sectionName: 'Big Jobs' },
+    { id: 'h9', name: 'Write a letter to a grandparent', description: '', rewardType: 'points', rewardAmount: 5, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Connection' },
+    { id: 'h10', name: 'Read a story to a younger sibling', description: '', rewardType: 'points', rewardAmount: 5, requireApproval: false, isRepeatable: true, frequencyPeriod: null, cooldownHours: null, maxInstances: null, sectionName: 'Connection' },
+  ],
+  claimLockHours: 2,
+  approvalRequired: true,
 }
 
 export const EXTRA_EARNING_PREFILL: ListRevealPreFill = {
@@ -351,12 +378,22 @@ interface ListRevealAssignmentWizardProps {
   familyMembers: Array<{
     id: string
     display_name: string
+    role?: string | null
+    relationship?: string | null
+    dashboard_mode?: string | null
+    out_of_nest?: boolean
     is_active?: boolean
     calendar_color?: string | null
     assigned_color?: string | null
     member_color?: string | null
   }>
   preFill?: ListRevealPreFill
+  /**
+   * ST-A "Use as-is": open at a specific step key (e.g. 'sharing' or 'review')
+   * when a preFill has already decided everything earlier. Ignored without
+   * a preFill.
+   */
+  startAtStepKey?: string
 }
 
 export function ListRevealAssignmentWizard({
@@ -366,6 +403,7 @@ export function ListRevealAssignmentWizard({
   memberId,
   familyMembers,
   preFill,
+  startAtStepKey,
 }: ListRevealAssignmentWizardProps) {
   const [step, setStep] = useState(0)
   const [state, setState] = useState<WizardState>(INITIAL_STATE)
@@ -402,11 +440,14 @@ export function ListRevealAssignmentWizard({
   const shareList = useShareList()
   const queryClient = useQueryClient()
 
-  // Eligible claimers — all active members, including mom (so she can earn too).
-  // Mom appears in the pill list and can opt in/out via the Specific People picker.
-  const childMembers = familyMembers.filter(
-    (m) => m.is_active !== false,
-  )
+  // ST-A rider (b): kids' earning boards default to KIDS ONLY. Special Adults
+  // NEVER appear (the S1 audit found boards default-shared to caregivers).
+  // Mom/dad can be added explicitly via the "Show adults too" toggle — the
+  // wizard's "pick yourself too" affordance survives, but only as an opt-in.
+  const [showAdults, setShowAdults] = useState(false)
+  const childMembers = familyMembers.filter(isChildMember)
+  const optInAdults = familyMembers.filter(isOptInAdult)
+  const pickableMembers = showAdults ? [...childMembers, ...optInAdults] : childMembers
 
   const steps = state.flavor === 'draw' ? DRAW_STEPS : OPPORTUNITY_STEPS
 
@@ -432,14 +473,20 @@ export function ListRevealAssignmentWizard({
         deployTarget: preFill.deployTarget ?? 'standalone',
       })
       preFillApplied.current = true
-      setStep(1) // skip flavor selection since preFill sets it
+      // Skip flavor selection since preFill sets it. "Use as-is" callers can
+      // fast-forward further via startAtStepKey (e.g. straight to review).
+      const flavorSteps = preFill.flavor === 'draw' ? DRAW_STEPS : OPPORTUNITY_STEPS
+      const targetIdx = startAtStepKey
+        ? flavorSteps.findIndex((s) => s.key === startAtStepKey)
+        : -1
+      setStep(targetIdx > 0 ? targetIdx : 1)
       return
     }
     if (draft && !draftRestored.current && !preFill) {
       setState(draft)
       draftRestored.current = true
     }
-  }, [draft, preFill])
+  }, [draft, preFill, startAtStepKey])
 
   // Auto-save draft on step change and on meaningful content change
   const draftTitle = state.listName || 'Untitled List'
@@ -537,7 +584,9 @@ export function ListRevealAssignmentWizard({
 
   const handleToggleAll = useCallback(() => {
     setState((prev) => {
-      const allSelected = childMembers.length > 0 && prev.selectedMemberIds.length === childMembers.length
+      // "Everyone" here means ALL KIDS — never Special Adults, never adults
+      // unless individually opted in (ST-A rider (b)).
+      const allSelected = childMembers.length > 0 && childMembers.every((m) => prev.selectedMemberIds.includes(m.id))
       return {
         ...prev,
         sharingMode: allSelected ? 'specific' : 'all',
@@ -739,6 +788,14 @@ Return ONLY a JSON array. No markdown, no preamble.`
 
       const isOpportunity = state.flavor === 'opportunity'
 
+      // Resolve the audience BEFORE creating the list so eligible_members can
+      // land on the row itself. 'all' = all KIDS (rider (b)); 'specific' =
+      // exactly the picked ids (kids + explicitly opted-in adults, never
+      // Special Adults — they aren't pickable).
+      const audienceIds = state.sharingMode === 'all'
+        ? childMembers.map((m) => m.id)
+        : state.selectedMemberIds
+
       // 1. Create the list
       const listPayload: Record<string, unknown> = {
         family_id: familyId,
@@ -748,6 +805,12 @@ Return ONLY a JSON array. No markdown, no preamble.`
         description: state.listDescription || null,
         is_opportunity: isOpportunity,
         is_shared: true,
+      }
+      if (isOpportunity) {
+        // eligible_members is the enforcement field the Opportunities surfaces
+        // scope on (useOpportunityLists / canClaimItem). Leaving it null meant
+        // "everyone" — including Special Adults. Write the real audience.
+        listPayload.eligible_members = audienceIds
       }
 
       if (isOpportunity) {
@@ -803,12 +866,8 @@ Return ONLY a JSON array. No markdown, no preamble.`
         console.warn('List items insert warning:', itemsError)
       }
 
-      // 3. Share with selected members
-      const shareTargets = state.sharingMode === 'all'
-        ? childMembers.map((m) => m.id)
-        : state.selectedMemberIds
-
-      for (const mid of shareTargets) {
+      // 3. Share with the resolved audience (kids by default — rider (b))
+      for (const mid of audienceIds) {
         try {
           await shareList.mutateAsync({
             listId,
@@ -944,21 +1003,28 @@ Return ONLY a JSON array. No markdown, no preamble.`
         }
       }
 
-      // 5. Save wizard_templates row
+      // 5. Save wizard_templates row (non-critical provenance — never blocks
+      // the success screen). F-23 fix: the previous insert used nonexistent
+      // columns (wizard_type / created_by / template_name) and omitted the
+      // NOT-NULL template_type, so it had failed silently since Phase 3.7.
+      // Correct shape mirrors RepeatedActionChartWizard's fixed writer.
       try {
-        await supabase.from('wizard_templates').insert({
+        const { error: wtError } = await supabase.from('wizard_templates').insert({
           family_id: familyId,
-          created_by: memberId,
-          wizard_type: 'list_reveal_assignment',
-          template_name: state.listName.trim() || (isOpportunity ? 'Earning Opportunities' : 'Spinner List'),
+          template_type: 'list_reveal_assignment',
+          title: state.listName.trim() || (isOpportunity ? 'Earning Opportunities' : 'Spinner List'),
+          template_source: 'family',
+          original_author_id: memberId,
           config: {
             flavor: state.flavor,
             list_id: listId,
             deploy_target: isOpportunity ? 'lists' : state.deployTarget,
+            eligible_member_ids: audienceIds,
           },
         })
-      } catch {
-        // Non-critical
+        if (wtError) console.warn('wizard_templates record failed (non-critical):', wtError)
+      } catch (err) {
+        console.warn('wizard_templates record failed (non-critical):', err)
       }
 
       // Invalidate queries
@@ -1481,9 +1547,9 @@ Return ONLY a JSON array. No markdown, no preamble.`
                 className="shrink-0"
               />
               <div>
-                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Everyone</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>All kids</span>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
-                  Anyone in the family can browse and claim — including you
+                  Every kid in the family can browse and claim
                 </p>
               </div>
             </label>
@@ -1504,17 +1570,29 @@ Return ONLY a JSON array. No markdown, no preamble.`
               <div className="flex-1 min-w-0 overflow-hidden">
                 <span className="text-sm font-medium" style={{ color: 'var(--color-text-primary)' }}>Specific people</span>
                 <p className="text-xs mt-0.5 mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                  Only selected members can see these — pick yourself too if you want a chance at the reward
+                  Only the kids you pick can see these
                 </p>
                 {state.sharingMode === 'specific' && (
-                  <MemberPillSelector
-                    members={childMembers}
-                    selectedIds={state.selectedMemberIds}
-                    onToggle={handleMemberToggle}
-                    showEveryone
-                    onToggleAll={handleToggleAll}
-                    showSortToggle={false}
-                  />
+                  <>
+                    <MemberPillSelector
+                      members={pickableMembers}
+                      selectedIds={state.selectedMemberIds}
+                      onToggle={handleMemberToggle}
+                      showEveryone
+                      onToggleAll={handleToggleAll}
+                      showSortToggle={false}
+                    />
+                    {optInAdults.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); setShowAdults((v) => !v) }}
+                        className="mt-2 text-xs font-medium underline"
+                        style={{ color: 'var(--color-text-secondary)' }}
+                      >
+                        {showAdults ? 'Hide adults' : 'Show adults too (add yourself for a chance at the reward)'}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </label>

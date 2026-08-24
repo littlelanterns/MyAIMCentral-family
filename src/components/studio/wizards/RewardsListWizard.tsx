@@ -7,9 +7,10 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { Gift, Sparkles, Plus, Trash2, GripVertical, CheckCircle2 } from 'lucide-react'
+import { Gift, Sparkles, Plus, Trash2, GripVertical, CheckCircle2, ClipboardList } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardDraft } from './useWizardDraft'
+import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useCreateList, useShareList } from '@/hooks/useLists'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
@@ -250,6 +251,9 @@ export function RewardsListWizard({
   stateRef.current = state
 
   // AI suggestions
+  // F-16: the card promises "bulk-paste a brain dump" — the shared
+  // BulkAddWithAI component (Convention 252) delivers it.
+  const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [aiSuggestions, setAiSuggestions] = useState<RewardItem[]>([])
   const [aiSelectedIds, setAiSelectedIds] = useState<Set<string>>(new Set())
   const [aiLoading, setAiLoading] = useState(false)
@@ -598,22 +602,68 @@ export function RewardsListWizard({
               Add the rewards your kids can earn. Tag them as small, medium, or big so treasure boxes and spinners can draw from the right tier.
             </p>
 
-            {/* AI suggest button */}
+            {/* Bulk paste + AI suggest buttons (F-16: card promises bulk-paste) */}
             {aiSuggestions.length === 0 && (
-              <button
-                type="button"
-                onClick={handleAISuggest}
-                disabled={aiLoading}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center border"
-                style={{
-                  borderColor: 'var(--color-btn-primary-bg)',
-                  color: 'var(--color-btn-primary-bg)',
-                  backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkAdd(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center border"
+                  style={{
+                    borderColor: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-bg)',
+                    backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
+                  }}
+                >
+                  <ClipboardList size={16} />
+                  Bulk Add with AI
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAISuggest}
+                  disabled={aiLoading}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex-1 justify-center border"
+                  style={{
+                    borderColor: 'var(--color-btn-primary-bg)',
+                    color: 'var(--color-btn-primary-bg)',
+                    backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 5%, var(--color-bg-primary))',
+                  }}
+                >
+                  <Sparkles size={16} />
+                  {aiLoading ? 'Thinking...' : 'Let AI suggest rewards'}
+                </button>
+              </div>
+            )}
+
+            {/* Shared bulk-add panel (Convention 252) */}
+            {showBulkAdd && (
+              <BulkAddWithAI
+                title="Bulk Add Rewards"
+                placeholder={'Paste or brain-dump rewards, any format...\ne.g.\nExtra 30 min screen time\nPick dessert for the family\nTrip to the ice cream shop (big)\nStay up 15 minutes late'}
+                hint="AI will split your dump into individual rewards and sort them into small / medium / big tiers."
+                categories={[
+                  { value: 'small', label: 'Small' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'big', label: 'Big' },
+                ]}
+                parsePrompt="Parse this brain dump of kid rewards/prizes into individual reward items. Each item gets a short, clean reward name. Classify each into a tier by effort/value: small (quick treats, minutes of screen time), medium (outings, picks, small purchases), big (special trips, bigger purchases, big experiences)."
+                onSave={async (items: ParsedBulkItem[]) => {
+                  setState((prev) => ({
+                    ...prev,
+                    items: [
+                      ...prev.items,
+                      ...items.map((i) => ({
+                        id: makeId(),
+                        name: i.text,
+                        tier: (['small', 'medium', 'big'].includes(i.category ?? '') ? i.category : '') as RewardItem['tier'],
+                      })),
+                    ],
+                  }))
+                  setShowBulkAdd(false)
                 }}
-              >
-                <Sparkles size={16} />
-                {aiLoading ? 'Thinking...' : 'Let AI suggest rewards'}
-              </button>
+                onClose={() => setShowBulkAdd(false)}
+                modelTier="haiku"
+              />
             )}
 
             {aiError && (

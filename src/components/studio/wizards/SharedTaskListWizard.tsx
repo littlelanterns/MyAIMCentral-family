@@ -104,6 +104,9 @@ interface SharedTaskListWizardProps {
     member_color?: string | null
   }>
   initialItems?: Array<{ text: string; bigJob?: boolean }>
+  /** ST-A "Use as-is": open at a specific step key (e.g. 'sharing') when the
+   *  example content already decided everything earlier. */
+  startAtStepKey?: string
 }
 
 function makeId() {
@@ -196,6 +199,7 @@ export function SharedTaskListWizard({
   memberId,
   familyMembers,
   initialItems,
+  startAtStepKey,
 }: SharedTaskListWizardProps) {
   const createList = useCreateList()
   const shareList = useShareList()
@@ -220,8 +224,16 @@ export function SharedTaskListWizard({
     }
     return INITIAL_STATE
   })
-  const [currentStep, setCurrentStep] = useState(0)
+  const [currentStep, setCurrentStep] = useState(() => {
+    if (startAtStepKey) {
+      const idx = STEPS.findIndex((s) => s.key === startAtStepKey)
+      if (idx > 0) return idx
+    }
+    return 0
+  })
   const [isDeploying, setIsDeploying] = useState(false)
+  const [deployed, setDeployed] = useState(false)
+  const [deployError, setDeployError] = useState('')
   const [bulkInput, setBulkInput] = useState('')
   const [isParsing, setIsParsing] = useState(false)
 
@@ -331,6 +343,7 @@ export function SharedTaskListWizard({
   const handleDeploy = useCallback(async () => {
     if (!familyId || !memberId) return
     setIsDeploying(true)
+    setDeployError('')
     try {
       const validItems = state.items.filter((i) => i.text.trim())
       if (validItems.length === 0) return
@@ -344,7 +357,7 @@ export function SharedTaskListWizard({
       })
 
       // Mark as shared + store claim config
-      await supabase
+      const { error: configError } = await supabase
         .from('lists')
         .update({
           is_shared: true,
@@ -354,6 +367,7 @@ export function SharedTaskListWizard({
           },
         })
         .eq('id', newList.id)
+      if (configError) throw configError
 
       // Create items
       const itemRows = validItems.map((item, idx) => ({
@@ -368,7 +382,8 @@ export function SharedTaskListWizard({
         notes: item.bigJob ? '[BIG_JOB]' : null,
         sort_order: idx,
       }))
-      await supabase.from('list_items').insert(itemRows)
+      const { error: itemsError } = await supabase.from('list_items').insert(itemRows)
+      if (itemsError) throw itemsError
 
       // Create shares
       for (const mid of state.sharedMemberIds) {
@@ -379,34 +394,46 @@ export function SharedTaskListWizard({
         })
       }
 
-      // Save to wizard_templates for "My Customized"
-      await supabase.from('wizard_templates').insert({
-        family_id: familyId,
-        template_type: 'shared_task_list',
-        title: state.listName.trim() || 'Shared To-Do',
-        description: state.description || null,
-        template_source: 'wizard',
-        config: {
-          items: validItems.map((i) => ({
-            text: i.text,
-            bigJob: i.bigJob,
-            recurrence: i.recurrence,
-          })),
-          sharedMemberIds: state.sharedMemberIds,
-          claimToPromote: state.claimToPromote,
-          requireApprovalOnPromote: state.requireApprovalOnPromote,
-        },
-        tags: ['shared', 'todo', 'honey_do'],
-      })
+      // Save to wizard_templates for "My Customized" — non-critical
+      // provenance in its OWN try/catch (F-23): this insert previously used
+      // template_source: 'wizard', which violates the table's CHECK
+      // ('system' | 'family' | 'community'), threw inside the main deploy
+      // try, and silently prevented the wizard from ever finishing cleanly.
+      try {
+        const { error: wtError } = await supabase.from('wizard_templates').insert({
+          family_id: familyId,
+          template_type: 'shared_task_list',
+          title: state.listName.trim() || 'Shared To-Do',
+          description: state.description || null,
+          template_source: 'family',
+          original_author_id: memberId,
+          config: {
+            list_id: newList.id,
+            items: validItems.map((i) => ({
+              text: i.text,
+              bigJob: i.bigJob,
+              recurrence: i.recurrence,
+            })),
+            sharedMemberIds: state.sharedMemberIds,
+            claimToPromote: state.claimToPromote,
+            requireApprovalOnPromote: state.requireApprovalOnPromote,
+          },
+          tags: ['shared', 'todo', 'honey_do'],
+        })
+        if (wtError) console.warn('wizard_templates record failed (non-critical):', wtError)
+      } catch (err) {
+        console.warn('wizard_templates record failed (non-critical):', err)
+      }
 
       clearDraft()
-      onClose()
+      setDeployed(true)
     } catch (err) {
       console.error('[SharedTaskListWizard] deploy failed:', err)
+      setDeployError('Something went wrong deploying your list. Please try again.')
     } finally {
       setIsDeploying(false)
     }
-  }, [familyId, memberId, state, createList, shareList, clearDraft, onClose])
+  }, [familyId, memberId, state, createList, shareList, clearDraft])
 
   // ─── Navigation ───
 
@@ -431,6 +458,37 @@ export function SharedTaskListWizard({
   // ─── Render steps ───
 
   function renderStep() {
+    if (deployed) {
+      return (
+        <div className="text-center py-8 space-y-4">
+          <div
+            className="w-16 h-16 rounded-full mx-auto flex items-center justify-center"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 15%, transparent)' }}
+          >
+            <ClipboardList size={32} style={{ color: 'var(--color-btn-primary-bg)' }} />
+          </div>
+          <h3
+            className="text-lg font-semibold"
+            style={{ color: 'var(--color-text-heading)', fontFamily: 'var(--font-heading)' }}
+          >
+            Shared to-do deployed!
+          </h3>
+          <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+            {(state.listName.trim() || 'Your shared to-do')} is live on the Lists page for everyone you shared it with.
+          </p>
+          <button
+            onClick={onClose}
+            className="px-6 py-2 rounded-lg text-sm font-semibold transition-colors"
+            style={{
+              backgroundColor: 'var(--color-btn-primary-bg)',
+              color: 'var(--color-btn-primary-text)',
+            }}
+          >
+            Done
+          </button>
+        </div>
+      )
+    }
     switch (currentStep) {
       case 0: return renderNameStep()
       case 1: return renderItemsStep()
@@ -719,6 +777,20 @@ export function SharedTaskListWizard({
             <span>Add at least one item and share with at least one person to deploy.</span>
           </div>
         )}
+
+        {deployError && (
+          <div
+            role="alert"
+            className="rounded-lg p-3 text-sm border"
+            style={{
+              borderColor: 'var(--color-error, #b3261e)',
+              color: 'var(--color-error, #b3261e)',
+              backgroundColor: 'color-mix(in srgb, var(--color-error, #b3261e) 8%, var(--color-bg-card))',
+            }}
+          >
+            {deployError}
+          </div>
+        )}
       </div>
     )
   }
@@ -739,6 +811,7 @@ export function SharedTaskListWizard({
       canAdvance={canAdvance}
       canFinish={canFinish}
       isFinishing={isDeploying}
+      hideNav={deployed}
     >
       {renderStep()}
     </SetupWizard>

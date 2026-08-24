@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase/client'
 import { localIso } from '@/utils/dates'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
+import { isChildMember } from '@/lib/members/isChildMember'
 import { RRule, type Weekday } from 'rrule'
 
 // ── Types ──────────────────────────────────────────────────────
@@ -102,10 +103,12 @@ export function MeetingSetupWizard({
   familyMembers,
 }: MeetingSetupWizardProps) {
   // ── Derived data ──
+  // F-20: kid detection uses the shared isChildMember() predicate. The old
+  // `relationship === 'child'` check silently dropped every kid step for any
+  // member added by a path that never set `relationship` (NULL) — the wizard
+  // just rendered without Family Council / 1:1s and said nothing.
   const kids = useMemo(
-    () => familyMembers.filter(m =>
-      m.is_active && m.relationship === 'child' && !m.out_of_nest
-    ),
+    () => familyMembers.filter(isChildMember),
     [familyMembers],
   )
   const additionalAdult = useMemo(
@@ -501,7 +504,7 @@ export function MeetingSetupWizard({
   const renderStep = () => {
     switch (currentKey) {
       case 'intro':
-        return <IntroStep />
+        return <IntroStep hasKids={hasKids} />
 
       case 'family_council':
         return (
@@ -622,7 +625,7 @@ export function MeetingSetupWizard({
 
 // ── Step Components ─────────────────────────────────────────────
 
-function IntroStep() {
+function IntroStep({ hasKids }: { hasKids: boolean }) {
   return (
     <div className="space-y-4">
       <div
@@ -642,6 +645,21 @@ function IntroStep() {
           </div>
         </div>
       </div>
+      {/* F-20: never silently drop the kid steps — say why they're missing */}
+      {!hasKids && (
+        <div
+          className="rounded-lg p-3 text-sm border"
+          style={{
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-text-secondary)',
+            backgroundColor: 'var(--color-bg-card)',
+          }}
+        >
+          I don't see any kids on your roster yet, so the Family Council and
+          1:1 time steps are hidden. Add your kids in Family Members and come
+          back — or continue for couple check-ins only.
+        </div>
+      )}
       <p className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
         You can skip any section that doesn't fit your family right now.
       </p>

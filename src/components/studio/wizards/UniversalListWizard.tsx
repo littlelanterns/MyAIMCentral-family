@@ -13,7 +13,7 @@
  * 6. Review & deploy
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardProgress } from './useWizardProgress'
 import { WizardTagPicker } from './WizardTagPicker'
@@ -21,7 +21,8 @@ import { ConnectionOffersPanel } from './ConnectionOffersPanel'
 import { useFamily } from '@/hooks/useFamily'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
-import { useCreateList, useCreateListItem, useShareList } from '@/hooks/useLists'
+import { useQueryClient } from '@tanstack/react-query'
+import { useCreateList, useShareList } from '@/hooks/useLists'
 import { getMemberColor } from '@/lib/memberColors'
 import { supabase } from '@/lib/supabase/client'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
@@ -137,8 +138,8 @@ export function UniversalListWizard({
   const { data: currentMember } = useFamilyMember()
   const { data: members = [] } = useFamilyMembers(family?.id ?? '')
   const createList = useCreateList()
-  const createListItem = useCreateListItem()
   const shareList = useShareList()
+  const queryClient = useQueryClient()
 
   const familyId = family?.id ?? ''
 
@@ -159,8 +160,16 @@ export function UniversalListWizard({
   })
 
   const [isDeploying, setIsDeploying] = useState(false)
+  const [deployError, setDeployError] = useState<string | null>(null)
   const [detectingType, setDetectingType] = useState(false)
   const [parsingItems, setParsingItems] = useState(false)
+
+  // F-22: deploy is resumable, never silently partial. If a later phase
+  // fails, the created list id is kept so mom's retry finishes the SAME list
+  // instead of creating a duplicate half-list.
+  const deployedListIdRef = useRef<string | null>(null)
+  const itemsInsertedRef = useRef(false)
+  const sharedIdsRef = useRef<Set<string>>(new Set())
 
   // Resolve active preset
   const activePreset = useMemo<ListPreset | null>(() => {
@@ -382,102 +391,152 @@ export function UniversalListWizard({
 
   // ─── Deploy ───
 
+  /** Split a human quantity string ("2 lbs", "1 gallon", "3") into the DB's
+   *  numeric quantity + quantity_unit columns. Non-numeric strings become
+   *  a unit-only note so nothing is silently dropped (F-22: preset
+   *  quantities were being discarded entirely). */
+  const parseQuantity = (raw: string | undefined): { quantity: number | null; quantity_unit: string | null } => {
+    if (!raw?.trim()) return { quantity: null, quantity_unit: null }
+    const match = raw.trim().match(/^(\d+(?:[.,]\d+)?)\s*(.*)$/)
+    if (!match) return { quantity: null, quantity_unit: raw.trim() }
+    return {
+      quantity: Number(match[1].replace(',', '.')),
+      quantity_unit: match[2].trim() || null,
+    }
+  }
+
   const deploy = useCallback(async () => {
     if (!family || !currentMember) return
     setIsDeploying(true)
+    setDeployError(null)
     try {
-      const title =
-        state.listTitle.trim() ||
-        activePreset?.label ||
-        'My List'
-
-      // 1. Create the list (with Living Shopping List V1 overrides)
-      const createPayload: Parameters<typeof createList.mutateAsync>[0] = {
-        family_id: family.id,
-        owner_id: currentMember.id,
-        title,
-        list_type: resolvedListType,
-        tags: state.tags,
-      }
-      // Respect extras toggles for Living Shopping List fields
-      // (DB trigger sets defaults for shopping lists; only override if mom explicitly unchecked)
-      if (state.extras.always_on === false) {
-        createPayload.is_always_on = false
-      }
-      if (state.extras.shopping_mode === false) {
-        createPayload.include_in_shopping_mode = false
+      // F-22: a list is never silently titled after the purpose tile. The
+      // review step auto-suggests a visible, editable name; by the time
+      // deploy runs a non-empty title is required (canFinish).
+      const title = state.listTitle.trim()
+      if (!title) {
+        setDeployError('Give your list a name before deploying.')
+        return
       }
 
-      const list = await createList.mutateAsync(createPayload)
+      const validItems = state.items.filter((i) => i.text.trim())
 
-      // 2. Create list items (with store_tags + store_category for shopping)
-      for (let i = 0; i < state.items.length; i++) {
-        const item = state.items[i]
-        if (!item.text.trim()) continue
-        await createListItem.mutateAsync({
-          list_id: list.id,
-          content: item.text,
-          section_name: item.section ?? undefined,
-          notes: item.notes ?? undefined,
-          sort_order: i,
-          store_tags: item.store_tags ?? undefined,
-          store_category: item.store_category ?? undefined,
-        })
-      }
-
-      // 3. Share with selected members
-      if (state.sharingMode === 'specific') {
-        for (const mid of state.sharedMemberIds) {
-          if (mid !== currentMember.id) {
-            await shareList.mutateAsync({
-              listId: list.id,
-              memberId: mid,
-              canEdit: state.anyoneCanAdd,
-            })
-          }
+      // 1. Create the list (with Living Shopping List V1 overrides) —
+      // skipped on retry when a previous attempt already created it.
+      let listId = deployedListIdRef.current
+      if (!listId) {
+        const createPayload: Parameters<typeof createList.mutateAsync>[0] = {
+          family_id: family.id,
+          owner_id: currentMember.id,
+          title,
+          list_type: resolvedListType,
+          tags: state.tags,
         }
-      } else if (state.sharingMode === 'family') {
-        const otherMembers = members.filter(
-          (m: FamilyMember) => m.id !== currentMember.id && m.is_active,
-        )
-        for (const m of otherMembers) {
+        // Respect extras toggles for Living Shopping List fields
+        // (DB trigger sets defaults for shopping lists; only override if mom explicitly unchecked)
+        if (state.extras.always_on === false) {
+          createPayload.is_always_on = false
+        }
+        if (state.extras.shopping_mode === false) {
+          createPayload.include_in_shopping_mode = false
+        }
+        const list = await createList.mutateAsync(createPayload)
+        listId = list.id
+        deployedListIdRef.current = listId
+      }
+
+      // 2. Create list items in ONE batched insert — all-or-nothing, so a
+      // mid-list failure can never leave a half-populated list (the S4
+      // audit found exactly that). Quantities from presets/parsing are
+      // preserved instead of dropped.
+      if (!itemsInsertedRef.current && validItems.length > 0) {
+        const itemRows = validItems.map((item, i) => {
+          const { quantity, quantity_unit } = parseQuantity(item.quantity)
+          return {
+            list_id: listId,
+            content: item.text,
+            section_name: item.section ?? null,
+            notes: item.notes ?? null,
+            sort_order: i,
+            quantity,
+            quantity_unit,
+            store_tags: item.store_tags ?? null,
+            store_category: item.store_category ?? null,
+          }
+        })
+        const { error: itemsError } = await supabase.from('list_items').insert(itemRows)
+        if (itemsError) {
+          throw new Error(`Couldn't add your items (${itemsError.message}). Your list "${title}" was created — tap Create List to retry adding the items.`)
+        }
+        itemsInsertedRef.current = true
+      }
+
+      // 3. Share with selected members — each success is remembered so a
+      // retry only re-attempts the missing shares.
+      const shareTargets =
+        state.sharingMode === 'specific'
+          ? state.sharedMemberIds.filter((mid) => mid !== currentMember.id)
+          : state.sharingMode === 'family'
+            ? members.filter((m: FamilyMember) => m.id !== currentMember.id && m.is_active).map((m: FamilyMember) => m.id)
+            : []
+      const shareFailures: string[] = []
+      for (const mid of shareTargets) {
+        if (sharedIdsRef.current.has(mid)) continue
+        try {
           await shareList.mutateAsync({
-            listId: list.id,
-            memberId: m.id,
+            listId: listId!,
+            memberId: mid,
             canEdit: state.anyoneCanAdd,
           })
+          sharedIdsRef.current.add(mid)
+        } catch (err) {
+          console.error('List wizard share failed for member', mid, err)
+          shareFailures.push(mid)
         }
       }
+      if (shareFailures.length > 0) {
+        const names = shareFailures
+          .map((mid) => members.find((m: FamilyMember) => m.id === mid)?.display_name ?? 'a family member')
+          .join(', ')
+        throw new Error(`Your list "${title}" and its items were created, but sharing with ${names} didn't go through. Tap Create List to retry sharing.`)
+      }
 
-      // 4. Log to activity_log_entries
-      await supabase.from('activity_log_entries').insert({
+      // 4. Log to activity_log_entries (best-effort — never blocks success)
+      const { error: logError } = await supabase.from('activity_log_entries').insert({
         family_id: family.id,
         member_id: currentMember.id,
         event_type: 'wizard_deployed',
         source: 'wizard',
-        source_reference_id: list.id,
+        source_reference_id: listId,
         source_table: 'lists',
         metadata: {
           wizard_id: 'universal-list',
           preset: state.selectedPresetKey,
           list_type: resolvedListType,
-          item_count: state.items.length,
+          item_count: validItems.length,
           sharing_mode: state.sharingMode,
-          shared_with_count: state.sharingMode === 'specific'
-            ? state.sharedMemberIds.length
-            : state.sharingMode === 'family'
-              ? members.filter((m: FamilyMember) => m.id !== currentMember.id && m.is_active).length
-              : 0,
+          shared_with_count: shareTargets.length,
           tags: state.tags,
           connections: state.connections,
           extras: state.extras,
         },
       })
+      if (logError) console.warn('List wizard activity log failed (non-critical):', logError)
 
+      queryClient.invalidateQueries({ queryKey: ['list-items', listId] })
+      queryClient.invalidateQueries({ queryKey: ['lists', family.id] })
+      deployedListIdRef.current = null
+      itemsInsertedRef.current = false
+      sharedIdsRef.current = new Set()
       clearProgress()
       onClose()
     } catch (err) {
       console.error('List wizard deploy failed:', err)
+      setDeployError(
+        err instanceof Error && err.message
+          ? err.message
+          : 'Something went wrong deploying your list. Nothing was lost — tap Create List to try again.',
+      )
     }
     setIsDeploying(false)
   }, [
@@ -485,13 +544,12 @@ export function UniversalListWizard({
     currentMember,
     members,
     state,
-    activePreset,
     resolvedListType,
     createList,
-    createListItem,
     shareList,
     clearProgress,
     onClose,
+    queryClient,
   ])
 
   // ─── Navigation ───
@@ -502,8 +560,9 @@ export function UniversalListWizard({
         return !!(state.selectedPresetKey || state.detectedListType)
       case 1: // Items
         return state.items.length > 0
-      case 2: // Sharing
-        return true
+      case 2: // Sharing — "specific" with nobody picked would silently
+        // deploy an unshared list (F-22): require at least one person.
+        return state.sharingMode !== 'specific' || state.sharedMemberIds.length > 0
       case 3: // Organize
         return true
       case 4: // Extras
@@ -518,6 +577,34 @@ export function UniversalListWizard({
   const handleNext = useCallback(() => {
     setCurrentStep(currentStep + 1)
   }, [currentStep, setCurrentStep])
+
+  // F-22: auto-suggest a real, VISIBLE list name when mom reaches Review
+  // without typing one — never silently fall back to the purpose-tile label
+  // at deploy time. The suggestion sits editable in the name input.
+  const SUGGESTED_NAMES: Record<string, string> = useMemo(() => ({
+    todo: 'To-Do List',
+    shopping: 'Grocery List',
+    shared_shopping: 'Family Shopping List',
+    expenses: 'Upcoming Expenses',
+    packing: 'Packing List',
+    wishlist: 'Wishlist',
+    school_expenses: 'School Expenses',
+    ideas: 'Ideas',
+    prayer: 'Prayer List',
+    custom: 'My List',
+  }), [])
+
+  useEffect(() => {
+    if (currentStep === 5 && !state.listTitle.trim()) {
+      const suggestion =
+        (state.selectedPresetKey && SUGGESTED_NAMES[state.selectedPresetKey]) ||
+        state.freeTextDescription.trim() ||
+        SUGGESTED_NAMES[resolvedListType] ||
+        'My List'
+      setState((prev) => ({ ...prev, listTitle: suggestion }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep])
 
   const handleBack = useCallback(() => {
     setCurrentStep(currentStep - 1)
@@ -1189,6 +1276,23 @@ export function UniversalListWizard({
         suggestedTags={activePreset?.defaultTags ?? []}
       />
 
+      {/* F-22: deploy failures are surfaced to mom, never console-only.
+          The wizard stays open and Create List retries against the SAME
+          list (no duplicate half-lists). */}
+      {deployError && (
+        <div
+          role="alert"
+          className="rounded-lg p-3 text-sm border"
+          style={{
+            borderColor: 'var(--color-error, #b3261e)',
+            color: 'var(--color-error, #b3261e)',
+            backgroundColor: 'color-mix(in srgb, var(--color-error, #b3261e) 8%, var(--color-bg-card))',
+          }}
+        >
+          {deployError}
+        </div>
+      )}
+
       <p
         className="text-xs text-center"
         style={{ color: 'var(--color-text-muted)' }}
@@ -1214,7 +1318,7 @@ export function UniversalListWizard({
       onNext={handleNext}
       onFinish={deploy}
       canAdvance={canAdvance}
-      canFinish={state.items.length > 0}
+      canFinish={state.items.length > 0 && state.listTitle.trim().length > 0}
       isFinishing={isDeploying}
       finishLabel="Create List"
     >

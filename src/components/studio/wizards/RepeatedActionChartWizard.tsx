@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { useWizardDraft } from './useWizardDraft'
+import { isChildMember } from '@/lib/members/isChildMember'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useCreateWidget } from '@/hooks/useWidgets'
 import { useCreateColoringReveal } from '@/hooks/useGamificationSettings'
@@ -136,12 +137,19 @@ interface RepeatedActionChartWizardProps {
   familyMembers: Array<{
     id: string
     display_name: string
+    role?: string | null
+    relationship?: string | null
+    dashboard_mode?: string | null
+    out_of_nest?: boolean
     is_active?: boolean
     calendar_color?: string | null
     assigned_color?: string | null
     member_color?: string | null
   }>
   initialState?: Partial<WizardState>
+  /** ST-A "Use as-is": open at a specific step key (e.g. 'assign') when the
+   *  example content already decided everything earlier. Requires initialState. */
+  startAtStepKey?: string
 }
 
 // ─── Main Wizard Component ─────────────────────────────────────
@@ -153,8 +161,12 @@ export function RepeatedActionChartWizard({
   memberId,
   familyMembers,
   initialState,
+  startAtStepKey,
 }: RepeatedActionChartWizardProps) {
-  const [step, setStep] = useState(0)
+  const initialStepIdx = (initialState && startAtStepKey)
+    ? Math.max(0, STEPS.findIndex((s) => s.key === startAtStepKey))
+    : 0
+  const [step, setStep] = useState(initialStepIdx)
   const [state, setState] = useState<WizardState>({ ...INITIAL_STATE, ...initialState })
   const [deployed, setDeployed] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
@@ -175,9 +187,10 @@ export function RepeatedActionChartWizard({
   const { data: coloringLibrary } = useColoringRevealLibrary(themeId ?? undefined)
   const { data: rewardsLists } = useRewardsLists(familyId)
 
-  const childMembers = familyMembers.filter(
-    (m) => m.id !== memberId && m.is_active !== false,
-  )
+  // ST-A: the Assign step's copy says "Each child gets their own independent
+  // chart" — the pill list now actually offers CHILDREN (shared predicate),
+  // not adults and Special Adults (2026-07-04 visual-pass finding).
+  const childMembers = familyMembers.filter(isChildMember)
 
   // Restore draft on mount
   useEffect(() => {
@@ -200,11 +213,11 @@ export function RepeatedActionChartWizard({
   useEffect(() => {
     if (!isOpen) {
       setState({ ...INITIAL_STATE, ...initialState })
-      setStep(0)
+      setStep(initialStepIdx)
       setDeployed(false)
       draftRestored.current = false
     }
-  }, [isOpen, initialState])
+  }, [isOpen, initialState, initialStepIdx])
 
   // ── Handlers ──────────────────────────────────────────────────
 
@@ -454,7 +467,7 @@ export function RepeatedActionChartWizard({
       setIsDeploying(false)
     }
   }, [
-    state, familyId, memberId, familyMembers, childMembers,
+    state, familyId, memberId, familyMembers,
     createWidget, createColoringReveal, coloringLibrary,
     clearDraft, qc,
   ])

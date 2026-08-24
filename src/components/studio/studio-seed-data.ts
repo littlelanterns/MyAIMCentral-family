@@ -117,6 +117,7 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'morning_routine', 'school_routine',
     ],
     isExample: true,
+    supportsUseAsIs: true,
   },
   {
     id: 'ex_bedroom_cleanup',
@@ -137,6 +138,7 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'chore_routine',
     ],
     isExample: true,
+    supportsUseAsIs: true,
   },
   {
     id: 'ex_extra_house_jobs',
@@ -155,6 +157,7 @@ export const TASK_TEMPLATES_EXAMPLES: StudioTemplate[] = [
       'Kids tap [Claim] to lock a job. A timer counts down. Complete + approved = reward. Lock expires? Job returns to the pool.',
     capability_tags: ['bonus_work', 'earn_rewards', 'job_board', 'claim_lock', 'family_economy'],
     isExample: true,
+    supportsUseAsIs: true,
   },
   {
     id: 'ex_curriculum_sequence',
@@ -896,6 +899,7 @@ export const PHASE37_SEEDED_TEMPLATES: StudioTemplate[] = [
       'rewards', 'setup_wizard', 'repeated_action', 'toddler',
     ],
     isExample: true,
+    supportsUseAsIs: true,
   },
   {
     id: 'seed_consequence_spinner',
@@ -915,6 +919,7 @@ export const PHASE37_SEEDED_TEMPLATES: StudioTemplate[] = [
       'setup_wizard', 'randomizer', 'pre_teaching',
     ],
     isExample: true,
+    supportsUseAsIs: true,
   },
   {
     id: 'seed_extra_earning',
@@ -934,6 +939,7 @@ export const PHASE37_SEEDED_TEMPLATES: StudioTemplate[] = [
       'family_economy', 'setup_wizard', 'rewards', 'bonus_work',
     ],
     isExample: true,
+    supportsUseAsIs: true,
   },
 ]
 
@@ -1035,5 +1041,6 @@ export const PHASE38_SEEDED_TEMPLATES: StudioTemplate[] = [
       'honey_do', 'setup_wizard', 'pre_filled', 'task_promotion',
     ],
     isExample: true,
+    supportsUseAsIs: true,
   },
 ]

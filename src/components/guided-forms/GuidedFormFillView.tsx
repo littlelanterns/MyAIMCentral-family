@@ -94,8 +94,18 @@ export function GuidedFormFillView({
     try {
       const now = new Date().toISOString()
 
+      // family_id is NOT NULL on guided_form_responses — derive it from the
+      // task (ST-A F-04c/B9 class: its omission made every write fail).
+      const { data: taskRow, error: taskLookupError } = await supabase
+        .from('tasks')
+        .select('family_id')
+        .eq('id', taskId)
+        .single()
+      if (taskLookupError || !taskRow) throw taskLookupError ?? new Error('Task not found')
+
       // Update guided_form_responses for child's sections
       const updates = childSections.map(section => ({
+        family_id: taskRow.family_id as string,
         task_id: taskId,
         family_member_id: childMemberId,
         section_key: section.key,
@@ -109,7 +119,9 @@ export function GuidedFormFillView({
           .from('guided_form_responses')
           .upsert(
             { ...row },
-            { onConflict: 'task_id,section_key' }
+            // The table's UNIQUE is (task_id, family_member_id, section_key)
+            // — a mismatched onConflict target makes the upsert error out.
+            { onConflict: 'task_id,family_member_id,section_key' }
           )
         if (upsertError) throw upsertError
       }
@@ -141,10 +153,18 @@ export function GuidedFormFillView({
     const content = values[sectionKey] ?? ''
     if (!content.trim()) return
 
+    const { data: taskRow } = await supabase
+      .from('tasks')
+      .select('family_id')
+      .eq('id', taskId)
+      .single()
+    if (!taskRow) return
+
     await supabase
       .from('guided_form_responses')
       .upsert(
         {
+          family_id: taskRow.family_id as string,
           task_id: taskId,
           family_member_id: childMemberId,
           section_key: sectionKey,
@@ -152,7 +172,7 @@ export function GuidedFormFillView({
           filled_by: 'child',
           completed_at: new Date().toISOString(),
         },
-        { onConflict: 'task_id,section_key' }
+        { onConflict: 'task_id,family_member_id,section_key' }
       )
       .then(() => {/* fire and forget */})
   }, [taskId, childMemberId, values, currentSection])

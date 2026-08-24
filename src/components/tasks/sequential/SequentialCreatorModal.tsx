@@ -39,6 +39,10 @@ interface SequentialCreatorModalProps {
   initialDefaults?: Partial<SequentialCreateDefaults>
   /** Build J: optional modal title override (e.g. "Create Reading List") */
   title?: string
+  /** ST-A (F-04): pre-filled collection title for example templates */
+  initialTitle?: string
+  /** ST-A (F-04): pre-filled item names for example templates — editable */
+  initialItems?: string[]
 }
 
 export function SequentialCreatorModal({
@@ -50,6 +54,8 @@ export function SequentialCreatorModal({
   onSaved,
   initialDefaults,
   title,
+  initialTitle,
+  initialItems,
 }: SequentialCreatorModalProps) {
   const { data: familyMembers = [] } = useFamilyMembers(familyId)
   const createCollection = useCreateSequentialCollection()
@@ -181,6 +187,8 @@ export function SequentialCreatorModal({
           onSave={handleSave}
           onCancel={handleClose}
           initialDefaults={initialDefaults}
+          initialTitle={initialTitle}
+          initialItems={initialItems}
         />
 
         {createCollection.isPending && (

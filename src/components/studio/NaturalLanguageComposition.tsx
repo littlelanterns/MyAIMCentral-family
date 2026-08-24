@@ -72,8 +72,22 @@ Respond with ONLY valid JSON (no markdown fences):
     // Only include fields you can confidently extract. Omit uncertain fields.
   },
   "confidence": "high" | "medium" | "low",
-  "description": "One sentence restating what mom wants in plain language"
+  "description": "A short phrase that completes the sentence 'It sounds like you want to ___' — second person, starting with a verb (e.g. 'track potty trips for Ruthie with a sticker chart'). NEVER start with a name or 'Mom wants' or 'She wants'."
 }`
+
+/**
+ * ST-A item 10: the model sometimes restates in the third person
+ * ("Mom wants to track...") which renders as the broken sentence
+ * "It sounds like you want to Mom wants to track...". Normalize any
+ * third-person lead-in back to a verb phrase.
+ */
+export function normalizeRestate(description: string): string {
+  let d = description.trim()
+  d = d.replace(/^(mom|she|the mom|the user|you)\s+(wants?|would like|is looking|needs?)\s+(to\s+)?/i, '')
+  d = d.replace(/^you\s+want\s+to\s+/i, '')
+  if (d.length > 0) d = d.charAt(0).toLowerCase() + d.slice(1)
+  return d
+}
 
 export function NaturalLanguageComposition({
   familyMemberNames,
@@ -112,7 +126,7 @@ export function NaturalLanguageComposition({
         setInput('')
         setResult(null)
       } else {
-        setResult(parsed)
+        setResult({ ...parsed, description: normalizeRestate(parsed.description ?? '') })
       }
     } catch {
       setError('Something went wrong. Try again or pick a wizard from the list below.')
@@ -262,7 +276,7 @@ export function NaturalLanguageComposition({
           ) : (
             <>
               <p className="text-sm mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Based on what I'm hearing — <em>{result.description}</em> — these wizards might fit:
+                Based on what I'm hearing — you want to <em>{result.description}</em> — these wizards might fit:
               </p>
               <div className="flex flex-col gap-2 mt-3">
                 {allWizardTypes.map(wt => (

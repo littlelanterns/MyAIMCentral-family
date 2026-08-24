@@ -88,11 +88,76 @@ import {
   ListRevealAssignmentWizard,
   CONSEQUENCE_SPINNER_PREFILL,
   EXTRA_EARNING_PREFILL,
+  EXTRA_HOUSE_JOBS_PREFILL,
   type ListRevealPreFill,
 } from '@/components/studio/wizards/ListRevealAssignmentWizard'
 import { RepeatedActionChartWizard } from '@/components/studio/wizards/RepeatedActionChartWizard'
 import { SharedTaskListWizard } from '@/components/studio/wizards/SharedTaskListWizard'
+import { BestIntentionsStarterWizard } from '@/components/studio/wizards/BestIntentionsStarterWizard'
 import { NaturalLanguageComposition } from '@/components/studio/NaturalLanguageComposition'
+import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
+import { ModalV2 } from '@/components/shared/ModalV2'
+
+// ─────────────────────────────────────────────
+// Example prefill content (ST-A, finding F-04) — example cards promised
+// pre-filled content their Customize path never loaded.
+// ─────────────────────────────────────────────
+
+/** Potty Chart seed initial — shared by Customize and Use-as-is. */
+const POTTY_CHART_INITIAL: Record<string, unknown> = {
+  chartName: 'Potty Chart',
+  actionTaskName: 'Used the potty!',
+  showStarChart: true,
+  starChartTarget: 50,
+  showColoringReveal: true,
+  coloringStepCount: 10,
+  coloringAutoNext: true,
+  milestones: [
+    { id: 'seed_m1', type: 'every_nth', count: 5, rewardMode: 'rewards_list', rewardsListId: '', customText: '', presentation: 'treasure_box' },
+    { id: 'seed_m2', type: 'on_threshold_cross', count: 50, rewardMode: 'custom_text', rewardsListId: '', customText: 'I DID IT! Shopping trip for big kid underwear!', presentation: 'treasure_box' },
+  ],
+}
+
+/** Honey-Do seed items — shared by Customize and Use-as-is. */
+const HONEY_DO_SEED_ITEMS: Array<{ text: string; bigJob?: boolean }> = [
+  { text: 'Fix the leaky faucet', bigJob: true },
+  { text: 'Clean out the garage', bigJob: true },
+  { text: 'Hang the shelf in the kids\' room' },
+  { text: 'Replace the air filter' },
+  { text: 'Fix the squeaky door' },
+  { text: 'Organize the tool shed', bigJob: true },
+  { text: 'Clean the gutters', bigJob: true },
+  { text: 'Touch up paint in the hallway' },
+]
+
+/** Curriculum Chapter Sequence — the promised 5 sample chapters. */
+const CURRICULUM_SEQUENCE_PREFILL = {
+  title: 'Curriculum Chapter Sequence',
+  items: [
+    'Chapter 1: Getting Started',
+    'Chapter 2: Building the Basics',
+    'Chapter 3: Putting It Together',
+    'Chapter 4: Practice and Review',
+    'Chapter 5: Show What You Know',
+  ],
+}
+
+/** Guided-form example mom-section prefills, keyed by seed template id →
+ *  section_key → content. Editable in Step 1 of GuidedFormAssignModal. */
+const GUIDED_FORM_EXAMPLE_PREFILLS: Record<string, Record<string, string>> = {
+  ex_sodas_sibling: {
+    situation:
+      'Yesterday you and your sibling had a disagreement. That happens in every family — what matters is what we learn from it. Let\'s think it through together. Here\'s what I noticed: [describe what happened in your own words].',
+  },
+  ex_what_if_friend_pressure: {
+    scenario:
+      'Imagine a friend dares you to do something you know isn\'t right — maybe breaking a rule, sneaking something, or being unkind to someone. They say everyone else is doing it and you don\'t want to look scared. What would you do?',
+  },
+  ex_apology_general: {
+    intro_note:
+      'I\'m not asking you to do this as punishment. I\'m asking because I love you and I know you\'re the kind of person who cares about making things right. Take your time with each question — there are no wrong answers here.',
+  },
+}
 
 // ─────────────────────────────────────────────
 // My Customized data loader
@@ -417,12 +482,26 @@ export function StudioPage() {
   const [rewardsListWizardOpen, setRewardsListWizardOpen] = useState(false)
   const [listRevealWizardOpen, setListRevealWizardOpen] = useState(false)
   const [listRevealPreFill, setListRevealPreFill] = useState<ListRevealPreFill | undefined>(undefined)
+  const [listRevealStartKey, setListRevealStartKey] = useState<string | undefined>(undefined)
   const [repeatedActionChartWizardOpen, setRepeatedActionChartWizardOpen] = useState(false)
   const [repeatedActionChartInitial, setRepeatedActionChartInitial] = useState<Record<string, unknown> | undefined>(undefined)
+  const [chartStartKey, setChartStartKey] = useState<string | undefined>(undefined)
   const [activityListWizardOpen, setActivityListWizardOpen] = useState(false)
   const [activityListPrefill, setActivityListPrefill] = useState<ActivityListWizardPrefill | undefined>(undefined)
   const [sharedTaskListWizardOpen, setSharedTaskListWizardOpen] = useState(false)
   const [sharedTaskListInitialItems, setSharedTaskListInitialItems] = useState<Array<{ text: string; bigJob?: boolean }> | undefined>(undefined)
+  const [sharedTaskListStartKey, setSharedTaskListStartKey] = useState<string | undefined>(undefined)
+  // ST-A F-06: the Best Intentions Starter is now a real wizard
+  const [bestIntentionsWizardOpen, setBestIntentionsWizardOpen] = useState(false)
+  // ST-A F-04: Curriculum Chapter Sequence prefill for SequentialCreatorModal
+  const [sequentialPrefill, setSequentialPrefill] = useState<{ title: string; items: string[] } | undefined>(undefined)
+  // ST-A F-04: guided-form example mom-section prefill + example title
+  const [guidedFormPrefill, setGuidedFormPrefill] = useState<Record<string, string> | undefined>(undefined)
+  const [guidedFormExampleTitle, setGuidedFormExampleTitle] = useState<string | undefined>(undefined)
+  // ST-A F-09: archive requires confirmation (ModalV2, no window.confirm)
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; isList: boolean } | null>(null)
+  const [archiving, setArchiving] = useState(false)
+  const toast = useRoutingToast()
 
   // Widget / Tracker state (PRD-10)
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false)
@@ -531,6 +610,24 @@ export function StudioPage() {
   }, [familyMembers, family?.id])
 
   const handleCustomize = useCallback((template: StudioTemplate) => {
+    // ── Example-specific routing (ST-A, F-04) — these examples promise
+    // pre-filled content, so they route to the surface that can load it. ──
+    if (template.id === 'ex_extra_house_jobs') {
+      // "8 real chore jobs + 2 connection items" → board-shaped creation,
+      // fully prefilled (was: a blank single-task modal with just a title).
+      setListRevealPreFill(EXTRA_HOUSE_JOBS_PREFILL)
+      setListRevealStartKey(undefined)
+      setListRevealWizardOpen(true)
+      return
+    }
+    if (template.id === 'ex_curriculum_sequence') {
+      // "5 sample chapters" → SequentialCreatorModal actually carrying them.
+      setSequentialPrefill(CURRICULUM_SEQUENCE_PREFILL)
+      setSequentialTemplateId(template.id)
+      setSequentialModalOpen(true)
+      return
+    }
+
     // ── Setup Wizard routing (by template ID, takes priority) ──
     if (template.id === 'studio_star_chart') {
       setStarChartWizardOpen(true)
@@ -618,40 +715,21 @@ export function StudioPage() {
     }
     if (template.templateType === 'repeated_action_chart_wizard') {
       if (template.isExample && template.id === 'seed_potty_chart') {
-        setRepeatedActionChartInitial({
-          chartName: 'Potty Chart',
-          actionTaskName: 'Used the potty!',
-          showStarChart: true,
-          starChartTarget: 50,
-          showColoringReveal: true,
-          coloringStepCount: 10,
-          coloringAutoNext: true,
-          milestones: [
-            { id: 'seed_m1', type: 'every_nth', count: 5, rewardMode: 'rewards_list', rewardsListId: '', customText: '', presentation: 'treasure_box' },
-            { id: 'seed_m2', type: 'on_threshold_cross', count: 50, rewardMode: 'custom_text', rewardsListId: '', customText: 'I DID IT! Shopping trip for big kid underwear!', presentation: 'treasure_box' },
-          ],
-        })
+        setRepeatedActionChartInitial(POTTY_CHART_INITIAL)
       } else {
         setRepeatedActionChartInitial(undefined)
       }
+      setChartStartKey(undefined)
       setRepeatedActionChartWizardOpen(true)
       return
     }
     if (template.templateType === 'shared_task_list_wizard') {
       if (template.isExample && template.id === 'seed_honey_do_list') {
-        setSharedTaskListInitialItems([
-          { text: 'Fix the leaky faucet', bigJob: true },
-          { text: 'Clean out the garage', bigJob: true },
-          { text: 'Hang the shelf in the kids\' room' },
-          { text: 'Replace the air filter' },
-          { text: 'Fix the squeaky door' },
-          { text: 'Organize the tool shed', bigJob: true },
-          { text: 'Clean the gutters', bigJob: true },
-          { text: 'Touch up paint in the hallway' },
-        ])
+        setSharedTaskListInitialItems(HONEY_DO_SEED_ITEMS)
       } else {
         setSharedTaskListInitialItems(undefined)
       }
+      setSharedTaskListStartKey(undefined)
       setSharedTaskListWizardOpen(true)
       return
     }
@@ -675,7 +753,8 @@ export function StudioPage() {
       return
     }
     if (template.templateType === 'best_intentions_wizard') {
-      navigate('/guiding-stars?tab=intentions')
+      // ST-A F-06: the card promises a wizard — open the real one.
+      setBestIntentionsWizardOpen(true)
       return
     }
 
@@ -685,6 +764,24 @@ export function StudioPage() {
       const config = starterConfigs.find(sc => sc.tracker_type === trackerType)
       if (config) {
         handleSelectStarterConfig(config)
+      } else if (trackerType === 'randomizer_spinner') {
+        // ST-A (Reward Spinner tile, was BROKEN): no DB starter config exists
+        // yet (ST-E seeds one), so land on a real spinner configuration via a
+        // synthetic in-memory starter config. randomizer_spinner has a real
+        // renderer (RandomizerSpinnerTracker), so the deploy is fully live.
+        handleSelectStarterConfig({
+          id: 'synthetic_randomizer_spinner',
+          tracker_type: 'randomizer_spinner',
+          visual_variant: 'standard_spinner',
+          config_name: 'Reward Spinner',
+          description: 'A colorful spinner wheel linked to a randomizer list.',
+          category: 'quick_action_tracker',
+          default_config: {},
+          is_example: false,
+          sort_order: 0,
+          created_at: '',
+          updated_at: '',
+        })
       } else {
         // No starter config exists — open the widget picker filtered
         setWidgetPickerOpen(true)
@@ -701,6 +798,9 @@ export function StudioPage() {
         guided_form_apology_reflection: 'apology_reflection',
       }
       setGuidedFormSubtype(subtypeMap[template.templateType] ?? 'custom')
+      // ST-A F-04: example forms carry their promised pre-filled mom sections
+      setGuidedFormPrefill(GUIDED_FORM_EXAMPLE_PREFILLS[template.id])
+      setGuidedFormExampleTitle(template.isExample ? template.name : undefined)
       setGuidedFormModalOpen(true)
       return
     }
@@ -745,6 +845,23 @@ export function StudioPage() {
     if (template.templateType === 'sequential') {
       setSequentialTemplateId(template.id)
       setSequentialModalOpen(true)
+      return
+    }
+
+    // Opportunity Board tile → BOARD-shaped creation (ST-A F-05). The card
+    // promises a browsable board with per-board member visibility; a single
+    // opportunity task is not that. Route to the ListReveal wizard's
+    // opportunity flavor (post-OPPORTUNITY-SURFACES, boards are lists with
+    // is_opportunity=true).
+    if (template.templateType.startsWith('opportunity')) {
+      setListRevealPreFill({
+        flavor: 'opportunity',
+        listName: '',
+        listDescription: '',
+        items: [],
+      })
+      setListRevealStartKey(undefined)
+      setListRevealWizardOpen(true)
       return
     }
 
@@ -809,7 +926,22 @@ export function StudioPage() {
       const initial: Record<string, unknown> = {}
       if (preFill.chartName) initial.chartName = preFill.chartName
       if (preFill.actionTaskName) initial.actionTaskName = preFill.actionTaskName
+      // ST-A item 10: NLC extracts memberName ("a potty chart for Ruthie") —
+      // resolve it to a member id so the Assign step starts preselected
+      // instead of discarding mom's words.
+      if (preFill.memberName) {
+        const wanted = String(preFill.memberName).trim().toLowerCase()
+        const match = familyMembers.find(
+          (m) =>
+            m.is_active &&
+            (m.display_name.toLowerCase() === wanted ||
+              m.display_name.toLowerCase().split(' ')[0] === wanted ||
+              (m.nicknames ?? []).some((n) => n.toLowerCase() === wanted)),
+        )
+        if (match) initial.selectedMemberIds = [match.id]
+      }
       setRepeatedActionChartInitial(Object.keys(initial).length > 0 ? initial : undefined)
+      setChartStartKey(undefined)
       setRepeatedActionChartWizardOpen(true)
     } else if (wizardType === 'list_reveal_assignment_opportunity') {
       const items = preFill.items as Array<{ name: string; amount?: number }> | undefined
@@ -860,9 +992,69 @@ export function StudioPage() {
       setListRevealPreFill(pf)
       setListRevealWizardOpen(true)
     }
-  }, [])
+  }, [familyMembers])
 
+  // ── Use as-is (ST-A, finding F-13) ───────────────────────────
+  // Previously an alias of Customize — two buttons, one behavior. Now a real
+  // fast-deploy path: full example content loads and the flow opens at the
+  // ONE decision the example can't make for mom (who it's for / who sees it),
+  // or at Review when nothing is left to decide. The button only renders on
+  // examples that have such a path (StudioTemplate.supportsUseAsIs).
   const handleUseAsIs = useCallback((template: StudioTemplate) => {
+    // Routine examples → RoutineDeployModal: pick the kid + dates, deploy.
+    // Content comes straight from the seeded DB template, untouched.
+    if (template.templateType === 'routine' && template.isExample) {
+      supabase
+        .from('task_templates')
+        .select('id')
+        .eq('title', template.name)
+        .eq('is_example', true)
+        .limit(1)
+        .single()
+        .then(({ data }) => {
+          if (data?.id) {
+            setRoutineDeployTemplate({ id: data.id as string, name: template.name })
+            setRoutineDeployMode('create')
+            setRoutineDeployEditTask(null)
+            setRoutineDeployOpen(true)
+          } else {
+            handleCustomize(template)
+          }
+        })
+      return
+    }
+    if (template.id === 'seed_potty_chart') {
+      setRepeatedActionChartInitial(POTTY_CHART_INITIAL)
+      setChartStartKey('assign')
+      setRepeatedActionChartWizardOpen(true)
+      return
+    }
+    if (template.id === 'seed_consequence_spinner') {
+      // Draw flavor: everything is decided — land on Review, one tap deploys.
+      setListRevealPreFill(CONSEQUENCE_SPINNER_PREFILL)
+      setListRevealStartKey('review')
+      setListRevealWizardOpen(true)
+      return
+    }
+    if (template.id === 'seed_extra_earning') {
+      setListRevealPreFill(EXTRA_EARNING_PREFILL)
+      setListRevealStartKey('sharing')
+      setListRevealWizardOpen(true)
+      return
+    }
+    if (template.id === 'ex_extra_house_jobs') {
+      setListRevealPreFill(EXTRA_HOUSE_JOBS_PREFILL)
+      setListRevealStartKey('sharing')
+      setListRevealWizardOpen(true)
+      return
+    }
+    if (template.id === 'seed_honey_do_list') {
+      setSharedTaskListInitialItems(HONEY_DO_SEED_ITEMS)
+      setSharedTaskListStartKey('sharing')
+      setSharedTaskListWizardOpen(true)
+      return
+    }
+    // No dedicated fast path (button shouldn't render for these) — fall back.
     handleCustomize(template)
   }, [handleCustomize])
 
@@ -1369,31 +1561,51 @@ export function StudioPage() {
                     if (t.templateType === 'routine') {
                       setDuplicateChooser({ id: t.id, name: t.name })
                     } else {
-                      supabase.from('task_templates').insert({
-                        family_id: family?.id,
-                        created_by: member?.id,
-                        title: `${t.name} (copy)`,
-                        task_type: t.templateType,
-                        is_system: false,
-                      }).then(({ error }) => {
-                        if (!error) window.location.reload()
-                      })
+                      // ST-A F-03: the old insert omitted NOT-NULL
+                      // template_name (every duplicate failed 23502,
+                      // silently), wrote the Studio type string into
+                      // task_type, and carried only title+type. Deep-copy
+                      // the real row instead, and SAY what happened.
+                      void (async () => {
+                        const { data: src, error: readError } = await supabase
+                          .from('task_templates')
+                          .select('*')
+                          .eq('id', t.id)
+                          .single()
+                        if (readError || !src) {
+                          toast.show({ message: `Couldn't duplicate "${t.name}". Please try again.`, variant: 'error' })
+                          return
+                        }
+                        const copy = { ...(src as Record<string, unknown>) }
+                        delete copy.id
+                        delete copy.created_at
+                        delete copy.updated_at
+                        copy.title = `${t.name} (copy)`
+                        copy.template_name = `${t.name} (copy)`
+                        copy.family_id = family?.id
+                        copy.created_by = member?.id
+                        copy.is_system = false
+                        copy.is_system_template = false
+                        copy.is_example = false
+                        copy.usage_count = 0
+                        copy.last_deployed_at = null
+                        copy.archived_at = null
+                        const { error: insertError } = await supabase
+                          .from('task_templates')
+                          .insert(copy)
+                        if (insertError) {
+                          console.error('[Studio] Duplicate failed:', insertError)
+                          toast.show({ message: `Couldn't duplicate "${t.name}". Please try again.`, variant: 'error' })
+                          return
+                        }
+                        queryClient.invalidateQueries({ queryKey: ['task_templates_customized', family?.id] })
+                        toast.show({ message: `Duplicated "${t.name}" — the copy is in My Customized.` })
+                      })()
                     }
                   }}
-                  onArchive={async (t) => {
-                    if (isListTemplateType(t.templateType)) {
-                      await supabase
-                        .from('list_templates')
-                        .update({ archived_at: new Date().toISOString() })
-                        .eq('id', t.id)
-                      queryClient.invalidateQueries({ queryKey: ['task_templates_customized', family?.id] })
-                      return
-                    }
-                    await supabase
-                      .from('task_templates')
-                      .update({ archived_at: new Date().toISOString() })
-                      .eq('id', t.id)
-                    window.location.reload()
+                  onArchive={(t) => {
+                    // ST-A F-09: archive confirms first (ModalV2), no reload.
+                    setArchiveConfirm({ id: t.id, name: t.name, isList: isListTemplateType(t.templateType) })
                   }}
                 />
               ))}
@@ -1465,10 +1677,13 @@ export function StudioPage() {
           onClose={() => {
             setSequentialModalOpen(false)
             setSequentialTemplateId(null)
+            setSequentialPrefill(undefined)
           }}
           familyId={family.id}
           createdBy={member.id}
           title={sequentialTemplateId === 'ex_reading_list' ? 'Create Reading List' : undefined}
+          initialTitle={sequentialPrefill?.title}
+          initialItems={sequentialPrefill?.items}
           initialDefaults={
             sequentialTemplateId === 'ex_reading_list'
               ? {
@@ -1486,12 +1701,17 @@ export function StudioPage() {
       {guidedFormModalOpen && (
         <GuidedFormAssignModal
           open={guidedFormModalOpen}
-          onClose={() => setGuidedFormModalOpen(false)}
+          onClose={() => {
+            setGuidedFormModalOpen(false)
+            setGuidedFormPrefill(undefined)
+            setGuidedFormExampleTitle(undefined)
+          }}
+          initialMomValues={guidedFormPrefill}
           template={{
             id: `studio_${guidedFormSubtype}`,
             family_id: null,
             created_by: null,
-            title: guidedFormSubtype === 'sodas' ? 'SODAS' : guidedFormSubtype === 'what_if' ? 'What-If Game' : guidedFormSubtype === 'apology_reflection' ? 'Apology Reflection' : 'Guided Form',
+            title: guidedFormExampleTitle ?? (guidedFormSubtype === 'sodas' ? 'SODAS' : guidedFormSubtype === 'what_if' ? 'What-If Game' : guidedFormSubtype === 'apology_reflection' ? 'Apology Reflection' : 'Guided Form'),
             description: null,
             template_type: 'guided_form',
             guided_form_subtype: guidedFormSubtype as GFSubtype,
@@ -1557,7 +1777,10 @@ export function StudioPage() {
           createdBy={member?.id ?? ''}
           onDuplicated={() => {
             setDuplicateRoutine(null)
-            window.location.reload()
+            queryClient.invalidateQueries({
+              queryKey: ['task_templates_customized', family?.id],
+            })
+            queryClient.invalidateQueries({ queryKey: ['tasks'] })
           }}
         />
       )}
@@ -1746,34 +1969,102 @@ export function StudioPage() {
       {listRevealWizardOpen && family?.id && member?.id && (
         <ListRevealAssignmentWizard
           isOpen={listRevealWizardOpen}
-          onClose={() => { setListRevealWizardOpen(false); setListRevealPreFill(undefined); setDraftRefreshKey(k => k + 1) }}
+          onClose={() => { setListRevealWizardOpen(false); setListRevealPreFill(undefined); setListRevealStartKey(undefined); setDraftRefreshKey(k => k + 1) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
           preFill={listRevealPreFill}
+          startAtStepKey={listRevealStartKey}
         />
       )}
 
       {repeatedActionChartWizardOpen && family?.id && member?.id && (
         <RepeatedActionChartWizard
           isOpen={repeatedActionChartWizardOpen}
-          onClose={() => { setRepeatedActionChartWizardOpen(false); setRepeatedActionChartInitial(undefined); setDraftRefreshKey(k => k + 1) }}
+          onClose={() => { setRepeatedActionChartWizardOpen(false); setRepeatedActionChartInitial(undefined); setChartStartKey(undefined); setDraftRefreshKey(k => k + 1) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
           initialState={repeatedActionChartInitial}
+          startAtStepKey={chartStartKey}
         />
       )}
 
       {sharedTaskListWizardOpen && family?.id && member?.id && (
         <SharedTaskListWizard
           isOpen={sharedTaskListWizardOpen}
-          onClose={() => { setSharedTaskListWizardOpen(false); setSharedTaskListInitialItems(undefined); setDraftRefreshKey(k => k + 1) }}
+          onClose={() => { setSharedTaskListWizardOpen(false); setSharedTaskListInitialItems(undefined); setSharedTaskListStartKey(undefined); setDraftRefreshKey(k => k + 1) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
           initialItems={sharedTaskListInitialItems}
+          startAtStepKey={sharedTaskListStartKey}
         />
+      )}
+
+      {/* ── Best Intentions Starter Wizard (ST-A F-06) ─────────── */}
+      {bestIntentionsWizardOpen && family?.id && member?.id && (
+        <BestIntentionsStarterWizard
+          isOpen={bestIntentionsWizardOpen}
+          onClose={() => setBestIntentionsWizardOpen(false)}
+          familyId={family.id}
+          memberId={member.id}
+        />
+      )}
+
+      {/* ── Archive Confirmation (ST-A F-09 — no window.confirm, no reload) ── */}
+      {archiveConfirm && (
+        <ModalV2
+          id="studio-archive-confirm"
+          isOpen={true}
+          onClose={() => setArchiveConfirm(null)}
+          title="Archive template?"
+          type="transient"
+          size="sm"
+        >
+          <div className="p-4 space-y-4">
+            <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+              Archive <strong>{archiveConfirm.name}</strong>? It disappears from My
+              Customized but existing deployments keep working. You can bring it
+              back later.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setArchiveConfirm(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                Keep it
+              </button>
+              <button
+                disabled={archiving}
+                onClick={async () => {
+                  setArchiving(true)
+                  const table = archiveConfirm.isList ? 'list_templates' : 'task_templates'
+                  const { error } = await supabase
+                    .from(table)
+                    .update({ archived_at: new Date().toISOString() })
+                    .eq('id', archiveConfirm.id)
+                  setArchiving(false)
+                  if (error) {
+                    toast.show({ message: `Couldn't archive "${archiveConfirm.name}". Please try again.`, variant: 'error' })
+                    return
+                  }
+                  toast.show({ message: `Archived "${archiveConfirm.name}".` })
+                  setArchiveConfirm(null)
+                  queryClient.invalidateQueries({ queryKey: ['task_templates_customized', family?.id] })
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--color-btn-primary-bg)',
+                  color: 'var(--color-btn-primary-text)',
+                }}
+              >
+                {archiving ? 'Archiving…' : 'Archive'}
+              </button>
+            </div>
+          </div>
+        </ModalV2>
       )}
 
       {activityListWizardOpen && (

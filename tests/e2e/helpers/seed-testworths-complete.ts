@@ -37,15 +37,19 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 const FAMILY_LOGIN = 'testworthfamily'
 const PASSWORD = 'Demo2026!'
 
+// ST-A / F-20: `relationship` values mirror production (FamilySetup writes
+// them). The Testworth kids sat at relationship=NULL until 2026-07-04, which
+// silently deleted MeetingSetupWizard's kid steps during the Studio audit —
+// the seed now matches the service-role patch applied that day.
 const MEMBERS = {
-  sarah: { email: 'testmom@testworths.com', name: 'Sarah', role: 'primary_parent', mode: 'adult', color: '#68a395', age: null },
-  mark:  { email: 'testdad@testworths.com', name: 'Mark', role: 'additional_adult', mode: 'adult', color: '#2c5d60', age: null },
-  alex:  { email: 'alextest@testworths.com', name: 'Alex', role: 'member', mode: 'independent', color: '#5a4033', age: 15 },
-  casey: { email: 'caseytest@testworths.com', name: 'Casey', role: 'member', mode: 'independent', color: '#8b7bb5', age: 14 },
-  jordan: { email: 'jordantest@testworths.com', name: 'Jordan', role: 'member', mode: 'guided', color: '#d6a461', age: 10 },
-  ruthie: { email: 'ruthietest@testworths.com', name: 'Ruthie', role: 'member', mode: 'play', color: '#f4dcb7', age: 7 },
-  amy:   { email: 'amytest@testworths.com', name: 'Amy', role: 'special_adult', mode: 'adult', color: '#4b7c66', age: null },
-  kylie: { email: 'kylietest@testworths.com', name: 'Kylie', role: 'special_adult', mode: 'adult', color: '#5aab9a', age: null },
+  sarah: { email: 'testmom@testworths.com', name: 'Sarah', role: 'primary_parent', mode: 'adult', color: '#68a395', age: null, relationship: 'self' },
+  mark:  { email: 'testdad@testworths.com', name: 'Mark', role: 'additional_adult', mode: 'adult', color: '#2c5d60', age: null, relationship: 'spouse' },
+  alex:  { email: 'alextest@testworths.com', name: 'Alex', role: 'member', mode: 'independent', color: '#5a4033', age: 15, relationship: 'child' },
+  casey: { email: 'caseytest@testworths.com', name: 'Casey', role: 'member', mode: 'independent', color: '#8b7bb5', age: 14, relationship: 'child' },
+  jordan: { email: 'jordantest@testworths.com', name: 'Jordan', role: 'member', mode: 'guided', color: '#d6a461', age: 10, relationship: 'child' },
+  ruthie: { email: 'ruthietest@testworths.com', name: 'Ruthie', role: 'member', mode: 'play', color: '#f4dcb7', age: 7, relationship: 'child' },
+  amy:   { email: 'amytest@testworths.com', name: 'Amy', role: 'special_adult', mode: 'adult', color: '#4b7c66', age: null, relationship: 'special' },
+  kylie: { email: 'kylietest@testworths.com', name: 'Kylie', role: 'special_adult', mode: 'adult', color: '#5aab9a', age: null, relationship: 'special' },
 } as const
 
 // Credentials exported for Playwright auth helpers.
@@ -243,6 +247,7 @@ async function seedFamilyStructure() {
     const extras: Record<string, unknown> = {
       dashboard_mode: m.mode,
       member_color: m.color,
+      relationship: m.relationship,
     }
     if (m.age) extras.age = m.age
     IDS[key] = await ensureMember(IDS[`${key}Auth`], m.name, m.role, extras)
