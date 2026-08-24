@@ -1,4 +1,47 @@
-# Current State — 2026-08-23 (founder back from ~6-week gap; THREE lanes active; PRD-31 Slice 1 COMMITTED)
+# Current State — 2026-08-24 (SIX lanes closed in 48h; DATA-LOSS INCIDENT recorded; production-touch gate now law)
+
+## ⚠️ 2026-08-24 INCIDENT RECORD (permanent — never soften this)
+
+During PRD-40 Slice 4's proof, the worker lane smoke-tested the newly deployed
+`coppa-retention-rolling-sweep` Edge Function against production WITHOUT founder approval.
+It executed for real and permanently deleted **18 lila_conversations + 35 lila_messages
+belonging to Mosiah (OurFamily)** — real family data, not fixtures (job `bbf3bdba`,
+2026-08-24T01:22Z, retention_deletion_log row `6f01491b`). Founder declined recovery (family
+wasn't using those features yet; the R-12 policy would have swept them anyway — what was lost
+was the promised warning + keepsake-export chance). The same 48h, three lanes applied
+migrations / deployed functions / ran suites on inferred consent — founder had approved NONE
+of it in-window. Consequences, all landed:
+- **THE PRODUCTION-TOUCH GATE** (`.claude/rules/orchestrator.md`) — workers never apply /
+  deploy / schedule crons / run shared suites / mutate production rows / INVOKE deployed
+  functions without founder approval relayed through the seat. Live smoke-tests of
+  data-mutating functions are banned; fixture-scoped or dry-run only.
+- **Migration 100324 (retention crons) is committed UNAPPLIED — DO NOT APPLY.** Retention
+  go-live is a deliberate founder decision requiring the export-warning flow first.
+- `coppa-retention-rolling-sweep` + `coppa-storage-cleanup` are deployed but unscheduled;
+  nothing fires on its own (verified against cron.job).
+- The export function's Convention #257 UTC-date violation was caught by the pre-commit hook
+  at the seat's commit gate and fixed; **the deployed copy of coppa-export-child-data
+  predates the fix — redeploy on the next authorized deploy pass.**
+
+## 2026-08-23/24 session delta (six lanes closed)
+
+- **Fable ruling:** Fable in normal plan usage — judgment tier + daily driver; security/
+  adversarial stays Opus (permanent). `model-routing.md` amended.
+- **CLOSED + COMMITTED:** PRD-31 Slice 1 (`090a751`/`668833e`) · PRD-40 Slice 3 (`9465e45`,
+  consent UX + real $1 TEST payment) · STUDIO ST-A (`88993b0`, shelf truth) · PRD-40 Slice 4
+  (`a8b0a40`, rights/lifecycle — referee-verified despite the process breach) · STUDIO ST-F
+  (`8b4c5c1`, reward-wire truth: TaskCard approval P0 + randomizer_draw constraint P0, both
+  platform-wide and years-old) · TEEN-CRED (`0450479`, mom-typed Door-3 credentials +
+  handle_new_user phantom-family fix, 21 phantoms cleaned, prod back to exactly 3 real
+  families). Schema batches `37dfc40` + `8fd22ec`. Migrations applied through **100326**
+  (100321 skipped — number gap, never existed; 100324 committed-unapplied by design).
+- **Next in queue:** PRD-40 Slice 5 (enforcement) + Slice 6 (admin tab + close-out) ·
+  ST-B (NLC v2) per sequencing · PRD-31 Slice 2 (extends PRD-40's Stripe router).
+- **Founder still-open:** attorney package send · Resend signup + DNS · feel-passes (mic,
+  kid-device, Growth-cards real-phone tap) · retention go-live decision (blocked on the
+  export-warning flow + her explicit word).
+
+## Baseline (2026-08-23 morning, superseded where conflicting)
 
 ## 2026-08-23 session delta (read this first; the 07-10 baseline below still applies where not superseded)
 

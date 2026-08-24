@@ -98,6 +98,19 @@ inferences: commit timestamps do NOT prove deploy contents (deploys ship the wor
 zero telemetry rows do NOT prove a function never ran (the telemetry write itself may be
 broken — check the writer's FK/error handling before trusting its absence).
 
+**THE PRODUCTION-TOUCH GATE (added 2026-08-24 after a real data-loss incident):**
+A worker lane NEVER executes ANY production-touching action on its own judgment. The gated
+list: applying migrations, deploying Edge Functions, scheduling/enabling cron jobs, running
+shared Playwright suites, deleting/mutating any production row outside its own prefixed
+fixtures, and — the one that caused the incident — INVOKING any deployed function against
+production ("smoke testing" included). A platform-wide retention sweep was smoke-tested live
+on 2026-08-23/24 and permanently deleted a real child's 18 LiLa conversations. Approval is
+valid ONLY when relayed through the seat by the founder in the seat's window — a worker
+inferring "the founder would approve" or the founder being merely present in that window is
+NOT approval. Data-mutating functions must be proven via fixture-scoped invocation or a
+dry-run mode; if a function has no way to run scoped, building that scoping IS part of the
+slice. Every dispatch prompt must carry this gate verbatim.
+
 **Standing rules this procedure enforces:**
 - ONE window owns a task. If two windows report on the same job, stop both, referee, then
   explicitly stand one down and confirm which continues.
