@@ -54,6 +54,14 @@ const WINDOW_LINES = 15
 // aggregation, per feature decision file §J5 point 2).
 const ALLOWLIST = new Set([
   'safety-classify/index.ts', // PRD-30 — documented exception, see header above
+  // PRD-40 R-12 — COPPA retention DELETION deliberately covers Safe Harbor
+  // conversations: Convention #243 shields Safe Harbor from aggregation,
+  // reporting, and context assembly — NOT from the child-data deletion
+  // obligation. Excluding is_safe_harbor rows here would retain an
+  // under-13 child's Safe Harbor conversations forever, the opposite of
+  // the privacy goal. Deleting IS the privacy action. (Seat, 2026-08-24,
+  // unblocking the Vercel build after the Slice-4 commit batch.)
+  'coppa-retention-rolling-sweep/index.ts',
 ])
 
 function die(msg, code = 1) {
