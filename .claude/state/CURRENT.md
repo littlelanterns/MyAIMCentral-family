@@ -35,8 +35,17 @@ of it in-window. Consequences, all landed:
   handle_new_user phantom-family fix, 21 phantoms cleaned, prod back to exactly 3 real
   families). Schema batches `37dfc40` + `8fd22ec`. Migrations applied through **100326**
   (100321 skipped — number gap, never existed; 100324 committed-unapplied by design).
-- **Next in queue:** PRD-40 Slice 5 (enforcement) + Slice 6 (admin tab + close-out) ·
-  ST-B (NLC v2) per sequencing · PRD-31 Slice 2 (extends PRD-40's Stripe router).
+- **PRD-40 SLICE 5 CLOSED (2026-08-24 evening, commits `95d36b4`/`0e8eb97`):** the COPPA
+  enforcement layer is LIVE and PROVEN INERT — 268 generated RESTRICTIVE gates + dormant
+  predicate + AI-call gates + age-transition cron. The nine-step gated sequence ran clean
+  under the new production-touch protocol (seat executed all applies/deploys; worker ran
+  suites only). **STANDING SEQUENCING LAW: the Slice-6 founder backfill ceremony MUST precede
+  stamping `lawyer_approved_at` — that stamp is the platform-wide enforcement switch.**
+  Recorded in migration 100327's header, the build file, and here.
+- **Next in queue:** PRD-40 Slice 6 (admin tab + backfill ceremony + close-out — the FINAL
+  COPPA slice) · ST-B (NLC v2) per sequencing · PRD-31 Slice 2 (extends PRD-40's Stripe
+  router). Deploy-skew note: ~40 ethics-guard importers pick up bracket-first computeIsUnder13
+  at their own next deploys (equivalent today).
 - **Founder still-open:** attorney package send · Resend signup + DNS · feel-passes (mic,
   kid-device, Growth-cards real-phone tap) · retention go-live decision (blocked on the
   export-warning flow + her explicit word).
