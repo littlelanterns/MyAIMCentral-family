@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 20 rows
+### `family_members` — 21 rows
 
 | # | Column |
 |---|---|
@@ -2436,7 +2436,7 @@
 | 8 | `created_at` |
 | 9 | `updated_at` |
 
-### `vault_user_visits` — 244 rows
+### `vault_user_visits` — 245 rows
 
 | # | Column |
 |---|---|
@@ -2714,7 +2714,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 364 rows
+### `activity_log_entries` — 366 rows
 
 | # | Column |
 |---|---|
@@ -2853,7 +2853,7 @@
 | 17 | `created_at` |
 | 18 | `updated_at` |
 
-### `parent_verification_attempts` — 1 rows
+### `parent_verification_attempts` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2883,7 +2883,7 @@
 | 8 | `downloaded_at` |
 | 9 | `ip_address` |
 
-### `retention_deletion_log` — 39 rows
+### `retention_deletion_log` — 58 rows
 
 | # | Column |
 |---|---|
@@ -2898,7 +2898,7 @@
 | 9 | `job_run_id` |
 | 10 | `executed_at` |
 
-### `stripe_webhook_events` — 1 rows
+### `stripe_webhook_events` — 2 rows
 
 | # | Column |
 |---|---|
@@ -3231,7 +3231,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 124 rows
+### `contracts` — 141 rows
 
 | # | Column |
 |---|---|
