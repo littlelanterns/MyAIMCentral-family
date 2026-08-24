@@ -47,6 +47,15 @@ export const PAGE_KNOWLEDGE: Record<string, string> = {
   PLAY shell: picture grid, no prices ever — reachable from the Fun tab's "My Wish List" button.
   Share links for grandma and gift history are coming in the next update.`,
 
+  '/settings/privacy-consent': `PRIVACY & CONSENT PAGE (Settings > Privacy & Consent, mom only) — COPPA rights for under-13 kids.
+  TOP CARD: your parental verification status (the one-time $1 card check, statement shows MYAIM VERIFY).
+  CHILDREN UNDER 13: one row per consented child — [Review] replays the exact consent text you agreed to, [Export] downloads a complete ZIP of everything the platform holds about that child (one export per child per 7 days — great for a keepsake copy), [Revoke] starts the revocation flow.
+  REVOKING: 3-step flow with type-the-child's-name confirmation. It pauses the child's profile immediately and schedules their data for deletion after a 14-DAY GRACE window. [Undo Revocation] is available the whole grace period — nothing is deleted until it ends.
+  PENDING DELETION: revoked kids show here with the scheduled date and the Undo button.
+  AGED OUT (13+): kids who turned 13 — their consent is superseded automatically on their birthday (data kept, mom notified).
+  If mom sees "almost ready" when ADDING an under-13 child: the consent paperwork is in legal review; add 13+ members now, add the young child when it opens.
+  Dads, Special Adults, teens, and kids NEVER see any COPPA surface — consent is mom's alone.`,
+
   '/tasks': `TASKS PAGE — purely PERSONAL (FO-COMMAND-CENTER 2026-06-10): your own items only, for every role including mom.
   TWO TABS for every role (OPPORTUNITY-SURFACES 2026-07-02): My Tasks and Opportunities.
   OPPORTUNITIES TAB: the browsable opportunity boards. Each member sees the boards they're eligible for; mom sees EVERY board (she can claim only where eligible). Expand a board to see items with rewards and "I'll do this!" claim buttons. Standalone opportunity tasks group below the boards. Completing a claimed job automatically checks it off the board.
@@ -208,6 +217,32 @@ export interface UseCaseRecipe {
 }
 
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
+  {
+    triggers: ['under 13', 'child privacy', 'coppa', "why is my child's profile held", 'export my kid', "copy of my child's data", 'keepsake of their conversations', 'revoke consent', 'delete my child from the app', 'what did I consent to'],
+    clarifyingQuestion: "That's handled in Settings > Privacy & Consent — your COPPA rights center for under-13 kids. Are you looking to review what you consented to, get a copy of your child's data, or remove their data from the platform?",
+    variants: [
+      {
+        name: 'Review what I consented to',
+        description: 'Replay the exact consent text, per child, as of the version you agreed to.',
+        howToSetUp: `Open Settings > Privacy & Consent.
+Find the child under "Children Under 13" and tap [Review] — it shows the exact disclosure version you consented to, when, and your verification date.`,
+      },
+      {
+        name: 'Export a complete copy (keepsake)',
+        description: "A ZIP of everything the platform holds about that child — journals, LiLa history, tasks, photos, all of it.",
+        howToSetUp: `Open Settings > Privacy & Consent and tap [Export] on the child's row.
+The export builds in the background and gives you a private download link (good for 7 days). One export per child per week.
+Good to know: under-13 LiLa conversation history is kept a maximum of 90 days by policy — export first if you want a keepsake.`,
+      },
+      {
+        name: 'Revoke consent / remove their data',
+        description: 'Pauses the profile now; deletes their data after a 14-day grace window you can undo.',
+        howToSetUp: `Open Settings > Privacy & Consent, tap [Revoke] on the child's row, and follow the 3 steps (you'll type their name to confirm).
+Their profile pauses immediately and deletion is scheduled 14 days out. Change your mind? [Undo Revocation] works the entire grace window — nothing is deleted until it closes.
+Consider tapping [Export] FIRST — after deletion completes there is nothing left to export.`,
+      },
+    ],
+  },
   {
     triggers: ['wish list', 'wishlist', 'grandma asks what they want', 'kid saw something at the store', 'gift idea', 'gift planning', 'christmas list', 'birthday list', 'wanted a toy at the store'],
     clarifyingQuestion: "WishLists is built for this. Are you looking to catch something your kid wants right now (the in-store \"I'll put it on your list\" moment), or set up your own private gift-planning notes about what to get them?",

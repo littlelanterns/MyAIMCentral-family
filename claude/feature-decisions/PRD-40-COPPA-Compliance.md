@@ -129,8 +129,48 @@ Founder verbatim: OD-1 yes ("land the addendum this session — adding new adden
 
 ## 9. Post-Build Verification
 
-*(Populated at Checkpoint 5 by the post-build-verifier — every PRD MVP item + every ruling above: Wired / Stubbed / Missing. Zero Missing required. Pre-approved stubs: PRD-15-era language superseded (R-4); Safe Harbor gate = N/A-backburnered (pack ruling 5) — ship `coppa_age_bracket`, skip gate wiring; multi-parent/custody, non-Stripe verification methods, `subscription_payment` activation, FTC report export, i18n — all per PRD Deferred.)*
+*(Assembled 2026-08-24 by the Slice-6 worker from all six slice records — the seat's Checkpoint-5 JUDGMENT pass + founder sign-off are still pending; the authoritative live copy (with the full E2E coverage map) is the "Post-Build Verification (Checkpoint 5)" section of `.claude/rules/current-builds/PRD-40-coppa.md`, copied here per Convention #14. Pre-approved stubs honored: PRD-15-era language superseded (R-4); Safe Harbor gate = N/A-backburnered (pack ruling 5); multi-parent/custody, non-Stripe verification methods, `subscription_payment` activation, FTC report export, i18n — all per PRD Deferred.)*
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| *(build time)* | | |
+| Schema: 6 COPPA tables + `stripe_webhook_events` + brackets/suspension + backfill + immutability RLS | **Wired** | Migration 100305; rls-verifier 81 probes; backfill 6/5/9 |
+| Template 1.0.0 seeded dormant (`lawyer_approved_at` NULL) | **Wired** | 100305 self-verify; `assertDormancy` pins; 100330 stamp guard |
+| Stripe foundation (client module, purpose-routed webhook, dedup, $1 intent, rate limits) | **Wired** | Slice 2 deployed; 9/9 E2E incl. duplicate-event probe |
+| Reconciliation cron + its E2E coverage | **Wired** | 100313; gap closed by coppa-admin-console.spec.ts test 5 (Slice 6) |
+| Screens 1–7 + roster retrofit + `commit_consented_members` (R-13) + held-pending + cancel-preserves + R-8 dormant card | **Wired** | Slice 3; 8/8 E2E incl. real payment; 27 rls-verifier probes; 15-shot tour |
+| Screens 8–9 (review/replay, revocation w/ grace + undo) + export ZIP (D-PRD40-3 inclusive) | **Wired** | Slice 4; 4/4 E2E; 9/9 tour; atomic RPC pair (Convention #284) |
+| Deletion cascade — all taxonomy rules + sibling preservation + completion notes | **Wired** | RL-3 byte-identical sibling assert; twin-file pin (Convention #285); 3 live bugs found+fixed incl. the audit-row CASCADE FK (100326) |
+| Retention sweeps + `retention_deletion_log` | **Wired (crons deliberately UNSCHEDULED)** | Migration 100324 HELD per the founder disclosure; scheduling gated on ceremony keepsake exports |
+| Age-transition daily job (R-14 DOB-only + bracket nudge) | **Wired** | 100329 applied, cron live; probe 4 |
+| Enforcement: `util.coppa_write_allowed` + 268 RESTRICTIVE gates + `useCoppaConsent`/TS twin + AI gates + roster hiding | **Wired (inert by construction)** | 100327–100329 applied; INERTNESS 4/4 identical pre/post; 26 rls-verifier probes; enforcement probes rolled-back-clean |
+| Screen 10 `/admin/coppa` (4th tab, coppa_admin RPCs, filters, counts-only full record, template management) | **Wired (code; production sequence pending)** | Slice 6; migration 100330 authored; 7 E2E + 4 tour tests parse-verified |
+| THE STAMP GUARD (sequencing law in code + closed column-grant side door) | **Wired** | 100330; AC-3/4; `scripts/coppa-admin-stamp-probes.sql` (success path + "the switch switches", rolled back) |
+| LiLa knowledge (Convention #14 Part B) | **Wired** | help-patterns / feature-guide-knowledge / feature_guide_registry + FeatureGuide mounts ×2 |
+| Founder backfill ceremony (R-9) | **Scripted, NOT run** | `claude/orchestration/PRD-40-Backfill-Ceremony-Script.md` (one flagged deviation: v1.0.0-referenced interim + notes vs literal 0.9.0 seed) |
+| Aggregation-exclusion audit habit | **Wired** | `check-under13-aggregation.cjs` in `npm run prebuild` |
+| Registry-completeness convention (durable test form) | **Wired** | registry pin (5) + cascade-plan twin pin (7) + write-gates pin |
+| Safe Harbor bracket gate | **N/A — backburnered** | Pack ruling 5 (pre-approved) |
+| Privacy-filter fix landed pre-gate | **Wired (pre-existing)** | Migration 100149 |
+| PRD-41 landed + tested (dependency) | **Wired** | Enforcing since 2026-07-10 |
+| Email pipeline | **Stubbed (OD-3)** | In-app `notifications` category `privacy` real + proven; outbound consumes SM-C's sender when it lands |
+| `subscription_payment` method; multi-parent; non-Stripe methods; FTC export; i18n | **Stubbed (per PRD Deferred)** | CHECK values exist where relevant |
+| Shadow-account HARD delete | **Stubbed (platform issue)** | GoTrue 500; soft-delete + global sign-out mitigation; Supabase ticket before cohort-2 |
+| SECURITY-DEFINER write-RPC sweep + utility AI-gate remainder + held-message wiring | **Stubbed (cohort-2 pre-activation checklist)** | Registered Slice 5; in the ceremony script's gate table |
+| R-1 addendum exists | **Wired** | 2026-07-07 |
+| R-2 bracket canonical, `computeIsUnder13` bracket-first | **Wired** | Slice 5 ethics-guard |
+| R-3 fourth ADMIN_TABS row + coppa_admin CHECK | **Wired** | Slice 1 CHECK + Slice 6 tab/route/RPC gate |
+| R-4 notifications category `privacy`, normal priority | **Wired** | Slices 4–6 |
+| R-5/OD-3 one shared email sender (consumed, never duplicated) | **Wired (as constraint)** | Zero senders built by PRD-40 |
+| R-6 live-schema registry + pin | **Wired** | Slice 1, 175 entries |
+| R-7/OD-2 ledger carve-outs | **Wired** | Slice 4 cascade + CLAUDE.md #223/#278/#280/#283 |
+| R-8/OD-4 dormant block + founding bypass | **Wired** | CS-3; the ceremony's legal mechanism |
+| R-9 backfill now / live re-run later | **Scripted** | Ceremony script + cohort-2 gate table |
+| R-10 real-mom-session gating everywhere | **Wired** | R-10 probes in all four function suites + View-As guards; admin staff-gated |
+| R-11 cohort-2 gate list | **Wired** | PRD-41 flip done; remaining gates tabled |
+| R-12 retention disclosure + keepsake-first | **Wired** | Ceremony hard-orders exports before cron scheduling |
+| R-13 commit RPC | **Wired** | 100315; 27 probes |
+| R-14 DOB-only transitions + nudge | **Wired** | 100329 + FamilyMembers nudge |
+| OD-1 addendum landed | **Wired** | 2026-07-07 |
+| D-PRD40-1..6 | **Wired** | Cohorts dormant-but-built; Stripe boundary honored by PRD-31 S1; export inclusive w/ in-code rationale; ARP delivered; greenfield Stripe; accept+backfill scripted |
+
+**Zero Missing.** Open items: the seat's batched Slice-6 production sequence, the founder ceremony, and the cohort-2 gates.

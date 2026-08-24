@@ -1828,3 +1828,125 @@ All zero. A canary probe earlier in the session (a `families` row tagged `ROLLBA
 | Residue after the probe transaction | Zero — every touched table confirmed empty of `COPPAPROBE`-prefixed rows from a fresh connection |
 
 **Verdict: PASS.** Zero gaps found. The enforcement predicate's EXECUTE grants are correctly shaped (anon closed, authenticated+service_role open, no PUBLIC default surviving); the fail-open guard behaves as documented for NULL/unknown ids; the documented information-boundary concern is real but strictly narrower in practice than the migration's own comment implies (schema-level USAGE closure means the predicate is not directly callable by any client at all — it is reachable only through `postgres`-authored, pre-analyzed RLS policy expressions, and no permissive cross-family write path exists to probe it indirectly either); all 268 generated RESTRICTIVE policies are present and correctly shaped on every sampled table; and — the pass's central claim — the additive family-shadow policies from Convention #276 do **not** bypass the RESTRICTIVE COPPA gate on either INSERT (5a, 5e) or UPDATE (5h), while SELECT and DELETE remain correctly ungated throughout (5j, 5k) and R-8 dormancy inertness holds exactly as designed for every non-suspended under-13 member (5c, 6a, 7a).
+
+---
+
+## Migration 100330 — PRD-40 Slice 6 (/admin/coppa RPCs + stamp guard) (2026-08-24)
+
+**Overall result: PASS — zero gaps found, 36/36 probes green.** Migration `00000000100330` ships four `coppa_admin`-gated `SECURITY DEFINER` RPCs (`admin_coppa_overview()`, `admin_coppa_family_detail(uuid)`, `admin_coppa_stamp_readiness()`, `admin_stamp_consent_template(text,text)`) for Screen 10 (Admin Verification Log), plus **the stamp guard**: a column-level privilege closure on `coppa_consent_templates.lawyer_approved_at`/`lawyer_name` that removes the direct-`UPDATE`/`INSERT` side door the 100305 `cct_admin_write`/`cct_admin_update` RLS policies otherwise left open to any staff row. The gate on all four RPCs is deliberately narrower than the any-staff-row table RLS: `staff_permissions.permission_type = 'coppa_admin'` specifically, resolved in-body per Convention #280 before any read. All 36 probes ran inside a single uncommitted transaction against the linked production database (project ref `vjfbzpliqialqmabfnxs`) using the established `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claims-impersonation methodology, with a session-`TEMP TABLE probe_results` capture pattern (`GRANT INSERT ... TO authenticated, anon` so impersonated roles could log their own outcomes) and a final `SELECT ... ORDER BY seq` as the file's last statement so the CLI's single-statement JSON output surfaces every row. No explicit `COMMIT`/`ROLLBACK` was issued — independently re-confirmed this session via a fresh canary (`family_members` row visible within the uncommitted transaction, `count=0` from a separate connection immediately after) that `supabase db query --linked -f` discards an uncommitted transaction when the CLI's connection closes, matching the mechanism already established and reused across the 100315/100322/100327 entries above.
+
+### Test roster
+
+Reused the real Testworth Family (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`) roster, ids reconfirmed live immediately before the run:
+
+| Member | Role | fm_id | user_id |
+|---|---|---|---|
+| Sarah | primary_parent (mom) — the "authenticated non-staff" fixture in Section 2, then upgraded to "staff WITH coppa_admin" in Section 5 | `606aad81-7c59-45af-8770-2df484e4418f` | `81246f0f-ab60-4932-8914-2a48b97b274c` |
+| Mark | additional_adult (dad) — the "staff WITHOUT coppa_admin" fixture (`persona_admin` only, Section 3) | `5f314a51-7c4d-41e3-801d-0aa7e45e54da` | `62d73914-8ff1-44b2-a7f7-92bd586aeb95` |
+| Family (shadow, Convention #273) | role='family' | `85d6da3e-63a0-4b3f-a887-294b7db06978` | `1a2ee919-9c52-4d17-939d-28d5ab9fd947` |
+| Alex | member (kid, zero staff rows) — the Section 7 `cct_select_all` universality fixture | `a6af8740-cc21-4ebb-8f78-c222dab7310f` | `e159934e-2981-48bf-921d-75931f517cdf` |
+
+Pre-run reconnaissance confirmed zero existing `staff_permissions` rows of ANY `permission_type` for Sarah, Mark, or the family-shadow user, zero `coppa_admin` rows platform-wide, and zero `COPPAPROBE`-prefixed residue anywhere — a clean baseline for every fixture created transaction-locally below (one `persona_admin` row for Mark, one `coppa_admin` row for Sarah, one `COPPAPROBE-S6RLS` unapproved fixture template plus two more created mid-probe by the legitimate/illegitimate-INSERT tests).
+
+### Section 1 — anon: EXECUTE revoked + genuinely-anon behavioral denial (9 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 101–104 | `has_function_privilege('anon', ..., 'EXECUTE')` on all four RPCs | `false` ×4 | `false` ×4 | PASS |
+| 105 | `has_function_privilege('authenticated', ..., 'EXECUTE')` on all four RPCs | `true` ×4 | `t` ×4 | PASS |
+| 106 | `has_function_privilege('service_role', ..., 'EXECUTE')` on all four RPCs | `true` ×4 | `t` ×4 | PASS |
+| 107 | `aclexplode` on `admin_coppa_overview()` — no `grantee=0` (PUBLIC) entry | absent | absent | PASS — confirms the explicit `REVOKE ALL FROM PUBLIC, anon` actually removed the Postgres-default implicit grant, not just the named-role revokes |
+| 108 | **Genuinely-anon** (`SET LOCAL ROLE anon`, cleared claims) calls `admin_coppa_overview()` | GRANT-layer `42501` | `permission denied for function admin_coppa_overview` | **PASS — a real Postgres ROLE switch, not just a metadata check**; a genuinely different failure mode than the in-body `not authorized` seen for authenticated-but-wrong-permission callers below |
+| 109 | Genuinely-anon calls `admin_stamp_consent_template('1.0.0', 'Anon Attacker')` | GRANT-layer `42501` | `permission denied for function admin_stamp_consent_template` | PASS |
+
+### Section 2 — authenticated non-staff (Sarah, zero staff rows at this point) (4 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 201 | Sarah calls `admin_coppa_overview()` | `not authorized` | `not authorized` | PASS |
+| 202 | Sarah calls `admin_coppa_family_detail(Testworth)` | `not authorized` | `not authorized` | PASS |
+| 203 | Sarah calls `admin_coppa_stamp_readiness()` | `not authorized` | `not authorized` | PASS |
+| 204 | Sarah calls `admin_stamp_consent_template('1.0.0', 'Sarah Attempt')` | `not authorized` | `not authorized` | PASS |
+
+### Section 3 — staff WITHOUT `coppa_admin` (Mark, `persona_admin` only) (4 probes, all PASS)
+
+Proves the gate is genuinely `permission_type`-specific and narrower than "any staff row" — Mark holds a real, valid `staff_permissions` row (a different admin console permission), yet all four RPCs still refuse him.
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 301 | Mark (`persona_admin`) calls `admin_coppa_overview()` | `not authorized` | `not authorized` | PASS |
+| 302 | Mark calls `admin_coppa_family_detail(Testworth)` | `not authorized` | `not authorized` | PASS |
+| 303 | Mark calls `admin_coppa_stamp_readiness()` | `not authorized` | `not authorized` | PASS |
+| 304 | Mark calls `admin_stamp_consent_template('1.0.0', 'Mark Attempt')` | `not authorized` | `not authorized` | PASS |
+
+### Section 4 — family-shadow-session-shaped claims (real Convention #273 user_id, zero staff rows) (2 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 401 | Testworth family-shadow session calls `admin_coppa_overview()` | `not authorized` | `not authorized` | PASS |
+| 402 | Testworth family-shadow session calls `admin_stamp_consent_template()` | `not authorized` | `not authorized` | PASS |
+
+### Section 5 — staff WITH `coppa_admin` (Sarah, real gate-satisfying row) (4 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 501 | `admin_coppa_overview()` includes Testworth | Testworth row present | `rows=2, testworth_present=true` — the second row is `OurFamily`, both correctly surfaced by the "any COPPA surface area" `WHERE` clause | PASS |
+| 502 | `admin_coppa_stamp_readiness()` | `unconsented_under_13 >= 1`, `ready=false` | `unconsented_under_13=6`, `ready=false`, blockers spanning BOTH `OurFamily` (Avigaile, Mosiah, Ruthie, Simeon — the founder's real pre-ceremony kids) AND `The Testworth Family` (Jordan, Ruthie) — confirming the readiness predicate is genuinely **platform-wide**, not scoped to one family | PASS |
+| 503 | `admin_coppa_family_detail(Testworth)` | all 6 top-level keys present (`family`/`verifications`/`consents`/`attempts`/`deletion_log`/`exports`), correct family id | all 6 keys present; `family.id` matches; the function correctly surfaced REAL pre-existing production rows for Testworth (5 `parent_verification_attempts`, 1 active `parent_verifications` row, 76 `retention_deletion_log` entries — all pre-existing from prior E2E sessions, none created by this probe) — proving the RPC reads real data correctly, not just fixture data | PASS |
+| 504 | Sarah (`coppa_admin`) stamps `COPPAPROBE-S6RLS` while 6 unconsented under-13 members exist | `sequencing_law_blocked%` | `sequencing_law_blocked: 6 unconsented under-13 member(s) exist. The founder backfill ceremony (R-9) must complete before any consent template is stamped approved — stamping is the platform enforcement switch and would write-block those members instantly.` | **PASS — the sequencing law holds live, exactly as designed to prevent the Slice-6 dispatch's central risk** |
+
+### Section 6 — `coppa_consent_templates` column-level stamp-guard (12 probes, all PASS)
+
+Metadata checks (601–607) run as the connecting role; behavioral checks (608–612) run under a **real `SET LOCAL ROLE authenticated`** switch (impersonating Sarah, who already holds a `coppa_admin` staff row — isolating every block below to the column-level GRANT specifically, since the `cct_admin_write`/`cct_admin_update` "any staff row" RLS policies would otherwise permit her).
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 601 | `has_column_privilege('authenticated', ..., 'lawyer_approved_at', 'UPDATE')` | `false` | `false` | PASS |
+| 602 | `has_column_privilege('authenticated', ..., 'lawyer_approved_at', 'INSERT')` | `false` | `false` | PASS |
+| 603 | `has_column_privilege('authenticated', ..., 'lawyer_name', 'UPDATE')` | `false` | `false` | PASS |
+| 604 | `has_column_privilege('authenticated', ..., 'retired_at', 'UPDATE')` | `true` | `true` | PASS — legitimate op intact |
+| 605 | `has_column_privilege('authenticated', ..., 'notes', 'UPDATE')` | `true` | `true` | PASS — legitimate op intact |
+| 606 | `has_column_privilege('authenticated', ..., 'version', 'INSERT')` | `true` | `true` | PASS — legitimate op intact |
+| 607 | `has_table_privilege('authenticated', ..., 'SELECT')` | `true` | `true` | PASS — confirms `cct_select_all` (Section 7 exercises this behaviorally too) |
+| 608 | **Behavioral**: authenticated+`coppa_admin` Sarah `UPDATE coppa_consent_templates SET lawyer_approved_at = now() WHERE version = 'COPPAPROBE-S6RLS'` | blocked | `permission denied for table coppa_consent_templates` | **PASS — the closed side door, proven live under a real role switch, not just read from the DDL** |
+| 609 | Same session `UPDATE ... SET lawyer_name = 'Direct Write Attacker' ...` | blocked | `permission denied for table coppa_consent_templates` | PASS |
+| 610 | Same session `UPDATE ... SET retired_at = now(), notes = '...' ...` (legitimate op) | succeeds | `UPDATE succeeded`, 1 row affected | PASS — retire + notes still function normally for coppa_admin staff |
+| 611 | Same session `INSERT` a NEW version row with `lawyer_approved_at` pre-populated (attempting to birth a pre-approved template) | blocked | `permission denied for table coppa_consent_templates` | **PASS — a new template row cannot be born pre-approved, even by a coppa_admin session** |
+| 612 | Same session `INSERT` a legitimate new UNAPPROVED version row (`COPPAPROBE-S6RLS-legit`) | succeeds | `INSERT succeeded` | PASS — the legitimate "author a new draft version" workflow is untouched |
+
+### Section 7 — `cct_select_all` universality (1 probe, PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 701 | Alex (kid, zero staff rows, real `SET LOCAL ROLE authenticated` + real JWT sub) `SELECT`s template `1.0.0` | visible | `visible=true` | PASS — confirms the disclosure text is intentionally readable by ANY authenticated session, by design (the text itself is not secret; only the approval-stamp columns are gated) |
+
+### The sequencing law, confirmed intact after this transaction
+
+Item 3 of the ask: an independent, fresh-connection query run AFTER the probe transaction's connection closed uncommitted confirmed:
+
+```sql
+approved_templates_any:            0     -- zero templates carry a non-NULL lawyer_approved_at anywhere
+template_1_0_0_still_unapproved:   true  -- the real production template is untouched
+coppaprobe_templates:              0
+coppaprobe_family_members:         0
+coppaprobe_staff_rows:             0     -- Sarah's transaction-local coppa_admin row and Mark's persona_admin row are both gone
+coppa_admin_rows_total:            0     -- platform-wide, exactly the pre-run baseline
+mark_persona_admin_rows:           0
+```
+
+All zero or exact baseline. The session-scoped `probe_results` TEMP TABLE was dropped automatically when the connection closed — no cleanup statement was needed for it. The stamp guard's own success-path proof (probes analogous to the founder-approved `scripts/coppa-admin-stamp-probes.sql`, which additionally proves the guard's REFUSE→satisfy-the-law→SUCCEED→re-stamp-refused arc) is out of this pass's scope by design — this pass verifies the RPC/RLS/GRANT security surface, not the stamp's happy path, which the seat's own dedicated script already covers separately.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| Section 1 — anon EXECUTE revoked (metadata ×4 + PUBLIC-aclexplode) + genuinely-anon behavioral denial on 2 RPCs (real ROLE switch) | PASS — 9/9 |
+| Section 2 — authenticated non-staff (Sarah, zero staff rows) refused on all 4 RPCs | PASS — 4/4 |
+| Section 3 — staff WITHOUT `coppa_admin` (Mark, `persona_admin` only) refused on all 4 RPCs — confirms the gate is `permission_type`-specific, narrower than any-staff-row table RLS | PASS — 4/4 |
+| Section 4 — family-shadow-session-shaped claims (Convention #273) refused | PASS — 2/2 |
+| Section 5 — staff WITH `coppa_admin` reads succeed, including a platform-wide readiness count spanning two real families, and the stamp guard's refusal fires live with the exact expected blocker count | PASS — 4/4 |
+| Section 6 — the closed column-grant side door, proven under a real Postgres role switch (not just DDL/metadata), while every legitimate template op (retire, notes, new-unapproved-version) remains fully functional for a `coppa_admin` session | PASS — 12/12 |
+| Section 7 — `cct_select_all` universal-authenticated-read confirmed behaviorally | PASS — 1/1 |
+| Residue after the probe transaction | Zero — every touched table (templates, staff, family_members) confirmed back to exact pre-probe baseline by an independent post-transaction query; the real production template `1.0.0` was never touched |
+
+**Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings, zero gaps. All four `SECURITY DEFINER` RPCs correctly gate on `staff_permissions.permission_type = 'coppa_admin'` specifically — proven not just against `anon`/non-staff/family-shadow callers but against a REAL staff session holding a *different* admin permission, which is the more interesting and stricter negative case this migration was designed to enforce. The genuinely-anon behavioral probes (108/109) and the column-guard behavioral probes (608–612) both exercised real Postgres `ROLE` switches rather than relying solely on metadata (`has_function_privilege`/`has_column_privilege`) checks, closing the gap between "the grants look right on paper" and "the grants actually block a real attempt." The stamp guard's central claim — that populating `lawyer_approved_at` is genuinely unreachable by any direct client write, even from a fully-authorized `coppa_admin` staff session, and is refused server-side while the sequencing law's blocker count is nonzero — is proven live against real production data (36 total unconsented under-13 records spanning the founder's own family and the Testworth test fixture, correctly enumerated by name). Zero fixture residue confirmed by an independent post-transaction query; the real `1.0.0` template and the platform-wide `coppa_admin` grant count were both back at their exact pre-probe baseline.

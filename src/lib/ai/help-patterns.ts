@@ -40,6 +40,11 @@ const HELP_PATTERNS: HelpPattern[] = [
     response: "WishLists lives in the Family section of your sidebar (or tap the Gift icon in the + menu). Capture is fast: pick who it's for, type it, speak it, snap a photo, or paste a link — it saves instantly. Everyone has their own wishlist, and kids see everything on theirs including what you added. Mom (and any adult you grant Gift Planning to) also gets a hidden Gift Planning tab for gift-ideas notes and \"Considering\" picks — kids never see that part. Want help setting up a share link for grandma? That's coming in the next update.",
   },
   {
+    category: 'privacy_coppa',
+    keywords: ['coppa', 'privacy and consent', 'privacy & consent', 'parental consent', 'under 13', 'under-13', 'child privacy', "child's data", 'export my child', 'export their data', 'keepsake', 'revoke consent', 'delete my child', 'data deletion', 'verification charge', '$1 charge', 'dollar charge', 'almost ready', 'profile is held', 'consent required'],
+    response: "Privacy & Consent lives in Settings > Privacy & Consent — it's where you manage everything about your under-13 kids' data. Federal law (COPPA) asks us to verify you're really the parent before collecting anything from a child under 13, which is why adding an under-13 child includes a one-time $1 card verification (it shows as MYAIM VERIFY on your statement) and a consent review you read and agree to per child. From that same page you can review exactly what you consented to, export a complete copy of a child's data anytime (a keepsake ZIP — one export per child per week), or revoke consent — revoking pauses their profile and schedules their data for deletion after a 14-day grace window, and you can undo it any time during those 14 days. If you see \"almost ready\" when adding a young child, it means the consent paperwork is finishing legal review — you can add everyone 13 and up now and add them the moment it opens.",
+  },
+  {
     category: 'account',
     keywords: ['password', 'reset password', 'forgot password', "can't log in", "can't sign in", 'login problem', 'sign in problem'],
     response: "To reset your password, go to Settings > Account > Change Password. Enter your email and follow the reset link sent to your inbox. If you don't see it, check your spam folder. Still stuck? I can help troubleshoot.",

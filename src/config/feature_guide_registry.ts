@@ -11,6 +11,26 @@ export interface FeatureGuideEntry {
 }
 
 export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
+  coppa_consent_review: {
+    title: 'Privacy & Consent',
+    description:
+      "This is your rights center for your under-13 kids' data. Federal law (COPPA) puts you — not the platform — in charge of what's collected about young children, so everything here is yours to review, copy, or take back: replay exactly what you consented to, export a complete keepsake copy of a child's data anytime, or revoke consent entirely with a 14-day change-your-mind window.",
+    bullets: [
+      '[Review] replays the exact consent text you agreed to, per child',
+      '[Export] builds a complete ZIP of everything about that child — one per child per week',
+      '[Revoke] pauses their profile now and deletes after 14 days; Undo works the whole grace window',
+    ],
+  },
+  coppa_admin_log: {
+    title: 'COPPA Verification Log',
+    description:
+      'Platform compliance audit surface: every parental verification, per-child consent, revocation, and deletion record across all families — counts and metadata only, never content. If the FTC ever asks for verification records, this is where they come from.',
+    bullets: [
+      'Full record per family: verifications, consents, attempts, deletion log (row counts only)',
+      'Template versions with the attorney-approval stamp — hard-blocked until the founder backfill ceremony completes',
+      'Requires the coppa_admin staff permission',
+    ],
+  },
   wishlists_basic: {
     title: 'WishLists',
     description:

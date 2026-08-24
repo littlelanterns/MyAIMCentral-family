@@ -20,6 +20,7 @@ import {
 import { BRACKET_LABELS } from '@/lib/coppa/brackets'
 import { CoppaRevocationModal } from '@/components/coppa/CoppaRevocationModal'
 import { ConsentReplayModal } from '@/components/coppa/ConsentReplayModal'
+import { FeatureGuide } from '@/components/shared/FeatureGuide'
 
 export function PrivacyConsentPage() {
   const navigate = useNavigate()
@@ -67,6 +68,8 @@ export function PrivacyConsentPage() {
           Privacy & Consent
         </h1>
       </div>
+
+      <FeatureGuide featureKey="coppa_consent_review" />
 
       {/* Parental verification */}
       <div className="rounded-xl p-4" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)' }}>

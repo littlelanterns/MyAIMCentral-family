@@ -1,7 +1,25 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-07-10 (Phase-4 flip — ethics enforcement LIVE).
+> Updated each build session. Last updated: 2026-08-24 (PRD-40 COPPA Slices 1–6).
+
+## PRD-40 COPPA Compliance & Parental Verification — Slices 1–6 (2026-07-08 → 2026-08-24)
+
+Dormant-but-built by design (cohort framing D-PRD40-1): the whole framework is live code, and the R-8 dormancy gate (`lawyer_approved_at` NULL on every template) keeps enforcement inert for every real user. Full build record: `.claude/rules/current-builds/PRD-40-coppa.md` (Checkpoint-5 table + E2E coverage map in the Slice-6 entry).
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| COPPA schema + immutability RLS + `child_data_tables` registry (175 entries) + completeness pin | Migration 100305; `src/lib/compliance/childDataTables.ts` + `tests/coppa-registry-completeness.test.ts` | **Wired** | rls-verifier 81 probes |
+| Stripe foundation ($1 verification intent, purpose-routed webhook, dedup, reconciliation cron) | `_shared/stripe.ts`, `stripe-webhook-handler`, `create-coppa-verification-intent`, `reconcile-coppa-verifications` — deployed, TEST-mode endpoint registered | **Wired** | 9/9 E2E incl. duplicate-event probe; reconciliation E2E-covered by Slice 6 |
+| Consent flow Screens 1–7 + roster retrofit + `commit_consented_members` (R-13) + R-8 dormant block card | Slice 3; migration 100315 | **Wired** | 8/8 E2E incl. real TEST payment; 27 rls-verifier probes |
+| Screen 8 (Privacy & Consent) + Screen 9 (revocation, 14-day grace, undo) + per-child export ZIP | Slice 4; migrations 100322/100323/100326; `coppa-export-child-data` | **Wired** | 4/4 E2E; kid-private data included in export per D-PRD40-3 (in-code rationale) |
+| Deletion cascade (hard/scrub-reassign/array/SPECIAL_TABLES/append-only carve-outs/goal recompute/shadow teardown/sibling preservation) | `coppa-deletion-cascade` + `_shared/coppa-cascade-plan.ts` (twin-file pin) | **Wired** | Byte-identical sibling preservation asserted; Conventions #283–#285 |
+| Retention sweep functions (90d LiLa / 180d photos / export-audit cleanup) | Deployed; `retention_deletion_log` writes proven | **Wired (crons UNSCHEDULED)** | Migration 100324 deliberately HELD — founder disclosure (Mosiah incident); scheduling gated on ceremony keepsake exports |
+| Enforcement layer: `util.coppa_write_allowed` + 268 RESTRICTIVE write gates + `useCoppaConsent` + AI gates + roster hiding + age-transition cron | Migrations 100327–100329 APPLIED; lila-chat/bookshelf-discuss/board-of-directors deployed | **Wired (inert by construction)** | INERTNESS 4/4 identical pre/post-apply; probes rolled-back-clean; 26 rls-verifier probes |
+| `/admin/coppa` (Screen 10) + coppa_admin RPCs + THE STAMP GUARD (sequencing law + closed side door) | Slice 6; migration 100330 (authored, apply pending the seat's batched sequence) | **Wired (code; production sequence pending)** | 7 E2E + 4 tour tests parse-verified; `scripts/coppa-admin-stamp-probes.sql` proves the success path rolled-back |
+| LiLa knowledge (help pattern, page knowledge, use-case recipe, FeatureGuides) | Slice 6: `help-patterns.ts`, `feature-guide-knowledge.ts`, `feature_guide_registry.ts` + mounts | **Wired** | Guides render when the platform-wide `FEATURE_GUIDES_DISABLED` flag flips |
+| Founder backfill ceremony (R-9) | `claude/orchestration/PRD-40-Backfill-Ceremony-Script.md` — seat-run, founder-present | Scripted, NOT run | Unblocks (never executes) the attorney stamp |
+| Outbound email touchpoints (receipt, revocation, deletion reminders) | In-app `notifications` (`category='privacy'`) live; email awaits SM-C's shared sender | Stub (OD-3) | Registered in STUB_REGISTRY |
 
 ## SAFETY-BETA-GATE Phase-4 Flip + Step-0 Repairs (2026-07-10)
 

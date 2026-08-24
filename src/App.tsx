@@ -65,6 +65,7 @@ import { AdminLayout } from '@/pages/admin/AdminLayout'
 import { ApprovalsPlaceholder } from '@/pages/admin/ApprovalsPlaceholder'
 import { PersonasAdminPage } from '@/pages/admin/PersonasAdminPage'
 import { EthicsPatternsAdminPage } from '@/pages/admin/EthicsPatternsAdminPage'
+import { CoppaAdminPage } from '@/pages/admin/CoppaAdminPage'
 import { AdminGate } from '@/components/AdminGate'
 import { ProtectedRoute, ProtectedRouteNoShell } from '@/components/ProtectedRoute'
 import { MomOnlyRoute, GrantedRoute, SafetyRecipientRoute } from '@/lib/permissions'
@@ -235,6 +236,9 @@ function App() {
                 <Route path="approvals" element={<ApprovalsPlaceholder />} />
                 <Route path="personas" element={<PersonasAdminPage />} />
                 <Route path="ethics-patterns" element={<EthicsPatternsAdminPage />} />
+                {/* PRD-40 Screen 10 (Wave 4) — server-gated on coppa_admin via
+                    the migration-100330 RPCs; AdminGate is the outer layer. */}
+                <Route path="coppa" element={<CoppaAdminPage />} />
               </Route>
 
               {/* Placeholder routes for unbuilt features — shows Coming Soon card instead of kicking out */}
