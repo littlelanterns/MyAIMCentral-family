@@ -10,7 +10,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
   ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift, Calendar,
-  Lock, Eye, ShieldCheck, ShieldAlert,
+  Lock, Eye, ShieldCheck, ShieldAlert, ShieldQuestion,
 } from 'lucide-react'
 import { TeenTransparencyPanel } from '@/features/permissions'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
@@ -226,6 +226,19 @@ export function SettingsPage() {
             label="Permissions Hub"
             description="Configure who sees what for each family member"
             to="/permissions"
+          />
+        </SettingsSection>
+      )}
+
+      {/* Privacy & Consent (Mom only) — PRD-40. Never tier-gated (COPPA
+          rights cannot be paywalled) — no PermissionGate wrapper. */}
+      {shell === 'mom' && (
+        <SettingsSection title="Privacy & Consent" icon={ShieldQuestion}>
+          <SettingsNavRow
+            icon={ShieldQuestion}
+            label="Privacy & Consent"
+            description="Verification history, per-child consent, export, and revocation"
+            to="/settings/privacy-consent"
           />
         </SettingsSection>
       )}

@@ -12,7 +12,7 @@
  * these hooks only on mom-only surfaces outside View-As scope.
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 
@@ -181,4 +181,130 @@ export async function commitConsentedMembers(payload: {
   })
   if (error) throw new Error(error.message)
   return data as CommitResult
+}
+
+/**
+ * PRD-40 Slice 4 — Screen 8 (Settings -> Privacy & Consent). One row per
+ * coppa_consents record for mom's family, joined to the child's current
+ * name/avatar/bracket. Mom's real session only (R-10) — RLS on
+ * coppa_consents already scopes SELECT to the primary parent; the page that
+ * mounts this hook additionally checks useViewAs().isViewingAs.
+ */
+export interface CoppaConsentRecord {
+  id: string
+  child_member_id: string
+  verification_id: string
+  consent_version: string
+  acknowledged_sections: string[]
+  consented_at: string
+  superseded_at: string | null
+  revoked_at: string | null
+  scheduled_deletion_at: string | null
+  deletion_completed_at: string | null
+  revocation_reason: string | null
+  child_display_name: string
+  child_avatar_url: string | null
+  child_coppa_age_bracket: 'under_13' | '13_to_17' | 'adult'
+  child_is_active: boolean
+}
+
+export function useCoppaConsentRecords() {
+  const { data: member } = useFamilyMember()
+  return useQuery({
+    queryKey: ['coppa-consent-records', member?.family_id],
+    queryFn: async (): Promise<CoppaConsentRecord[]> => {
+      if (!member?.family_id) return []
+      const { data, error } = await supabase
+        .from('coppa_consents')
+        .select(`
+          id, child_member_id, verification_id, consent_version, acknowledged_sections,
+          consented_at, superseded_at, revoked_at, scheduled_deletion_at, deletion_completed_at,
+          revocation_reason,
+          family_members!coppa_consents_child_member_id_fkey ( display_name, avatar_url, coppa_age_bracket, is_active )
+        `)
+        .eq('family_id', member.family_id)
+        .order('consented_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []).map((row) => {
+        const fm = Array.isArray(row.family_members) ? row.family_members[0] : row.family_members
+        return {
+          id: row.id,
+          child_member_id: row.child_member_id,
+          verification_id: row.verification_id,
+          consent_version: row.consent_version,
+          acknowledged_sections: row.acknowledged_sections,
+          consented_at: row.consented_at,
+          superseded_at: row.superseded_at,
+          revoked_at: row.revoked_at,
+          scheduled_deletion_at: row.scheduled_deletion_at,
+          deletion_completed_at: row.deletion_completed_at,
+          revocation_reason: row.revocation_reason,
+          child_display_name: fm?.display_name ?? '(removed member)',
+          child_avatar_url: fm?.avatar_url ?? null,
+          child_coppa_age_bracket: fm?.coppa_age_bracket ?? 'adult',
+          child_is_active: fm?.is_active ?? false,
+        } as CoppaConsentRecord
+      })
+    },
+    enabled: !!member?.family_id,
+  })
+}
+
+export function useRevokeCoppaConsent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ childMemberId, reason }: { childMemberId: string; reason?: string }) => {
+      const { data, error } = await supabase.rpc('revoke_coppa_consent', {
+        p_child_member_id: childMemberId,
+        p_reason: reason ?? null,
+      })
+      if (error) throw new Error(error.message)
+      return data as { success: boolean; consent_id: string; scheduled_deletion_at: string }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coppa-consent-records'] })
+    },
+  })
+}
+
+export function useUndoCoppaRevocation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (childMemberId: string) => {
+      const { data, error } = await supabase.rpc('undo_coppa_revocation', {
+        p_child_member_id: childMemberId,
+      })
+      if (error) throw new Error(error.message)
+      return data as { success: boolean; consent_id: string }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['coppa-consent-records'] })
+    },
+  })
+}
+
+export interface ExportResult {
+  success: boolean
+  export_id: string
+  download_url: string
+  expires_in_seconds: number
+  tables_included: number
+  photos_included: number
+  warnings: string[]
+}
+
+/** Invokes the coppa-export-child-data Edge Function directly (mom's session, R-10 in-code gate). */
+export async function requestChildDataExport(childMemberId: string): Promise<ExportResult> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) throw new Error('Not signed in')
+
+  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/coppa-export-child-data`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ child_member_id: childMemberId }),
+  })
+  const body = await res.json()
+  if (!res.ok) throw new Error(body?.message || body?.reason || body?.error || `Export failed (${res.status})`)
+  return body as ExportResult
 }

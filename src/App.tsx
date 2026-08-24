@@ -38,6 +38,7 @@ import { MessagesThreadPage } from '@/pages/MessagesThreadPage'
 import { CalendarPage } from '@/components/calendar'
 import { LanternsPathPage } from '@/pages/LanternsPath'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { PrivacyConsentPage } from '@/pages/PrivacyConsentPage'
 import { FamilyFeedsStub } from '@/pages/FamilyFeedsStub'
 import { ReflectionsPage } from '@/pages/ReflectionsPage'
 import { BookShelfPage } from '@/pages/BookShelfPage'
@@ -176,6 +177,7 @@ function App() {
               <Route path="/rhythms/settings" element={<ProtectedRoute><RhythmsSettingsPage /></ProtectedRoute>} />
               <Route path="/lanterns-path" element={<ProtectedRoute><LanternsPathPage /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+              <Route path="/settings/privacy-consent" element={<MomOnlyRoute><PrivacyConsentPage /></MomOnlyRoute>} />
               {/* PRD-28: Allowance & Financial routes */}
               <Route path="/settings/allowance" element={<MomOnlyRoute><AllowanceSettingsPage /></MomOnlyRoute>} />
               <Route path="/settings/allowance/:memberId" element={<MomOnlyRoute><ChildAllowanceConfigPage /></MomOnlyRoute>} />

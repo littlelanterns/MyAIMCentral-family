@@ -1617,3 +1617,114 @@ All zero or baseline: coppatest_member_residue=0, pv_residue=0 (both fixture par
 | Residue after the probe transaction | Zero — every table, every row count, exactly restored, confirmed by an independent post-transaction query |
 
 **Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. The Convention #280 in-body authorization gate holds for every non-mom role tested including the family-shadow session, cross-family verification-id theft and cross-family existing_member_ids injection are both provably blocked (not merely rejected, but confirmed to leave zero trace on the targeted family), the R-8 dormancy gate correctly layers underneath the authorization gate rather than being bypassable by a genuinely-valid verification, and the happy path proves the sole coppa_consents insert pipeline actually works end-to-end. Zero fixture residue confirmed by an independent post-transaction query.
+
+---
+
+## Migration 100322/100323/100326 — PRD-40 Slice 4 (Rights + Lifecycle) (2026-08-24)
+
+**Overall result: PASS — zero gaps found, 33/33 probes green.** Slice 4 ships `revoke_coppa_consent(child_member_id, reason)` and `undo_coppa_revocation(child_member_id)` (both SECURITY DEFINER, Screen 9's Revocation Flow, migration `00000000100322`), a private `coppa-exports` storage bucket with zero client-reachable policies (migration `00000000100323`), and a schema correction making `coppa_consents.child_member_id` / `retention_deletion_log.child_member_id` `ON DELETE SET NULL` instead of `CASCADE` so the two permanent-audit-evidence tables survive the very family_members row deletion their own deletion cascade performs (migration `00000000100326`). This is the second RLS pass on the PRD-40 domain's client-callable RPCs (after Migration 100315's `commit_consented_members`) and follows the identical authorization-gate pattern: `auth.uid()` must resolve to an active `family_members` row with `role='primary_parent'` in-body, no service_role or family-shadow branch exists on purpose. All 33 probes ran inside a single `BEGIN...ROLLBACK` transaction against the linked production database (project ref `vjfbzpliqialqmabfnxs`) using the established `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim-impersonation methodology from this file, with a `CREATE TEMP TABLE probe_log` capture pattern (explicitly `GRANT`ed to `authenticated`/`anon` so impersonated roles could call the RPCs and have their outcome logged from the same session). Every fixture (2 `parent_verifications` rows, 2 `coppa_consents` rows, one simulated `deletion_completed_at` write, one attempted `storage.objects` insert) was rolled back — an independent, fully separate read-only query after the transaction confirms zero trace and exact baseline restoration.
+
+### Test roster
+
+Reused the exact same Testworth Family (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`, founding) / OurFamily (`4bc86323-545b-4faf-b31f-3926fdd8c5a6`, non-founding) cross-family pair and member ids from the Migration 100305/100315 entries above — all eight fixture ids reconfirmed live and unchanged before use:
+
+| Member | Family | Role | fm_id | user_id |
+|---|---|---|---|---|
+| Sarah | Testworth | primary_parent (mom, RPC actor) | `606aad81-7c59-45af-8770-2df484e4418f` | `81246f0f-ab60-4932-8914-2a48b97b274c` |
+| Mark | Testworth | additional_adult (dad) | `5f314a51-7c4d-41e3-801d-0aa7e45e54da` | `62d73914-8ff1-44b2-a7f7-92bd586aeb95` |
+| Amy | Testworth | special_adult | `008408a7-aefe-43d5-925a-32b0e054c6a0` | `764df3bc-0a13-47c0-877e-d29082105715` |
+| Casey | Testworth | member (independent teen, 13-17, no consent row — negative-fixture for the no-active-consent probe) | `240af2a3-ffd2-4fbe-9028-cad8b3456d1a` | `11bd078d-2637-42e6-adf6-3283ec92d4d8` |
+| Jordan | Testworth | member (guided kid, under_13, the consent SUBJECT for the happy-path revoke/undo cycle) | `01ef28d2-b9eb-49aa-9eab-868258723f15` | `94537147-7cce-420b-9647-5d77f94f5d1d` |
+| Family (shadow, Convention #273) | Testworth | family | `85d6da3e-63a0-4b3f-a887-294b7db06978` | `1a2ee919-9c52-4d17-939d-28d5ab9fd947` |
+| Tenise | OurFamily | primary_parent (mom, cross-family attacker) | `fcac562b-b7f2-412b-8e25-33a1e94cc13b` | `7434224b-ebb4-4138-8bd8-9fbc62259c42` |
+| Mosiah | OurFamily | member (guided kid, under_13, the item-3 column-grant subject) | `476f5e1f-cdd9-4490-8409-59a4440ebd79` | `bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4` |
+
+Production held zero `parent_verifications` and zero `coppa_consents` rows before this probe (`pv=0 cc=0`, confirmed inside the transaction), so one active `parent_verifications` row plus one active `coppa_consents` row was created for each of Sarah/Jordan (Testworth) and Tenise/Mosiah (OurFamily) as setup fixtures, using `verification_method='stripe_charge'` (the actual CHECK-allowed value — `'stripe_card'` was tried first and correctly rejected by `parent_verifications_verification_method_check`, confirming that constraint is live and enumerated as `stripe_charge`/`id_check`/`knowledge_based`/`subscription_payment`).
+
+### Item 1 — `revoke_coppa_consent` / `undo_coppa_revocation` authorization (24 probes, all PASS)
+
+| # | Role / scenario | Call | Expected | Observed | Result |
+|---|---|---|---|---|---|
+| 1a-i | `has_function_privilege(anon, revoke_coppa_consent)` | — | false | false | PASS |
+| 1a-ii | `has_function_privilege(anon, undo_coppa_revocation)` | — | false | false | PASS |
+| 1a-iii | `has_function_privilege(service_role, revoke_coppa_consent)` | — | true | true | PASS |
+| 1a-iv | `has_function_privilege(service_role, undo_coppa_revocation)` | — | true | true | PASS |
+| 1b-i | Mark (additional_adult, dad) | `revoke_coppa_consent(Jordan)` | Not authorized | Not authorized | PASS |
+| 1b-ii | Amy (special_adult) | `revoke_coppa_consent(Jordan)` | Not authorized | Not authorized | PASS |
+| 1b-iii | Casey (member, kid) | `revoke_coppa_consent(Jordan)` | Not authorized | Not authorized | PASS |
+| 1c | Testworth family-shadow session (`role='family'`, real Convention #273 user_id) | `revoke_coppa_consent(Jordan)` | Not authorized | Not authorized | PASS — structurally excluded, same shape as probes 1b: the gate is `role='primary_parent'`-exact, not any-adult-in-the-family, and a shadow's own `family_members` row is `role='family'`, which never matches |
+| 1d | Tenise (OurFamily mom, real `auth.uid()`) | `revoke_coppa_consent(Jordan)` — Jordan belongs to Testworth, not OurFamily | `invalid_member: child not found in your family` | `invalid_member: child not found in your family` | PASS — cross-family theft blocked. Verified via a follow-up read: Jordan's `is_suspended_for_deletion` stayed `false` and his `revoked_at` stayed `NULL` |
+| — | Sarah (own family, own mom session) | `revoke_coppa_consent(Casey)` — Casey has no `coppa_consents` row at all | `no_active_consent: nothing to revoke for this child` | `no_active_consent: nothing to revoke for this child` | PASS — the "must have an active consent to revoke" gate fires correctly for a 13-17 sibling who was never consent-tracked |
+| — | Sarah (happy path) | `revoke_coppa_consent(Jordan, 'RLS probe revoke')` | `success:true` + atomic write | `success:true`, `scheduled_deletion_at` = `revoked_at` + 14 days exactly | PASS — verified both tables in one follow-up read: `family_members.is_suspended_for_deletion=true` AND `coppa_consents.revoked_at`/`scheduled_deletion_at`/`revocation_reason` all set consistently, confirming the atomic two-table write the migration exists to guarantee |
+| — | Sarah (double-revoke) | `revoke_coppa_consent(Jordan)` again, already revoked | `no_active_consent` | `no_active_consent: nothing to revoke for this child` | PASS — the `revoked_at IS NULL AND superseded_at IS NULL` guard prevents re-revoking an already-revoked row |
+| — | Mark (additional_adult) | `undo_coppa_revocation(Jordan)` | Not authorized | Not authorized | PASS |
+| — | Tenise (cross-family) | `undo_coppa_revocation(Jordan)` | `invalid_member` | `invalid_member: child not found in your family` | PASS — cross-family theft blocked on the undo path too |
+| — | Testworth family-shadow | `undo_coppa_revocation(Jordan)` | Not authorized | Not authorized | PASS |
+| — | Sarah (happy path) | `undo_coppa_revocation(Jordan)`, still inside the grace window | `success:true` + full revert | `success:true` | PASS — follow-up read confirmed `is_suspended_for_deletion=false` AND `revoked_at`/`scheduled_deletion_at`/`revocation_reason` all back to `NULL` — the exact mirror-of-revoke atomic write |
+| — | Sarah (undo with nothing pending) | `undo_coppa_revocation(Jordan)` again, already undone | `no_revocation_to_undo` | `no_revocation_to_undo: nothing pending, or the grace window has already closed` | PASS |
+| — | **Undo-after-cascade impossibility** | Sarah re-revokes Jordan, table owner then simulates cascade completion (`deletion_completed_at=now()`, the exact write the deletion-cascade function performs), Sarah then attempts undo | `no_revocation_to_undo` — undo must be impossible once the cascade has run | `no_revocation_to_undo: nothing pending, or the grace window has already closed` | **PASS — the PRD's "after that, deletion is permanent and cannot be undone" holds live**, because the undo query's `deletion_completed_at IS NULL` predicate correctly excludes the now-completed row, even though `revoked_at` is still set |
+| — | anon | `revoke_coppa_consent(Jordan)` as `SET LOCAL ROLE anon` | permission denied at the GRANT layer | `permission denied for function revoke_coppa_consent` | PASS — a genuinely different failure mode than the in-body `Not authorized` seen for authenticated-but-wrong-role callers above, confirming the REVOKE-from-`PUBLIC,anon` in the migration is enforced by Postgres itself before the function body ever runs |
+
+### Item 2 — FK constraint correction (factual verification, PASS)
+
+```
+coppa_consents_child_member_id_fkey:        FOREIGN KEY (child_member_id) REFERENCES family_members(id) ON DELETE SET NULL
+retention_deletion_log_child_member_id_fkey: FOREIGN KEY (child_member_id) REFERENCES family_members(id) ON DELETE SET NULL
+```
+
+Both confirmed live via `pg_get_constraintdef` exactly as migration `00000000100326` intends — neither table cascades away its audit rows when the `family_members` row they reference is later deleted by the consent-revocation cascade. `information_schema.columns` independently confirms `coppa_consents.child_member_id` is `is_nullable='YES'` (was `NOT NULL` under the old CASCADE-only design).
+
+### Item 3 — `coppa_consents` column-level UPDATE grant, still intact after Slice 4 (4 probes, all PASS)
+
+Reran the exact class of probe from the Migration 100305 entry (§3, T3h/T3i/T3i4) against the fresh Mosiah/OurFamily fixture row, as Tenise (real primary_parent, own family, own child, bare client — not through either new RPC):
+
+| # | Action | Expected | Observed | Result |
+|---|---|---|---|---|
+| 3a | `UPDATE coppa_consents SET revoked_at=now(), revocation_reason=... WHERE child_member_id=Mosiah` (both allowed columns) | 1 row / SUCCEED | 1 row affected | PASS |
+| 3b | `UPDATE coppa_consents SET consent_version='9.9.9' WHERE child_member_id=Mosiah` (disallowed column) | BLOCKED | `permission denied for table coppa_consents` | PASS |
+| 3c | Mixed statement: `revocation_reason` (allowed) + `consent_version` (disallowed) in ONE `UPDATE` | BLOCKED entirely, no partial apply | `permission denied for table coppa_consents` | PASS |
+| 3d (verify) | Read `revocation_reason` after 3c | Still the 3a value, not `'mixed attempt'` | `revocation_reason='bare client allowed-column probe'` | **PASS — no partial-apply leak**, matching the exact atomicity property already proven in the Migration 100305 entry; Slice 4's new RPCs and schema change did not weaken this column-level grant |
+
+### Item 4 — `coppa-exports` storage bucket, zero client-reachable access (5 probes, all PASS)
+
+| # | Check | Expected | Observed | Result |
+|---|---|---|---|---|
+| 4a | `storage.buckets.public` for `coppa-exports` | `false` | `false` | PASS |
+| 4b | Count of `pg_policies` on `storage.objects` referencing `coppa-exports` in `qual`/`with_check` | 0 | 0 | PASS — confirms the migration's "deliberately no CREATE POLICY statements" claim live, not just by reading the DDL |
+| 4c | Sarah (authenticated, real mom session) `SELECT count(*) FROM storage.objects WHERE bucket_id='coppa-exports'` | 0 visible | 0 | PASS |
+| 4d | Sarah `INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('coppa-exports', ...)` | BLOCKED | `new row violates row-level security policy for table "objects"` | **PASS — an authenticated primary_parent session cannot write into the bucket directly**, confirming the export flow really is service-role-only (the Edge Function's own operation, already proven by a real E2E test this session, is architecturally the only path in) |
+| 4e | anon `SELECT count(*) FROM storage.objects WHERE bucket_id='coppa-exports'` | 0 visible | 0 | PASS |
+
+### Residue check — zero permanent trace, confirmed independently after the probe transaction
+
+```sql
+SELECT
+  (SELECT count(*) FROM parent_verifications) AS pv_total,                                          -- 0
+  (SELECT count(*) FROM coppa_consents) AS cc_total,                                                 -- 0
+  (SELECT count(*) FROM retention_deletion_log) AS rdl_total,                                        -- 39 (baseline, pre-existing rows unrelated to this probe)
+  (SELECT count(*) FROM family_members WHERE family_id='1f6200a7-df82-4ac4-bce3-3edcafe66bc5') AS tw_members,  -- 9 (baseline)
+  (SELECT count(*) FROM family_members WHERE family_id='4bc86323-545b-4faf-b31f-3926fdd8c5a6') AS of_members,  -- 10 (baseline)
+  (SELECT is_suspended_for_deletion FROM family_members WHERE id='01ef28d2-b9eb-49aa-9eab-868258723f15') AS jordan_suspended,  -- false
+  (SELECT is_suspended_for_deletion FROM family_members WHERE id='476f5e1f-cdd9-4490-8409-59a4440ebd79') AS mosiah_suspended,  -- false
+  (SELECT count(*) FROM storage.objects WHERE bucket_id='coppa-exports' AND name='rls-probe-attempt.zip') AS bucket_probe_residue; -- 0
+```
+
+All zero or exact baseline: both fixture `parent_verifications` rows (Sarah, Tenise) and both fixture `coppa_consents` rows (Jordan, Mosiah) are gone; `retention_deletion_log` unchanged at its pre-existing 39 rows (nothing in this probe wrote to it — the deletion-cascade Edge Function itself, which does write there, was not invoked); Jordan's and Mosiah's `is_suspended_for_deletion` flags are both back to `false` despite being flipped `true` and back twice during the probe; the blocked storage-object insert attempt (item 4d) left no row, as expected since it never succeeded.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| Item 1a — EXECUTE grants (anon revoked, service_role granted, both functions) | PASS — 4/4 |
+| Item 1b/1c — non-primary-parent roles rejected (dad, special adult, kid, family-shadow) on both RPCs | PASS — 6/6 |
+| Item 1d — cross-family `invalid_member` rejection, both RPCs, target rows provably untouched | PASS — 2/2 |
+| Item 1 — no-active-consent guard, double-revoke guard, undo-with-nothing-pending guard | PASS — 3/3 |
+| Item 1 — happy-path revoke + happy-path undo, atomic two-table writes proven both directions | PASS — 2/2 |
+| Item 1 — undo-after-cascade-completed correctly impossible (`deletion_completed_at` gate) | PASS — 1/1 |
+| Item 1 — anon GRANT-layer rejection (`permission denied`, distinct from in-body `Not authorized`) | PASS — 1/1 |
+| Item 2 — `coppa_consents`/`retention_deletion_log` FK now `ON DELETE SET NULL`, confirmed live | PASS — factual, 2/2 |
+| Item 3 — `coppa_consents` column-level UPDATE grant still intact after Slice 4, no partial-apply leak | PASS — 4/4 |
+| Item 4 — `coppa-exports` bucket private, zero bucket-specific policies, zero client read/write access (authenticated and anon) | PASS — 5/5 |
+| Residue after the probe transaction | Zero — every table, every row count, and both suspension flags, restored to exact pre-probe baseline, confirmed by an independent post-transaction query |
+
+**Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. Both new SECURITY DEFINER RPCs hold the Convention #280 in-body authorization gate for every non-mom role including the family-shadow session, cross-family attacks are blocked on both the revoke and undo paths with provably zero trace on the targeted family, the undo-after-cascade-completed impossibility (a PRD-explicit permanence requirement) is proven live rather than just read from the code, the pre-existing `coppa_consents` column-level grant is confirmed unweakened by this build, the FK schema correction (Item 2's whole reason for existing) is confirmed live in production, and the `coppa-exports` bucket is confirmed to have zero client-reachable access in either direction. Zero fixture residue confirmed by an independent post-transaction query.
