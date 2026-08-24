@@ -13,7 +13,7 @@
 
 ## Auth & Family (PRD-01, PRD-02)
 
-### `families` — 11 rows
+### `families` — 3 rows
 
 | # | Column |
 |---|---|
@@ -44,7 +44,7 @@
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
 
-### `family_members` — 28 rows
+### `family_members` — 20 rows
 
 | # | Column |
 |---|---|
@@ -213,7 +213,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `family_subscriptions` — 10 rows
+### `family_subscriptions` — 2 rows
 
 | # | Column |
 |---|---|
@@ -325,7 +325,7 @@
 | 6 | `session_started_at` |
 | 7 | `session_ended_at` |
 
-### `onboarding_milestones` — 8 rows
+### `onboarding_milestones` — 0 rows
 
 | # | Column |
 |---|---|
@@ -351,7 +351,7 @@
 
 ## LiLa AI System (PRD-05)
 
-### `lila_conversations` — 84 rows
+### `lila_conversations` — 66 rows
 
 | # | Column |
 |---|---|
@@ -376,7 +376,7 @@
 | 19 | `message_count` |
 | 20 | `token_usage` |
 
-### `lila_messages` — 176 rows
+### `lila_messages` — 141 rows
 
 | # | Column |
 |---|---|
@@ -452,7 +452,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 961 rows
+### `ai_usage_tracking` — 962 rows
 
 | # | Column |
 |---|---|
@@ -587,7 +587,7 @@
 | 23 | `archived_at` |
 | 24 | `entry_category` |
 
-### `notepad_tabs` — 25 rows
+### `notepad_tabs` — 26 rows
 
 | # | Column |
 |---|---|
@@ -731,7 +731,7 @@
 | 18 | `reward_image_url` |
 | 19 | `reward_image_asset_key` |
 
-### `tasks` — 232 rows
+### `tasks` — 237 rows
 
 | # | Column |
 |---|---|
@@ -862,7 +862,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2476 rows
+### `routine_step_completions` — 2488 rows
 
 | # | Column |
 |---|---|
@@ -950,7 +950,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 71 rows
+### `lists` — 55 rows
 
 | # | Column |
 |---|---|
@@ -1136,7 +1136,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 31 rows
+### `dashboard_configs` — 23 rows
 
 | # | Column |
 |---|---|
@@ -1152,7 +1152,7 @@
 | 10 | `updated_at` |
 | 11 | `grid_columns` |
 
-### `dashboard_widgets` — 59 rows
+### `dashboard_widgets` — 51 rows
 
 | # | Column |
 |---|---|
@@ -1319,7 +1319,7 @@
 | 8 | `sort_order` |
 | 9 | `created_at` |
 
-### `calendar_settings` — 11 rows
+### `calendar_settings` — 3 rows
 
 | # | Column |
 |---|---|
@@ -1520,7 +1520,7 @@
 | 9 | `acted_by` |
 | 10 | `created_at` |
 
-### `meal_settings` — 11 rows
+### `meal_settings` — 3 rows
 
 | # | Column |
 |---|---|
@@ -1556,7 +1556,7 @@
 
 ## Victories (PRD-11)
 
-### `victories` — 13 rows
+### `victories` — 16 rows
 
 | # | Column |
 |---|---|
@@ -1619,7 +1619,7 @@
 
 ## Archives & Context (PRD-13)
 
-### `archive_folders` — 300 rows
+### `archive_folders` — 180 rows
 
 | # | Column |
 |---|---|
@@ -1665,7 +1665,7 @@
 | 21 | `is_negative_preference` |
 | 22 | `embedding` |
 
-### `archive_member_settings` — 26 rows
+### `archive_member_settings` — 18 rows
 
 | # | Column |
 |---|---|
@@ -1845,7 +1845,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 101 rows
+### `notifications` — 115 rows
 
 | # | Column |
 |---|---|
@@ -2714,7 +2714,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 348 rows
+### `activity_log_entries` — 364 rows
 
 | # | Column |
 |---|---|
@@ -2883,7 +2883,7 @@
 | 8 | `downloaded_at` |
 | 9 | `ip_address` |
 
-### `retention_deletion_log` — 0 rows
+### `retention_deletion_log` — 39 rows
 
 | # | Column |
 |---|---|
@@ -3231,7 +3231,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 90 rows
+### `contracts` — 124 rows
 
 | # | Column |
 |---|---|
@@ -3450,7 +3450,7 @@
 | 13 | `created_at` |
 | 14 | `pool_name` |
 
-### `gamification_configs` — 26 rows
+### `gamification_configs` — 18 rows
 
 | # | Column |
 |---|---|
@@ -3828,7 +3828,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 47 rows
+### `member_creature_collection` — 39 rows
 
 | # | Column |
 |---|---|
@@ -3856,7 +3856,7 @@
 | 7 | `verification_expires_at` |
 | 8 | `created_at` |
 
-### `member_page_unlocks` — 28 rows
+### `member_page_unlocks` — 20 rows
 
 | # | Column |
 |---|---|
@@ -3868,7 +3868,7 @@
 | 6 | `unlocked_trigger_type` |
 | 7 | `creatures_at_unlock` |
 
-### `member_sticker_book_state` — 26 rows
+### `member_sticker_book_state` — 18 rows
 
 | # | Column |
 |---|---|
@@ -3947,7 +3947,7 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
-### `point_transactions` — 34 rows
+### `point_transactions` — 47 rows
 
 | # | Column |
 |---|---|
@@ -4059,7 +4059,7 @@
 | 10 | `practice_count` |
 | 11 | `created_at` |
 
-### `reflection_prompts` — 640 rows
+### `reflection_prompts` — 384 rows
 
 | # | Column |
 |---|---|
@@ -4272,7 +4272,7 @@
 | 11 | `dismissed_at` |
 | 12 | `created_at` |
 
-### `rhythm_configs` — 108 rows
+### `rhythm_configs` — 68 rows
 
 | # | Column |
 |---|---|
@@ -4343,7 +4343,7 @@
 | 6 | `updated_at` |
 | 7 | `created_by` |
 
-### `safety_notification_recipients` — 11 rows
+### `safety_notification_recipients` — 3 rows
 
 | # | Column |
 |---|---|
@@ -4481,7 +4481,7 @@
 | 7 | `new_visibility` |
 | 8 | `created_at` |
 
-### `username_check_log` — 0 rows
+### `username_check_log` — 5 rows
 
 | # | Column |
 |---|---|
