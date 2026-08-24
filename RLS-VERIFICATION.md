@@ -1536,3 +1536,84 @@ All zero except `credit_packs` (correctly back to exactly the 3 seeded rows -- S
 | Residue after the probe transaction | **Zero** -- every table, every row count, exactly restored |
 
 **Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. All six new tables enforce exactly the access shape their own design comments and the migration's inline verification block (`RAISE NOTICE 'PRD-31 Slice 1 verification passed.'`) claim, verified by 56 live adversarial probes rather than by reading the DDL. No non-mom role can read `ai_credits` or `onboarding_milestones`; `tier_sample_sessions` correctly extends read access to every family member (not just mom) per its own distinct policy shape; `subscription_cancellations` correctly hides from mom herself and surfaces only to a genuinely staff-granted session, regardless of family; `credit_packs`/`tier_sampling_costs` are correctly open to every authenticated family member and closed to anonymous callers. **Zero mutation of any kind succeeded on any of the six tables, for any role tested, including a temporarily-granted staff/admin session** -- every INSERT/UPDATE/DELETE attempt was blocked with `42501`, matching the migration's explicit "zero client write policies" design across the board. No cross-family access succeeded on any table, for any role, for any operation. The one regression probe (`feature_access_v2`) confirms the pre-existing platform-wide read policy survived this migration's dedup/hygiene work untouched, with the added observation that it is open to anonymous callers too (pre-existing, not introduced by this migration). Zero fixture residue confirmed by an independent post-transaction query.
+
+---
+
+## Migration 100315 — PRD-40 Slice 3: commit_consented_members RPC (Convention #280 pass) (2026-08-23)
+
+**Overall result: PASS — zero gaps found, 27/27 probes green.** public.commit_consented_members(p_payload JSONB) is the SOLE insert path into coppa_consents (that table has no client INSERT policy by design, per the Migration 100305 verification Observation A) and, per ruling R-13, is the RPC that atomically commits held-pending family_members rows plus their coppa_consents rows after Stripe-verified parental identity. Its authorization gate is entirely in-body (Convention #280): auth.uid() must resolve to an active family_members row with role=primary_parent — no service_role branch exists on purpose. This is the first RLS-verifier pass on a client-callable SECURITY DEFINER function in the PRD-40 domain, so the probe matrix targeted the full authorization surface named in the migration header comments (mom real session only; R-10) plus the two data-integrity gates layered underneath it (verification ownership, R-8 dormancy). All 27 probes ran inside a single BEGIN...ROLLBACK transaction against the linked production database (project ref vjfbzpliqialqmabfnxs) using the established SET LOCAL ROLE + SET LOCAL request.jwt.claims JWT-claim-impersonation methodology from this file, with a CREATE TEMP TABLE probe_log capture pattern (temp tables probe_log + fixture_ids, both explicitly GRANTed to authenticated/anon so impersonated roles could call the RPC and have their outcome logged from the same session). Every fixture (2 parent_verifications rows, reused-if-active to respect uq_pv_active_per_parent) and every RPC-created row (the one intentional happy-path member + consent) was rolled back — an independent, fully separate read-only query after the transaction confirms zero trace of any of it.
+
+### Test roster
+
+Reused the existing Testworth Family (1f6200a7-df82-4ac4-bce3-3edcafe66bc5, is_founding_family=true) and OurFamily (4bc86323-545b-4faf-b31f-3926fdd8c5a6, is_founding_family=false) rosters from the Migration 100305/100306 entries above, as the same-family and cross-family pair. OurFamily non-founding status made it the natural fixture for the R-8 dormancy-gate probe (no need to flip is_founding_family mid-test).
+
+| Member | Family | Role | fm_id | user_id |
+|---|---|---|---|---|
+| Sarah | Testworth | primary_parent (mom, consent-flow actor) | 606aad81-7c59-45af-8770-2df484e4418f | 81246f0f-ab60-4932-8914-2a48b97b274c |
+| Mark | Testworth | additional_adult (dad) | 5f314a51-7c4d-41e3-801d-0aa7e45e54da | 62d73914-8ff1-44b2-a7f7-92bd586aeb95 |
+| Amy | Testworth | special_adult | 008408a7-aefe-43d5-925a-32b0e054c6a0 | 764df3bc-0a13-47c0-877e-d29082105715 |
+| Casey | Testworth | member (independent teen) | 240af2a3-ffd2-4fbe-9028-cad8b3456d1a | 11bd078d-2637-42e6-adf6-3283ec92d4d8 |
+| Family (shadow, Convention #273) | Testworth | family | 85d6da3e-63a0-4b3f-a887-294b7db06978 | 1a2ee919-9c52-4d17-939d-28d5ab9fd947 |
+| Tenise | OurFamily | primary_parent (mom, cross-family attacker and non-founding subject) | fcac562b-b7f2-412b-8e25-33a1e94cc13b | 7434224b-ebb4-4138-8bd8-9fbc62259c42 |
+| Mosiah | OurFamily | member (guided kid, already coppa_age_bracket=under_13 — the cross-family existing_member_ids target) | 476f5e1f-cdd9-4490-8409-59a4440ebd79 | bfa887d0-a3ad-4c62-bdc7-6eda7dcc25c4 |
+
+The Testworth family-shadow row user_id was confirmed non-null (1a2ee919-9c52-4d17-939d-28d5ab9fd947), so probe 5 used the real shadow session rather than a fabricated sub. coppa_consent_templates version 1.0.0 was confirmed live at lawyer_approved_at IS NULL (still dormant, unchanged since Migration 100305) — the exact condition the R-8 gate is designed to catch.
+
+### Probe matrix (all 12 required probes, all PASS)
+
+| # | Role | Call shape | Expected | Observed | Result |
+|---|---|---|---|---|---|
+| 1 | No JWT (authenticated role, request.jwt.claims cleared to empty) | Valid-shaped payload, Sarah verification id | Not authorized | Not authorized | PASS |
+| 2 | Mark (additional_adult, dad) | Valid payload, Sarah verification id | Not authorized | Not authorized | PASS — confirms the gate is role=primary_parent-exact, not any adult in the family |
+| 3 | Amy (special_adult) | Valid payload, Sarah verification id | Not authorized | Not authorized | PASS |
+| 4 | Casey (kid, role=member) | Valid payload, Sarah verification id | Not authorized | Not authorized | PASS |
+| 5 | Testworth family-shadow session (role=family, Convention #273 real shadow user_id) | Valid payload, Sarah verification id | Not authorized | Not authorized | PASS — the family-shadow session cannot commit consented members, matching the migration explicit design note that this RPC has no shadow or service-role branch |
+| 6 | Tenise (OurFamily mom, real auth.uid()) | Valid payload, but SARAHs (Testworth) verification id | verification_not_active | verification_not_active | PASS — cross-family verification theft blocked. The ownership check (pv.parent_member_id = v_parent_member_id) resolves v_parent_member_id from the CALLER own family_members row (Tenise, OurFamily), so Sarah verification row never matches regardless of revoked_at. Verified via 6-verify sub-probes: Testworth family_members count unchanged (9), OurFamily family_members count unchanged (10), zero COPPATEST P6Kid row in either family |
+| 7 | Tenise (OurFamily, is_founding_family=false), her OWN active verification | Valid payload, template 1.0.0 (lawyer_approved_at IS NULL) | consent_text_not_approved | consent_text_not_approved | PASS — R-8 dormancy gate live. A genuinely-owned, active verification is not enough on its own; a non-founding family cannot record consent against unapproved disclosure text |
+| 8 | Sarah (valid session, valid own verification) | members: empty array, existing_member_ids: Mosiah fm_id from OurFamily | invalid_member: existing member not found in your family | invalid_member: existing member not found in your family | PASS — cross-family existing_member_ids injection blocked. Verified via 8-verify: Mosiah row in OurFamily is untouched (coppa_age_bracket=under_13, is_active=true, identical to pre-probe baseline) — no cross-family UPDATE occurred |
+| 9 | Sarah (valid session, valid own verification, Testworth is founding so R-8 does not block) | One valid under-13 member, full 5-section acknowledged_sections | SUCCESS: success:true, 1 member id, 1 consent id | success:true, member_ids array length 1, consent_ids array length 1, member displays COPPATEST P9HappyKid with coppa_age_bracket=under_13 | PASS — happy path admits the legitimate caller and both writes land correctly. Verified via 9-verify: the family_members row exists with coppa_age_bracket=under_13; the coppa_consents row exists with verification_id matching Sarah fixture verification and all 5 acknowledged_sections present |
+| 10 | Sarah (valid session, valid verification) | Same as probe 9 but acknowledged_sections MISSING parent_affirmation | Error mentioning parent_affirmation | invalid_payload: acknowledged_sections is missing parent_affirmation | PASS. Verified via 10-verify: zero COPPATEST P10Kid row created — the acknowledged-sections check fires before the verification, template, and member-validation checks and before any write, exactly matching the function statement order |
+| 11 | Sarah (valid session, valid verification) | One member with coppa_age_bracket=13_to_17 (no under-13 in the batch) | no_consent_needed | no_consent_needed | PASS. Verified via 11-verify: zero COPPATEST P11Teen row created — this RPC is consent-gated-commits-only; a batch with no under-13 member is correctly rejected so the caller falls back to the ordinary direct-insert path (mom own RLS on family_members) |
+| 12 | anon | has_function_privilege(anon, public.commit_consented_members(jsonb), EXECUTE) | false | false | PASS — confirms the migration own REVOKE EXECUTE ... FROM PUBLIC, anon holds live in production, independent of the migration internal verification block |
+
+### Residue check — zero permanent trace, confirmed independently after the probe transaction
+
+All 27 probe-log rows (3 baseline counts + 12 probes + 9 verification sub-probes + 4 final counts) passed inside the rolled-back transaction; a second, fully independent read-only query was run afterward against production:
+
+```sql
+SELECT
+  (SELECT count(*) FROM family_members WHERE display_name LIKE 'COPPATEST%')                       AS coppatest_member_residue,     -- 0
+  (SELECT count(*) FROM parent_verifications WHERE stripe_payment_intent_id LIKE 'pi_RLSVERIF_%')   AS pv_residue,                    -- 0
+  (SELECT count(*) FROM coppa_consents)                                                             AS coppa_consents_total,          -- 0
+  (SELECT count(*) FROM family_members WHERE family_id = '1f6200a7-df82-4ac4-bce3-3edcafe66bc5')    AS testworth_total,               -- 9 (baseline)
+  (SELECT count(*) FROM family_members WHERE family_id = '4bc86323-545b-4faf-b31f-3926fdd8c5a6')    AS ourfamily_total,               -- 10 (baseline)
+  (SELECT coppa_age_bracket FROM family_members WHERE id = '476f5e1f-cdd9-4490-8409-59a4440ebd79')  AS mosiah_bracket_unchanged;      -- under_13 (baseline)
+```
+
+All zero or baseline: coppatest_member_residue=0, pv_residue=0 (both fixture parent_verifications rows created during the transaction, Sarah and Tenise, are gone), coppa_consents_total=0 (the one row created by the probe-9 happy path is gone), testworth_total=9 and ourfamily_total=10 (exactly the pre-probe baselines captured inside the transaction), mosiah_bracket_unchanged=under_13 (the probe-8 cross-family attack target is provably untouched, not merely rolled back).
+
+### Observations (design confirmations, not gaps)
+
+- **Observation A:** the ownership check on parent_verifications (probe 6) is structurally immune to steal-someone-elses-verification-id attacks because v_parent_member_id is ALWAYS derived from the CALLER own auth.uid() to family_members lookup, never from the payload. An attacker cannot even test which verification ids exist by probing this RPC — every cross-family attempt returns the identical verification_not_active regardless of whether the target verification id exists, belongs to another family, or is genuinely revoked. This is a well-formed no-enumeration property, consistent with the platform Convention #273 two-door no-enumeration discipline, though not explicitly required by this migration own comments.
+- **Observation B:** the R-8 dormancy gate (probe 7) is evaluated strictly AFTER the verification-ownership check and BEFORE member validation, meaning a non-founding family with a fully valid, self-owned, active verification is still correctly blocked from consenting against unapproved template text. This is the server-side mirror the migration header comments promise, confirmed live rather than by reading the DDL.
+- **Observation C:** validation ordering (probe 10) confirmed the function actual statement order matches its written order: acknowledged_sections completeness is checked before the verification-row lookup, so a caller with a genuinely invalid payload never learns anything about verification-row state (no verification_not_active leak on a malformed request). This is a minor but correct information-hygiene property.
+- **Observation D:** the no_consent_needed guard (probe 11) fires after BOTH validation loops (new members plus existing_member_ids) complete but before any INSERT or UPDATE, confirmed by the zero-row check. This matches the code structure: the entire member and existing-id validation pass happens first, v_under13_count is tallied throughout, and only after both loops complete does the function decide whether to proceed to the write phase.
+- **Observation E:** this is the SOLE insert path into coppa_consents (Migration 100305 Observation A flagged the absence of a client INSERT policy on that table) — probe 9 happy path is the first confirmed-live end-to-end proof that the intended pipeline (verification, dormancy check, RPC, family_members plus coppa_consents atomic insert) actually works, not just that unauthorized paths are blocked.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| Authorization gate: auth.uid() IS NULL leads to Not authorized | PASS — probe 1 |
+| Authorization gate: non-primary_parent family roles (dad, special adult, kid) lead to Not authorized | PASS — probes 2, 3, 4 |
+| Authorization gate: family-shadow session (Convention #273) leads to Not authorized | PASS — probe 5 |
+| Cross-family verification-id theft blocked, zero rows created in either family | PASS — probe 6 plus 3 verify sub-probes |
+| R-8 dormancy gate (non-founding family, unapproved template) blocks even a genuinely-owned active verification | PASS — probe 7 |
+| Cross-family existing_member_ids injection blocked, target row provably untouched | PASS — probe 8 plus 1 verify sub-probe |
+| Happy path: legitimate mom, own active verification, full payload leads to atomic family_members plus coppa_consents insert | PASS — probe 9 plus 2 verify sub-probes |
+| Validation ordering: incomplete acknowledged_sections blocked before any write | PASS — probe 10 plus 1 verify sub-probe |
+| no_consent_needed guard: all-13-17-or-older batch blocked before any write | PASS — probe 11 plus 1 verify sub-probe |
+| EXECUTE revoked from anon | PASS — probe 12 |
+| Residue after the probe transaction | Zero — every table, every row count, exactly restored, confirmed by an independent post-transaction query |
+
+**Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings. The Convention #280 in-body authorization gate holds for every non-mom role tested including the family-shadow session, cross-family verification-id theft and cross-family existing_member_ids injection are both provably blocked (not merely rejected, but confirmed to leave zero trace on the targeted family), the R-8 dormancy gate correctly layers underneath the authorization gate rather than being bypassable by a genuinely-valid verification, and the happy path proves the sole coppa_consents insert pipeline actually works end-to-end. Zero fixture residue confirmed by an independent post-transaction query.

@@ -27,6 +27,10 @@ export interface FamilyMember {
   out_of_nest: boolean
   onboarding_completed: boolean
   is_active: boolean
+  /** PRD-40: canonical under-13 source (ruling R-2). Default 'adult'. */
+  coppa_age_bracket: 'under_13' | '13_to_17' | 'adult'
+  /** PRD-40: true during the 14-day revocation grace window. */
+  is_suspended_for_deletion: boolean
   theme_preferences: Record<string, unknown>
   layout_preferences: Record<string, unknown>
   preferences: Record<string, unknown>

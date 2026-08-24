@@ -10,6 +10,31 @@ import { GuidedManagementScreen } from '@/components/guided'
 import { GamificationSettingsModal } from '@/components/gamification/settings'
 import { MEMBER_COLORS } from '@/config/member_colors'
 import { QRCodeSVG } from 'qrcode.react'
+import { CoppaConsentFlow } from '@/components/coppa/CoppaConsentFlow'
+import { CoppaAcknowledgeModal } from '@/components/coppa/CoppaAcknowledgeModal'
+import { CoppaDormantCard } from '@/components/coppa/CoppaDormantCard'
+import { BRACKET_LABELS, CONSENT_SECTION_KEYS, type CoppaAgeBracket } from '@/lib/coppa/brackets'
+import {
+  useActiveConsentTemplate,
+  useParentVerification,
+  fetchActiveConsentTemplate,
+  fetchParentVerification,
+  fetchIsFoundingFamily,
+  commitConsentedMembers,
+  type CoppaConsentTemplate,
+  type ParentVerification,
+} from '@/lib/coppa/useCoppaGate'
+
+// PRD-40 Slice 3 (Flows: "Member edit action (age bracket change)"):
+// changing a member's bracket TO under_13 is treated as an add-under-13
+// event and routes through the consent gate before anything is written.
+// The gate state carries the RESOLVED template/verification (fetched
+// imperatively at gate time — never from possibly-still-loading hook state).
+type CoppaEditGateState =
+  | { kind: 'none' }
+  | { kind: 'dormant'; memberName: string }
+  | { kind: 'acknowledge'; memberId: string; memberName: string; pendingUpdates: Record<string, unknown>; template: CoppaConsentTemplate; verification: ParentVerification }
+  | { kind: 'consent_flow'; memberId: string; memberName: string; pendingUpdates: Record<string, unknown>; template: CoppaConsentTemplate }
 
 /**
  * PRD-01: Family Members management page
@@ -52,6 +77,9 @@ export function FamilyMembers() {
   const [pinModal, setPinModal] = useState<string | null>(null)
   const [pictureModal, setPictureModal] = useState<string | null>(null)
   const [inviteModal, setInviteModal] = useState<string | null>(null)
+  const { data: consentTemplate } = useActiveConsentTemplate()
+  const { data: parentVerification } = useParentVerification()
+  const [coppaGate, setCoppaGate] = useState<CoppaEditGateState>({ kind: 'none' })
 
   const isPrimaryParent = member?.role === 'primary_parent'
   if (!isPrimaryParent) {
@@ -63,6 +91,31 @@ export function FamilyMembers() {
   }
 
   const otherMembers = allMembers?.filter((m) => m.id !== member?.id) ?? []
+
+  // PRD-40: shared tail of both consented-edit paths — the RPC writes the
+  // bracket + consent row atomically; the rest of mom's edits apply after.
+  async function applyConsentedEdit(
+    memberId: string,
+    pendingUpdates: Record<string, unknown>,
+    template: CoppaConsentTemplate,
+    verificationId: string,
+    ackSections: string[],
+  ) {
+    await commitConsentedMembers({
+      verification_id: verificationId,
+      consent_version: template.version,
+      acknowledged_sections: ackSections,
+      members: [],
+      existing_member_ids: [memberId],
+    })
+    const rest = { ...pendingUpdates }
+    delete rest.coppa_age_bracket
+    if (Object.keys(rest).length > 0) {
+      await supabase.from('family_members').update(rest).eq('id', memberId)
+    }
+    await queryClient.invalidateQueries({ queryKey: ['family-members'] })
+    setEditingId(null)
+  }
 
   return (
     <div className="density-comfortable max-w-2xl mx-auto space-y-6">
@@ -158,6 +211,27 @@ export function FamilyMembers() {
                 await queryClient.invalidateQueries({ queryKey: ['family-members'] })
                 setEditingId(null)
               }}
+              onUnder13Transition={async (updates) => {
+                // PRD-40: bracket changing TO under_13 = add-under-13 event.
+                // Resolve gate inputs imperatively (hook state may be loading).
+                try {
+                  const template = consentTemplate !== undefined ? consentTemplate : await fetchActiveConsentTemplate()
+                  const founding = family ? !!family.is_founding_family : await fetchIsFoundingFamily(m.family_id)
+                  if (!template || (!template.lawyer_approved_at && !founding)) {
+                    setCoppaGate({ kind: 'dormant', memberName: m.display_name })
+                    return
+                  }
+                  const verification =
+                    parentVerification !== undefined ? parentVerification : await fetchParentVerification(member.id)
+                  if (verification) {
+                    setCoppaGate({ kind: 'acknowledge', memberId: m.id, memberName: m.display_name, pendingUpdates: updates, template, verification })
+                  } else {
+                    setCoppaGate({ kind: 'consent_flow', memberId: m.id, memberName: m.display_name, pendingUpdates: updates, template })
+                  }
+                } catch (err) {
+                  console.error('COPPA gate check failed:', err)
+                }
+              }}
             />
           ))}
         </div>
@@ -193,6 +267,48 @@ export function FamilyMembers() {
           onClose={() => setInviteModal(null)}
         />
       )}
+
+      {/* ── PRD-40 Slice 3: consent gate for edit-to-under-13 ── */}
+      {coppaGate.kind === 'dormant' && (
+        <CoppaDormantCard
+          isOpen
+          childNames={[coppaGate.memberName]}
+          otherCount={0}
+          onCancel={() => setCoppaGate({ kind: 'none' })}
+          onContinueWithoutThem={() => setCoppaGate({ kind: 'none' })}
+        />
+      )}
+      {coppaGate.kind === 'consent_flow' && (
+        <CoppaConsentFlow
+          isOpen
+          template={coppaGate.template}
+          childNames={[coppaGate.memberName]}
+          onCancel={() => setCoppaGate({ kind: 'none' })}
+          onVerified={async (verificationId, ackSections) => {
+            await applyConsentedEdit(coppaGate.memberId, coppaGate.pendingUpdates, coppaGate.template, verificationId, ackSections)
+            await queryClient.invalidateQueries({ queryKey: ['coppa-parent-verification'] })
+          }}
+          onDone={() => setCoppaGate({ kind: 'none' })}
+        />
+      )}
+      {coppaGate.kind === 'acknowledge' && (
+        <CoppaAcknowledgeModal
+          isOpen
+          childName={coppaGate.memberName}
+          verifiedAtLabel={new Date(coppaGate.verification.verified_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+          template={coppaGate.template}
+          onCancel={() => setCoppaGate({ kind: 'none' })}
+          onAcknowledge={async () => {
+            const gate = coppaGate
+            setCoppaGate({ kind: 'none' })
+            try {
+              await applyConsentedEdit(gate.memberId, gate.pendingUpdates, gate.template, gate.verification.id, [...CONSENT_SECTION_KEYS])
+            } catch (err) {
+              console.error('COPPA consented edit failed:', err)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -205,19 +321,23 @@ function MemberRow({
   onOpenPicture,
   onOpenInvite,
   onSave,
+  onUnder13Transition,
 }: {
-  member: { id: string; family_id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null }
+  member: { id: string; family_id: string; display_name: string; role: string; dashboard_mode: string | null; member_color: string | null; age: number | null; date_of_birth: string | null; relationship: string | null; custom_role: string | null; auth_method: string | null; coppa_age_bracket?: CoppaAgeBracket | null }
   isEditing: boolean
   onToggleEdit: () => void
   onOpenPin: () => void
   onOpenPicture: () => void
   onOpenInvite: () => void
   onSave: (updates: Record<string, unknown>) => Promise<void>
+  /** PRD-40: bracket changed TO under_13 — parent routes through the consent gate. */
+  onUnder13Transition: (updates: Record<string, unknown>) => void
 }) {
   const [name, setName] = useState(member.display_name)
   const [mode, setMode] = useState(member.dashboard_mode || 'guided')
   const [dob, setDob] = useState(member.date_of_birth || '')
   const [color, setColor] = useState(member.member_color || '')
+  const [bracket, setBracket] = useState<CoppaAgeBracket>(member.coppa_age_bracket ?? 'adult')
   const [saving, setSaving] = useState(false)
   const [manageDashboardOpen, setManageDashboardOpen] = useState(false)
   const [gamificationOpen, setGamificationOpen] = useState(false)
@@ -328,6 +448,40 @@ function MemberRow({
               style={{ backgroundColor: 'var(--color-bg-primary)', border: '1px solid var(--color-border)', color: 'var(--color-text-primary)' }}
             />
           </div>
+          {/* PRD-40: age-bracket selector (children only) + R-14 transition nudge */}
+          {member.role === 'member' && (
+            <div data-testid="coppa-bracket-selector-edit">
+              <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>Age bracket</label>
+              <div className="flex flex-wrap gap-3">
+                {(['under_13', '13_to_17', 'adult'] as const).map((b) => (
+                  <label key={b} className="flex items-center gap-1.5 cursor-pointer text-sm" style={{ color: 'var(--color-text-primary)', minHeight: '28px' }}>
+                    <input
+                      type="radio"
+                      name={`bracket-edit-${member.id}`}
+                      value={b}
+                      checked={bracket === b}
+                      onChange={() => setBracket(b)}
+                      style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                    />
+                    {BRACKET_LABELS[b]}
+                  </label>
+                ))}
+              </div>
+              {(() => {
+                // R-14: members bracketed under_13 without a DOB never
+                // auto-transition — show a gentle nudge when the static age
+                // (or an entered birthday) suggests they're 13+ now.
+                const effectiveAge = dob ? calculateAge(dob) : member.age
+                const showNudge = bracket === 'under_13' && effectiveAge != null && effectiveAge >= 13
+                return showNudge ? (
+                  <p className="mt-1.5 text-xs" data-testid="coppa-age-nudge" style={{ color: 'var(--color-text-secondary)' }}>
+                    {name || member.display_name} looks like they may be 13 or older now — you can
+                    update their age bracket above.
+                  </p>
+                ) : null
+              })()}
+            </div>
+          )}
           <div>
             <label className="block text-xs mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>Color</label>
             <div className="flex flex-wrap gap-1.5">
@@ -353,14 +507,24 @@ function MemberRow({
               onClick={async () => {
                 setSaving(true)
                 const age = dob ? calculateAge(dob) : member.age
-                await onSave({
+                const updates: Record<string, unknown> = {
                   display_name: name.trim(),
                   dashboard_mode: mode,
                   date_of_birth: dob || null,
                   member_color: color,
                   assigned_color: color,
                   age,
-                })
+                  coppa_age_bracket: bracket,
+                }
+                // PRD-40: transitioning TO under_13 is an add-under-13 event —
+                // route through the consent gate, never a bare update.
+                const wasUnder13 = (member.coppa_age_bracket ?? 'adult') === 'under_13'
+                if (bracket === 'under_13' && !wasUnder13) {
+                  setSaving(false)
+                  onUnder13Transition(updates)
+                  return
+                }
+                await onSave(updates)
                 setSaving(false)
               }}
               disabled={saving || !name.trim()}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Plus, Trash2, Wand2, Check, Loader, Settings } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Wand2, Check, Loader, Settings, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -8,6 +8,29 @@ import { FeatureGuide } from '@/components/shared'
 import { useQueryClient } from '@tanstack/react-query'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import { MEMBER_COLORS, getContrastText } from '@/config/member_colors'
+import { CoppaConsentFlow } from '@/components/coppa/CoppaConsentFlow'
+import { CoppaAcknowledgeModal } from '@/components/coppa/CoppaAcknowledgeModal'
+import { CoppaDormantCard } from '@/components/coppa/CoppaDormantCard'
+import { CoppaLearnMoreModal } from '@/components/coppa/CoppaLearnMoreModal'
+import {
+  deriveBracket,
+  bracketNeedsConfirmation,
+  isValidBracket,
+  BRACKET_LABELS,
+  CONSENT_SECTION_KEYS,
+  type CoppaAgeBracket,
+} from '@/lib/coppa/brackets'
+import {
+  useActiveConsentTemplate,
+  useParentVerification,
+  fetchActiveConsentTemplate,
+  fetchParentVerification,
+  fetchIsFoundingFamily,
+  commitConsentedMembers,
+  type CommitMemberInput,
+  type CoppaConsentTemplate,
+  type ParentVerification,
+} from '@/lib/coppa/useCoppaGate'
 
 interface ParsedMember {
   id: string
@@ -22,7 +45,27 @@ interface ParsedMember {
   in_household: boolean
   selected: boolean          // PRD-01: include/exclude checkbox
   isDuplicate: boolean       // PRD-01: duplicate detection flag
+  coppa_age_bracket: CoppaAgeBracket // PRD-40: canonical under-13 source
+  bracket_touched: boolean   // PRD-40: mom explicitly picked — stop auto-deriving
 }
+
+// PRD-40 Slice 3: consent-gate state for the save action. The batch AND the
+// resolved template/verification are captured at gate-fire time (resolved
+// imperatively — never from possibly-still-loading hook state), so nothing
+// downstream depends on query timing and the version mom sees is the
+// version she consents to (mid-flow-retire edge case).
+type CoppaGateState =
+  | { kind: 'none' }
+  | { kind: 'dormant'; batch: ParsedMember[]; under13Names: string[] }
+  | { kind: 'consent_flow'; batch: ParsedMember[]; under13Names: string[]; template: CoppaConsentTemplate }
+  | {
+      kind: 'acknowledge'
+      batch: ParsedMember[]
+      under13Names: string[]
+      index: number
+      template: CoppaConsentTemplate
+      verification: ParentVerification
+    }
 
 function calculateAge(dob: string): number | null {
   if (!dob) return null
@@ -43,6 +86,15 @@ function pinFromBirthday(dob: string): string {
   return '0000'
 }
 
+// Display-only formatting of the verification timestamp (Screen 7 copy).
+function formatVerifiedDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  } catch {
+    return iso
+  }
+}
+
 const DASHBOARD_MODE_LABELS: Record<string, string> = {
   adult: 'Adult Dashboard',
   independent: 'Independent Mode — Full Features',
@@ -54,13 +106,16 @@ export function FamilySetup() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: member } = useFamilyMember()
-  const { data: _family } = useFamily()
+  const { data: family } = useFamily()
+  const { data: consentTemplate } = useActiveConsentTemplate()
+  const { data: parentVerification } = useParentVerification()
   const [step, setStep] = useState<'describe' | 'preview' | 'done'>('describe')
   const [familyDescription, setFamilyDescription] = useState('')
   const [parsedMembers, setParsedMembers] = useState<ParsedMember[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [coppaGate, setCoppaGate] = useState<CoppaGateState>({ kind: 'none' })
 
   // PRD-01: AI-powered family description parsing
   async function handleParse() {
@@ -90,6 +145,11 @@ For each person mentioned (NOT the user themselves), extract:
   - Use age to determine if available, otherwise infer from context
 - custom_role (string or null) — for special adults: "Grandmother", "Babysitter", "Nanny", etc. For out_of_nest: "Adult Daughter", "Son-in-Law", "Grandchild", etc.
 - in_household (boolean) — true for people who live in the home, false for out_of_nest and visiting caregivers
+- coppa_age_bracket (one of: "under_13", "13_to_17", "adult") — REQUIRED for every member:
+  - If the parsed age is explicitly under 13 → "under_13"
+  - If the parsed age is 13-17 → "13_to_17"
+  - If the parsed age is 18+ OR the member is clearly an adult (spouse, parent, grandparent, caregiver, out_of_nest) → "adult"
+  - If age is missing or ambiguous → "adult" (the app will ask the parent to confirm)
 
 Birthday extraction rules:
 - The current year is ${currentYear}.
@@ -108,10 +168,11 @@ General rules:
 
 Return ONLY a JSON array. Example:
 [
-  {"display_name": "Mark", "relationship": "spouse", "date_of_birth": "1988-06-15", "age": 38, "dashboard_mode": "adult", "custom_role": null, "in_household": true},
-  {"display_name": "Emma", "relationship": "child", "date_of_birth": "2012-03-15", "age": 14, "dashboard_mode": "independent", "custom_role": null, "in_household": true},
-  {"display_name": "Sarah", "relationship": "out_of_nest", "date_of_birth": null, "age": 22, "dashboard_mode": "adult", "custom_role": "Adult Daughter", "in_household": false},
-  {"display_name": "Linda", "relationship": "special", "date_of_birth": null, "age": 65, "dashboard_mode": "adult", "custom_role": "Grandmother", "in_household": false}
+  {"display_name": "Mark", "relationship": "spouse", "date_of_birth": "1988-06-15", "age": 38, "dashboard_mode": "adult", "custom_role": null, "in_household": true, "coppa_age_bracket": "adult"},
+  {"display_name": "Emma", "relationship": "child", "date_of_birth": "2012-03-15", "age": 14, "dashboard_mode": "independent", "custom_role": null, "in_household": true, "coppa_age_bracket": "13_to_17"},
+  {"display_name": "Liam", "relationship": "child", "date_of_birth": null, "age": 8, "dashboard_mode": "guided", "custom_role": null, "in_household": true, "coppa_age_bracket": "under_13"},
+  {"display_name": "Sarah", "relationship": "out_of_nest", "date_of_birth": null, "age": 22, "dashboard_mode": "adult", "custom_role": "Adult Daughter", "in_household": false, "coppa_age_bracket": "adult"},
+  {"display_name": "Linda", "relationship": "special", "date_of_birth": null, "age": 65, "dashboard_mode": "adult", "custom_role": "Grandmother", "in_household": false, "coppa_age_bracket": "adult"}
 ]`
 
       const response = await sendAIMessage(
@@ -174,6 +235,16 @@ Return ONLY a JSON array. Example:
           // PRD-01: Duplicate detection
           const isDuplicate = existingNames.includes(displayName.toLowerCase())
 
+          // PRD-40: AI-inferred bracket, sanity-checked against the age we
+          // actually resolved; falls back to age-based derivation. Adults
+          // can never be bracketed as minors.
+          const aiBracket = isValidBracket(m.coppa_age_bracket) ? m.coppa_age_bracket : null
+          const derived = deriveBracket(age, relationship)
+          const coppaBracket: CoppaAgeBracket =
+            relationship !== 'child' ? 'adult'
+              : age != null ? derived
+              : (aiBracket ?? derived)
+
           return {
             id: crypto.randomUUID(),
             display_name: displayName,
@@ -187,6 +258,8 @@ Return ONLY a JSON array. Example:
             in_household: relationship !== 'out_of_nest' && m.in_household !== false,
             selected: !isDuplicate, // PRD-01: auto-deselect duplicates
             isDuplicate,
+            coppa_age_bracket: coppaBracket,
+            bracket_touched: false,
           }
         })
 
@@ -222,6 +295,8 @@ Return ONLY a JSON array. Example:
           in_household: true,
           selected: true,
           isDuplicate: false,
+          coppa_age_bracket: 'adult' as const, // PRD-40 safety default — mom confirms via the radio
+          bracket_touched: false,
         },
       ]
     })
@@ -238,6 +313,141 @@ Return ONLY a JSON array. Example:
     setParsedMembers((prev) => prev.filter((m) => m.id !== id))
   }
 
+  // ── PRD-40 Slice 3: shared post-insert pipeline pieces ──────────────────
+  // Auto-generate and hash PINs (MMDD from birthday, or 0000) + create the
+  // member's login account. Archive folders + dashboard_configs are
+  // auto-created by the auto_provision_member_resources DB trigger on
+  // INSERT — identical for the direct path and the consent-gated RPC path.
+  async function provisionPins(inserted: Array<{ id: string; date_of_birth: string | null }>) {
+    const pinResults = await Promise.allSettled(
+      inserted.map(async (m) => {
+        const pin = pinFromBirthday(m.date_of_birth ?? '')
+        const { error } = await supabase.rpc('hash_member_pin', {
+          p_member_id: m.id,
+          p_pin: pin,
+        })
+        if (error) {
+          console.error(`PIN hash failed for member ${m.id}:`, error.message)
+          throw error
+        }
+        // Also create the member's login account so the auto-assigned
+        // PIN can actually sign them in on their own device
+        // (Family-Auth-Two-Door Phase 4 — closes the historic gap where
+        // PINs verified but couldn't create sessions)
+        const { data: syncData, error: syncError } = await supabase.functions.invoke(
+          'family-auth-admin',
+          { body: { action: 'ensure_pin_shadow_account', member_id: m.id, pin } },
+        )
+        if (syncError || !syncData?.success) {
+          console.warn(`PIN login account sync failed for member ${m.id} — re-set their PIN in Family Members to fix`)
+        }
+      }),
+    )
+    const failures = pinResults.filter(r => r.status === 'rejected')
+    if (failures.length > 0) {
+      console.warn(`${failures.length} PIN(s) failed to hash — members will need PINs set manually`)
+    }
+  }
+
+  // Insert Out of Nest members into out_of_nest_members (PRD-15).
+  // Out-of-nest people are adults by definition — never consent-gated.
+  async function insertOutOfNest(oonMembers: ParsedMember[]) {
+    if (!member || oonMembers.length === 0) return
+    const oonInserts = oonMembers.map((m) => ({
+      family_id: member.family_id,
+      name: m.display_name.trim(),
+      relationship: m.custom_role || 'family',
+      invited_by: member.id,
+      invitation_status: 'pending',
+    }))
+    const { error: oonError } = await supabase.from('out_of_nest_members').insert(oonInserts)
+    if (oonError) throw oonError
+  }
+
+  // Mark setup complete + refresh caches (shared tail of both commit paths).
+  async function finishSave() {
+    if (!member) return
+    await supabase.from('families').update({ setup_completed: true }).eq('id', member.family_id)
+    await queryClient.invalidateQueries({ queryKey: ['family-members'] })
+    await queryClient.invalidateQueries({ queryKey: ['family-member'] })
+  }
+
+  // Direct-insert commit — the pre-PRD-40 path, used when the batch has no
+  // under-13 members (or for the 13+ remainder behind the dormant card).
+  async function directCommit(membersToSave: ParsedMember[]) {
+    if (!member) return
+    const householdMembers = membersToSave.filter((m) => m.relationship !== 'out_of_nest')
+    const outOfNestMembers = membersToSave.filter((m) => m.relationship === 'out_of_nest')
+
+    if (householdMembers.length > 0) {
+      const inserts = householdMembers.map((m) => ({
+        family_id: member.family_id,
+        display_name: m.display_name.trim(),
+        role: m.role,
+        dashboard_mode: m.dashboard_mode,
+        relationship: m.relationship,
+        date_of_birth: m.date_of_birth,
+        age: m.date_of_birth ? calculateAge(m.date_of_birth) : m.age,
+        member_color: m.member_color,
+        custom_role: m.custom_role,
+        in_household: true,
+        dashboard_enabled: true,
+        auth_method: 'pin',
+        is_active: true,
+        coppa_age_bracket: m.coppa_age_bracket,
+      }))
+
+      const { data: insertedMembers, error: insertError } = await supabase
+        .from('family_members')
+        .insert(inserts)
+        .select('id, date_of_birth')
+
+      if (insertError) throw insertError
+      if (insertedMembers) await provisionPins(insertedMembers)
+    }
+
+    await insertOutOfNest(outOfNestMembers)
+    await finishSave()
+  }
+
+  function toCommitInput(m: ParsedMember): CommitMemberInput {
+    return {
+      display_name: m.display_name.trim(),
+      role: m.role,
+      dashboard_mode: m.dashboard_mode,
+      relationship: m.relationship as 'spouse' | 'child' | 'special',
+      date_of_birth: m.date_of_birth,
+      age: m.date_of_birth ? calculateAge(m.date_of_birth) : m.age,
+      member_color: m.member_color,
+      custom_role: m.custom_role,
+      coppa_age_bracket: m.coppa_age_bracket,
+    }
+  }
+
+  // Consent-gated commit (ruling R-13): the whole household batch — under-13
+  // AND 13+ siblings — commits atomically through commit_consented_members,
+  // which also writes the coppa_consents rows. The PIN/shadow pipeline then
+  // resumes exactly as on the direct path.
+  async function commitViaConsentRpc(
+    batch: ParsedMember[],
+    template: CoppaConsentTemplate,
+    verificationId: string,
+    ackSections: string[],
+  ) {
+    const householdMembers = batch.filter((m) => m.relationship !== 'out_of_nest')
+    const outOfNestMembers = batch.filter((m) => m.relationship === 'out_of_nest')
+
+    const result = await commitConsentedMembers({
+      verification_id: verificationId,
+      consent_version: template.version,
+      acknowledged_sections: ackSections,
+      members: householdMembers.map(toCommitInput),
+    })
+    await provisionPins(result.members)
+    await insertOutOfNest(outOfNestMembers)
+    await finishSave()
+  }
+
   async function handleSave() {
     if (!member?.family_id || parsedMembers.length === 0) return
     setSaving(true)
@@ -251,97 +461,50 @@ Return ONLY a JSON array. Example:
       return
     }
 
-    try {
-      // Split members into household (family_members) and out-of-nest (separate table)
-      const householdMembers = validMembers.filter((m) => m.relationship !== 'out_of_nest')
-      const outOfNestMembers = validMembers.filter((m) => m.relationship === 'out_of_nest')
+    // ── PRD-40 consent gate (Flows: bulk add / manual add save action) ──
+    // (a) does the batch include any under-13 household member?
+    // (b) does mom have an active parent verification?
+    const under13 = validMembers.filter(
+      (m) => m.relationship !== 'out_of_nest' && m.coppa_age_bracket === 'under_13',
+    )
 
-      // Insert household members into family_members
-      if (householdMembers.length > 0) {
-        const inserts = householdMembers.map((m) => ({
-          family_id: member.family_id,
-          display_name: m.display_name.trim(),
-          role: m.role,
-          dashboard_mode: m.dashboard_mode,
-          relationship: m.relationship,
-          date_of_birth: m.date_of_birth,
-          age: m.date_of_birth ? calculateAge(m.date_of_birth) : m.age,
-          member_color: m.member_color,
-          custom_role: m.custom_role,
-          in_household: true,
-          dashboard_enabled: true,
-          auth_method: 'pin',
-          is_active: true,
-        }))
+    if (under13.length > 0) {
+      const under13Names = under13.map((m) => m.display_name.trim())
 
-        const { data: insertedMembers, error: insertError } = await supabase
-          .from('family_members')
-          .insert(inserts)
-          .select('id, date_of_birth')
+      try {
+        // Resolve the gate inputs IMPERATIVELY — hook state may still be
+        // loading at click time, and branching on undefined would wrongly
+        // send a founding mom to the dormant card.
+        const template = consentTemplate !== undefined ? consentTemplate : await fetchActiveConsentTemplate()
+        const founding = family ? !!family.is_founding_family : await fetchIsFoundingFamily(member.family_id)
 
-        if (insertError) throw insertError
-
-        // Auto-generate and hash PINs for each member (MMDD from birthday, or 0000)
-        // Archive folders + dashboard_configs are auto-created by DB trigger
-        if (insertedMembers) {
-          const pinResults = await Promise.allSettled(
-            insertedMembers.map(async (m) => {
-              const pin = pinFromBirthday(m.date_of_birth)
-              const { error } = await supabase.rpc('hash_member_pin', {
-                p_member_id: m.id,
-                p_pin: pin,
-              })
-              if (error) {
-                console.error(`PIN hash failed for member ${m.id}:`, error.message)
-                throw error
-              }
-              // Also create the member's login account so the auto-assigned
-              // PIN can actually sign them in on their own device
-              // (Family-Auth-Two-Door Phase 4 — closes the historic gap where
-              // PINs verified but couldn't create sessions)
-              const { data: syncData, error: syncError } = await supabase.functions.invoke(
-                'family-auth-admin',
-                { body: { action: 'ensure_pin_shadow_account', member_id: m.id, pin } },
-              )
-              if (syncError || !syncData?.success) {
-                console.warn(`PIN login account sync failed for member ${m.id} — re-set their PIN in Family Members to fix`)
-              }
-            }),
-          )
-          const failures = pinResults.filter(r => r.status === 'rejected')
-          if (failures.length > 0) {
-            console.warn(`${failures.length} PIN(s) failed to hash — members will need PINs set manually`)
-          }
+        // R-8 dormancy: no lawyer-approved template → non-founding families
+        // are warmly blocked; founding families are exempt (backfill posture).
+        if (!template || (!template.lawyer_approved_at && !founding)) {
+          setCoppaGate({ kind: 'dormant', batch: validMembers, under13Names })
+          setSaving(false)
+          return
         }
+
+        const verification =
+          parentVerification !== undefined ? parentVerification : await fetchParentVerification(member.id)
+
+        if (verification) {
+          // Screen 7: lightweight per-child acknowledgment, no new charge.
+          setCoppaGate({ kind: 'acknowledge', batch: validMembers, under13Names, index: 0, template, verification })
+        } else {
+          // Screens 1–5: full consent flow + $1 verification.
+          setCoppaGate({ kind: 'consent_flow', batch: validMembers, under13Names, template })
+        }
+      } catch (err) {
+        setError(`Couldn't check consent status: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
+      setSaving(false)
+      return
+    }
 
-      // Insert Out of Nest members into out_of_nest_members (PRD-15)
-      if (outOfNestMembers.length > 0) {
-        const oonInserts = outOfNestMembers.map((m) => ({
-          family_id: member.family_id,
-          name: m.display_name.trim(),
-          relationship: m.custom_role || 'family',
-          invited_by: member.id,
-          invitation_status: 'pending',
-        }))
-
-        const { error: oonError } = await supabase
-          .from('out_of_nest_members')
-          .insert(oonInserts)
-
-        if (oonError) throw oonError
-      }
-
-      // Mark family setup as completed
-      await supabase
-        .from('families')
-        .update({ setup_completed: true })
-        .eq('id', member.family_id)
-
-      // Invalidate queries so Dashboard refreshes
-      await queryClient.invalidateQueries({ queryKey: ['family-members'] })
-      await queryClient.invalidateQueries({ queryKey: ['family-member'] })
-
+    try {
+      await directCommit(validMembers)
       setStep('done')
     } catch (err) {
       setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -540,6 +703,80 @@ Return ONLY a JSON array. Example:
           </div>
         </div>
       )}
+
+      {/* ── PRD-40 Slice 3: consent-gate surfaces. Cancel on any of these
+             returns mom here with her preview intact — nothing committed,
+             nothing charged (PRD edge case "Mom cancels mid-flow"). ── */}
+      {coppaGate.kind === 'dormant' && (
+        <CoppaDormantCard
+          isOpen
+          childNames={coppaGate.under13Names}
+          otherCount={coppaGate.batch.length - coppaGate.under13Names.length}
+          onCancel={() => setCoppaGate({ kind: 'none' })}
+          onContinueWithoutThem={async () => {
+            // R-8: the rest of the batch commits normally; under-13 members
+            // are held back until the consent flow opens.
+            const remainder = coppaGate.batch.filter(
+              (m) => !(m.relationship !== 'out_of_nest' && m.coppa_age_bracket === 'under_13'),
+            )
+            setCoppaGate({ kind: 'none' })
+            setSaving(true)
+            try {
+              await directCommit(remainder)
+              setStep('done')
+            } catch (err) {
+              setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`)
+              setSaving(false)
+            }
+          }}
+        />
+      )}
+
+      {coppaGate.kind === 'consent_flow' && (
+        <CoppaConsentFlow
+          isOpen
+          template={coppaGate.template}
+          childNames={coppaGate.under13Names}
+          onCancel={() => setCoppaGate({ kind: 'none' })}
+          onVerified={async (verificationId, ackSections) => {
+            await commitViaConsentRpc(coppaGate.batch, coppaGate.template, verificationId, ackSections)
+            await queryClient.invalidateQueries({ queryKey: ['coppa-parent-verification'] })
+          }}
+          onDone={() => {
+            setCoppaGate({ kind: 'none' })
+            setStep('done')
+          }}
+        />
+      )}
+
+      {coppaGate.kind === 'acknowledge' && (
+        <CoppaAcknowledgeModal
+          isOpen
+          childName={coppaGate.under13Names[coppaGate.index]}
+          verifiedAtLabel={formatVerifiedDate(coppaGate.verification.verified_at)}
+          template={coppaGate.template}
+          progress={{ current: coppaGate.index + 1, total: coppaGate.under13Names.length }}
+          onCancel={() => setCoppaGate({ kind: 'none' })}
+          onAcknowledge={async () => {
+            // Screen 7: one modal per child, sequentially; all rows commit
+            // together after the last acknowledgment.
+            if (coppaGate.index + 1 < coppaGate.under13Names.length) {
+              setCoppaGate({ ...coppaGate, index: coppaGate.index + 1 })
+              return
+            }
+            const { batch, template, verification } = coppaGate
+            setCoppaGate({ kind: 'none' })
+            setSaving(true)
+            try {
+              await commitViaConsentRpc(batch, template, verification.id, [...CONSENT_SECTION_KEYS])
+              setStep('done')
+            } catch (err) {
+              setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`)
+              setSaving(false)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -553,6 +790,14 @@ function MemberCard({
   onUpdate: (updates: Partial<ParsedMember>) => void
   onRemove: () => void
 }) {
+  const [learnMoreOpen, setLearnMoreOpen] = useState(false)
+
+  // PRD-40: age edits re-derive the bracket until mom explicitly picks one.
+  function bracketAfterAgeChange(age: number | null): Partial<ParsedMember> {
+    if (member.bracket_touched) return {}
+    return { coppa_age_bracket: deriveBracket(age, member.relationship) }
+  }
+
   return (
     <div
       className="p-4 rounded-xl space-y-3 card-hover"
@@ -660,7 +905,7 @@ function MemberCard({
             onChange={(e) => {
               const dob = e.target.value || null
               const age = dob ? calculateAge(dob) : member.age
-              onUpdate({ date_of_birth: dob, age })
+              onUpdate({ date_of_birth: dob, age, ...bracketAfterAgeChange(age) })
             }}
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
             style={{
@@ -674,7 +919,10 @@ function MemberCard({
               <input
                 type="number"
                 value={member.age ?? ''}
-                onChange={(e) => onUpdate({ age: e.target.value ? parseInt(e.target.value) : null })}
+                onChange={(e) => {
+                  const age = e.target.value ? parseInt(e.target.value) : null
+                  onUpdate({ age, ...bracketAfterAgeChange(age) })
+                }}
                 className="w-full px-3 py-2 rounded-lg text-sm outline-none"
                 style={{
                   backgroundColor: 'var(--color-bg-primary)',
@@ -707,6 +955,12 @@ function MemberCard({
                 role,
                 dashboard_mode: mode,
                 in_household: rel !== 'out_of_nest',
+                // PRD-40: adults can never carry a minor bracket; children
+                // re-derive from age unless mom already picked explicitly.
+                coppa_age_bracket:
+                  rel !== 'child' ? 'adult'
+                    : member.bracket_touched ? member.coppa_age_bracket
+                    : deriveBracket(member.age, rel),
               })
             }}
             className="w-full px-3 py-2 rounded-lg text-sm outline-none"
@@ -761,6 +1015,66 @@ function MemberCard({
           )}
         </div>
       </div>
+
+      {/* PRD-40: required age-bracket radio for children (AI-inferred,
+          mom-correctable before save). Adults are always 'adult'. */}
+      {member.relationship === 'child' && (
+        <div data-testid="coppa-bracket-selector">
+          <label className="block text-xs mb-1" style={{ color: 'var(--color-text-secondary)' }}>
+            Age bracket
+          </label>
+          {bracketNeedsConfirmation(member.age, member.relationship) && !member.bracket_touched && (
+            <p className="text-xs mb-1.5" style={{ color: 'var(--color-text-secondary)' }}>
+              We weren&rsquo;t sure of {member.display_name || 'this child'}&rsquo;s age — is this
+              child under 13?
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+            {(['under_13', '13_to_17', 'adult'] as const).map((bracket) => (
+              <label key={bracket} className="flex items-center gap-1.5 cursor-pointer text-sm" style={{ color: 'var(--color-text-primary)', minHeight: '28px' }}>
+                <input
+                  type="radio"
+                  name={`bracket-${member.id}`}
+                  value={bracket}
+                  checked={member.coppa_age_bracket === bracket}
+                  onChange={() => onUpdate({ coppa_age_bracket: bracket, bracket_touched: true })}
+                  style={{ accentColor: 'var(--color-btn-primary-bg)' }}
+                />
+                {BRACKET_LABELS[bracket]}
+              </label>
+            ))}
+          </div>
+          {member.coppa_age_bracket === 'under_13' && (
+            <div
+              className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+              data-testid="coppa-under13-indicator"
+              style={{
+                backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 10%, var(--color-bg-card))',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-border)',
+              }}
+            >
+              <ShieldCheck size={14} style={{ color: 'var(--color-btn-primary-bg)', flexShrink: 0 }} />
+              <span>
+                Under 13 — COPPA Consent required.{' '}
+                <button
+                  type="button"
+                  onClick={() => setLearnMoreOpen(true)}
+                  className="underline font-medium"
+                  style={{ color: 'var(--color-btn-primary-bg)' }}
+                >
+                  Learn what this means
+                </button>
+              </span>
+            </div>
+          )}
+          <CoppaLearnMoreModal
+            isOpen={learnMoreOpen}
+            childName={member.display_name || 'this child'}
+            onClose={() => setLearnMoreOpen(false)}
+          />
+        </div>
+      )}
 
       {(member.relationship === 'special' || member.relationship === 'out_of_nest') && (
         <div>
