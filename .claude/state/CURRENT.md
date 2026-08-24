@@ -42,10 +42,25 @@ of it in-window. Consequences, all landed:
   suites only). **STANDING SEQUENCING LAW: the Slice-6 founder backfill ceremony MUST precede
   stamping `lawyer_approved_at` — that stamp is the platform-wide enforcement switch.**
   Recorded in migration 100327's header, the build file, and here.
-- **Next in queue:** PRD-40 Slice 6 (admin tab + backfill ceremony + close-out — the FINAL
-  COPPA slice) · ST-B (NLC v2) per sequencing · PRD-31 Slice 2 (extends PRD-40's Stripe
-  router). Deploy-skew note: ~40 ethics-guard importers pick up bracket-first computeIsUnder13
-  at their own next deploys (equivalent today).
+- **PRD-40 SLICE 6 CLOSED — BUILD COMPLETE (2026-08-24 night, commits `c4f9a9f`/`c0502c1`):**
+  /admin/coppa live (4 gated RPCs; stamp side-door CLOSED — staff could previously flip the
+  enforcement switch with a bare .update()), LiLa knowledge, coverage map, Checkpoint-5 at
+  ZERO Missing (seat judgment PASS). **PRD-40 remaining = human gates only:** (1) founder
+  backfill ceremony — script at `claude/orchestration/PRD-40-Backfill-Ceremony-Script.md`,
+  seat-run founder-present, incl. Step 3b test-family seeding; (2) attorney stamp via the
+  guarded RPC (sequencing law enforced in code); (3) cohort-2 go-live sweeps. Build file
+  stays in current-builds until the ceremony. R-14 observed LIVE: the age cron already moved
+  2 OurFamily kids to 13_to_17.
+- **LAUNCH-PAGE lane (founder-directed, active):** public marketing site for
+  aimagicformoms.com (Stripe-activation unblock; absorbed later by PRD-38). Code-complete;
+  migration 100331 applied+committed; HOLDING for the suite slot (Slice 6 released it at
+  close) → proof → founder TASTE-PASS (required) → commit → DNS founder-ops → Stripe
+  activation. Founder's vision diagram: `claude/brand/aimfm-business-model-founder-vision-
+  2026-08-24.png`.
+- **Next in queue:** LAUNCH-PAGE proof+close · founder ceremony sitting · ST-B (NLC v2) ·
+  PRD-31 Slice 2 (extends PRD-40's Stripe router). Deploy-skew note: ~40 ethics-guard
+  importers pick up bracket-first computeIsUnder13 at their own next deploys (equivalent
+  today).
 - **Founder still-open:** attorney package send · Resend signup + DNS · feel-passes (mic,
   kid-device, Growth-cards real-phone tap) · retention go-live decision (blocked on the
   export-warning flow + her explicit word).
