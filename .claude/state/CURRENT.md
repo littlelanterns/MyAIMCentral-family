@@ -56,8 +56,12 @@ of it in-window. Consequences, all landed:
   waitlist, beta-draft legal pages. THREE founder taste-pass rounds. **PRICING AMENDED by
   founder rulings 08-28 + 09-02 (commit `b370a80`, production applied):** normals
   7.99/13.99/19.95, Creator hidden, founding = 4.99/9.99/14.99 lifetime-locked ×100.
-  REMAINING founder-ops: Vercel domain add + GoDaddy DNS cutover for aimagicformoms.com
-  (checklist in LAUNCH-PAGE.md) → then Stripe business activation with the live URL.
+  **FOUNDER-OPS COMPLETE (2026-09-02):** aimagicformoms.com DNS cutover done (founder-
+  executed, globally propagated, SSL issued — site LIVE at the real domain) AND **Stripe
+  business account ACTIVATED** (LLC verified, bank connected, SaaS category, $1 COPPA
+  verification charge disclosed in the business description). Platform still runs on TEST
+  keys by design — live-key swap is a launch-gate step. Nothing copied from sandbox
+  (deliberate; live webhook gets created fresh at launch).
 - **Next in queue:** LAUNCH-PAGE proof+close · founder ceremony sitting · ST-B (NLC v2) ·
   PRD-31 Slice 2 (extends PRD-40's Stripe router). Deploy-skew note: ~40 ethics-guard
   importers pick up bracket-first computeIsUnder13 at their own next deploys (equivalent
