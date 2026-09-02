@@ -1,6 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Welcome } from '@/pages/Welcome'
+import { MarketingHome } from '@/pages/marketing/MarketingHome'
+import { PrivacyPolicyPublic } from '@/pages/marketing/PrivacyPolicyPublic'
+import { TermsOfServicePublic } from '@/pages/marketing/TermsOfServicePublic'
+import { isMarketingHostname } from '@/lib/marketing/hostname'
 import { CreateAccount } from '@/pages/auth/CreateAccount'
 import { SignIn } from '@/pages/auth/SignIn'
 import { ForgotPassword } from '@/pages/auth/ForgotPassword'
@@ -110,7 +114,22 @@ function App() {
           <SettingsProvider>
             <Routes>
               {/* Public routes */}
-              <Route path="/" element={<Welcome />} />
+              {/* LAUNCH-PAGE: hostname-based fork. aimagicformoms.com (+ www)
+                  serves the public marketing site at "/"; every other
+                  hostname (myaimcentral.com, localhost, Vercel previews)
+                  keeps the existing app-Welcome behavior. This never touches
+                  any other route — it is a single element swap on "/". */}
+              <Route path="/" element={isMarketingHostname() ? <MarketingHome /> : <Welcome />} />
+              {/* Dev-accessible marketing route — always renders the
+                  marketing home regardless of hostname, so the public site
+                  can be built and toured before DNS ever points at it
+                  (founder-ops cutover checklist, see LAUNCH-PAGE build file). */}
+              <Route path="/welcome" element={<MarketingHome />} />
+              {/* Privacy/Terms are public on BOTH hostnames — Stripe's
+                  business-activation review and general legal need reach
+                  them regardless of which domain a visitor is on. */}
+              <Route path="/privacy" element={<PrivacyPolicyPublic />} />
+              <Route path="/terms" element={<TermsOfServicePublic />} />
               <Route path="/auth/create-account" element={<CreateAccount />} />
               <Route path="/auth/sign-in" element={<SignIn />} />
               <Route path="/auth/forgot-password" element={<ForgotPassword />} />
