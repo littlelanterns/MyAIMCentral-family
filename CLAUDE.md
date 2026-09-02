@@ -148,16 +148,22 @@ This process exists because weeks of careful planning went into every PRD and ad
 21. **RoutingStrip:** Universal grid component for routing items between features. Context-filtered sets (notepad_send_to, request_accept, meeting_action, review_route_card). Favorites section auto-sorted by `notepad_routing_stats`. Sub-destination drill-down for destinations with sub-types. Build once, use everywhere.
 22. **Review & Route:** Universal reusable extraction component defined in PRD-08. Other features wire in with their content as input. AI extraction → card-by-card review → per-item routing. Merciful defaults: if uncertain → Journal. Extract more rather than fewer.
 
-## Pricing (PRD-31 Authoritative)
+## Pricing (PRD-31 Authoritative — AMENDED by founder rulings 2026-08-28 + 2026-09-02)
 
-| Tier | Monthly | Founding Rate |
-|------|---------|---------------|
-| Essential | $9.99 | $7.99 |
-| Enhanced | $16.99 | $13.99 |
-| Full Magic | $24.99 | $20.99 |
-| Creator | $39.99 | $34.99 |
+| Tier | Monthly | Yearly | Founding (first 100, lifetime lock) |
+|------|---------|--------|--------------------------------------|
+| Essential | $7.99 | $79.90 | **$4.99** |
+| Enhanced | $13.99 | $139.90 | **$9.99** |
+| Full Magic | $19.95 | $199.50 | **$14.99** |
+| Creator | HIDDEN (`is_active=false`) — priced $39.99, may return later | | |
 
-100 founding family limit. Founding rates are lifetime locks with growing dollar discount.
+**2026-08-28 ruling (market shift):** former founding rates became the normal rates (Full
+Magic set to $19.95); Creator hidden. **2026-09-02 ruling:** founding-member prices return
+as the "5-10-15 ladder" — $4.99/$9.99/$14.99 (`founding_discount` = 3.00/4.00/4.96),
+lifetime-locked for the first 100 families + founding badge. `subscription_tiers` (live DB)
+is the source of truth; pricing surfaces read it, never hardcode. Both rulings applied
+directly to production (seed data, no migration); recorded in
+`claude/feature-decisions/PRD-31-Subscription-Tiers.md`.
 
 ## Universal Scheduler (PRD-35)
 

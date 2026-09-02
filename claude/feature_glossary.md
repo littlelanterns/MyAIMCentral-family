@@ -136,18 +136,19 @@
 
 ---
 
-## Pricing Reference (PRD-31 Authoritative)
+## Pricing Reference (PRD-31 Authoritative — amended by founder ruling 2026-08-28)
 
-| Tier | Monthly Price | Founding Rate |
-|------|-------------|---------------|
-| Essential | $9.99 | $7.99 |
-| Enhanced | $16.99 | $13.99 |
-| Full Magic | $24.99 | $20.99 |
-| Creator | $39.99 | $34.99 |
+| Tier | Monthly | Yearly | Founding (first 100, lifetime) |
+|------|---------|--------|-------------------------------|
+| Essential | $7.99 | $79.90 | $4.99 |
+| Enhanced | $13.99 | $139.90 | $9.99 |
+| Full Magic | $19.95 | $199.50 | $14.99 |
+| Creator | HIDDEN (`is_active=false`) — may return later | | |
 
-- 100 founding family limit
-- Growing dollar discount (the longer you stay, the more you save)
-- Founding rate is lost on cancellation or non-payment past the 14-day grace period
+- Normal rates re-set 2026-08-28 (market shift); founding "5-10-15 ladder" added 2026-09-02
+- 100 founding family limit — lifetime price lock + founding badge
+- The lock is lost on cancellation or non-payment past the 14-day grace period
+- Live `subscription_tiers` is the source of truth; never hardcode prices
 
 ---
 

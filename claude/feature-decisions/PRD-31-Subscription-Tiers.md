@@ -89,3 +89,38 @@ Annual billing UI (schema ready, `price_yearly` stays seeded but hidden — D-PR
 | Requirement | Status | Evidence |
 |---|---|---|
 | *(build time)* | | |
+
+---
+
+## Pricing Amendment — Founder Ruling 2026-08-28 (supersedes the §PRD pricing table)
+
+Market shift ("5 billion similar apps"). The founder ruled, during the LAUNCH-PAGE
+taste-pass:
+
+1. **The former founding rates become the normal rates**: Essential $7.99 / Enhanced
+   $13.99 / **Full Magic $19.95** (explicitly chosen, NOT the old founding $20.99).
+2. **Creator is HIDDEN for now** (`is_active=false`, row + pricing preserved) — every
+   pricing surface must filter on `is_active`.
+3. **Founding membership is redefined**: same prices as everyone, but a LIFETIME PRICE
+   LOCK + founding badge. `founding_discount = 0` on all active tiers. The 100-family
+   limit and durability rules stand.
+4. Yearly prices set to 10x monthly by the seat as a stated default ($79.90 / $139.90 /
+   $199.50) — founder may adjust.
+
+Applied to production `subscription_tiers` directly by the seat 2026-08-28 (seed data,
+no migration). `tests/prd31-registry-completeness.test.ts` re-run green. Downstream:
+PRD-31 Slice 2 (Stripe products) must be born with THESE prices; the Slice-5 Screen-1
+plan comparison and the tier chart inherit the is_active filter; no Stripe rework needed
+(no subscription products existed yet).
+
+### Addendum — Founder Ruling 2026-09-02: founding prices return (the 5-10-15 ladder)
+
+Amends item 3 of the 2026-08-28 ruling: founding membership is once again a DISCOUNT as
+well as a lifetime lock. First 100 families, lifetime-locked: Essential **$4.99** /
+Enhanced **$9.99** / Full Magic **$14.99** (`founding_discount` = 3.00 / 4.00 / 4.96
+against the 7.99/13.99/19.95 normals; seat-recommended barrier-break ladder, founder-
+approved). Rationale: every founding tier breaks a psychological price barrier ($5/$10/
+$15), memorable for word-of-mouth, revenue delta capped at ~$100/mo by the 100-family
+limit. Applied to production 2026-09-02, drift pin green. Slice 2 Stripe products must be
+born with normal + founding price points; the lock-loss rule (cancellation / 14-day
+non-payment) stands.
