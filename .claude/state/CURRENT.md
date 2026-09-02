@@ -51,12 +51,13 @@ of it in-window. Consequences, all landed:
   guarded RPC (sequencing law enforced in code); (3) cohort-2 go-live sweeps. Build file
   stays in current-builds until the ceremony. R-14 observed LIVE: the age cron already moved
   2 OurFamily kids to 13_to_17.
-- **LAUNCH-PAGE lane (founder-directed, active):** public marketing site for
-  aimagicformoms.com (Stripe-activation unblock; absorbed later by PRD-38). Code-complete;
-  migration 100331 applied+committed; HOLDING for the suite slot (Slice 6 released it at
-  close) → proof → founder TASTE-PASS (required) → commit → DNS founder-ops → Stripe
-  activation. Founder's vision diagram: `claude/brand/aimfm-business-model-founder-vision-
-  2026-08-24.png`.
+- **LAUNCH-PAGE CLOSED (2026-09-02, commit `b004a74`):** public marketing site live in
+  code — hostname fork, three-pillar hero, live-priced 3-tier section w/ founding ladder,
+  waitlist, beta-draft legal pages. THREE founder taste-pass rounds. **PRICING AMENDED by
+  founder rulings 08-28 + 09-02 (commit `b370a80`, production applied):** normals
+  7.99/13.99/19.95, Creator hidden, founding = 4.99/9.99/14.99 lifetime-locked ×100.
+  REMAINING founder-ops: Vercel domain add + GoDaddy DNS cutover for aimagicformoms.com
+  (checklist in LAUNCH-PAGE.md) → then Stripe business activation with the live URL.
 - **Next in queue:** LAUNCH-PAGE proof+close · founder ceremony sitting · ST-B (NLC v2) ·
   PRD-31 Slice 2 (extends PRD-40's Stripe router). Deploy-skew note: ~40 ethics-guard
   importers pick up bracket-first computeIsUnder13 at their own next deploys (equivalent
