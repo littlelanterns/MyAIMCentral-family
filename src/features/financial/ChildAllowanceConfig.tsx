@@ -43,6 +43,16 @@ const PAYOUT_MODE_LABELS: Record<PayoutMode, string> = {
 
 export function ChildAllowanceConfigPage() {
   const { memberId } = useParams<{ memberId: string }>()
+  return <ChildAllowanceConfigInner memberId={memberId} />
+}
+
+/**
+ * MEMBER-SETTINGS-HUB (2026-09-07): extracted from ChildAllowanceConfigPage
+ * so the Member Settings Hub can mount the SAME allowance editor directly in
+ * its Allowance & Finances section, scoped to one member — one save path,
+ * two entry points (the route above, and the hub). No logic changed.
+ */
+export function ChildAllowanceConfigInner({ memberId }: { memberId: string | undefined }) {
   const { data: family } = useFamily()
   const { data: membersData } = useFamilyMembers(family?.id)
   const members = membersData ?? []

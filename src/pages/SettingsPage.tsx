@@ -5,8 +5,9 @@
  * Sections: Lantern's Path, Profile, Appearance, Family Management, Access & Security, Data
  */
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   User, Palette, Users, Map, Moon, Sun, Sparkles, RotateCcw, ChevronLeft,
   ChevronRight, Shield, Download, KeyRound, UserPlus, LogIn, Wand2, DollarSign, BookOpen, Gift, Calendar,
@@ -16,7 +17,7 @@ import { TeenTransparencyPanel } from '@/features/permissions'
 import { PermissionGate } from '@/lib/permissions/PermissionGate'
 import { LilaResponseLogSection } from '@/components/settings/LilaResponseLogSection'
 import { SafetyMonitoringSettingsSection } from '@/components/safety/SafetyMonitoringSettingsSection'
-import { useFamilyMember } from '@/hooks/useFamilyMember'
+import { useFamilyMember, useFamilyMembers, type FamilyMember } from '@/hooks/useFamilyMember'
 import { useCalendarSettings, useUpdateCalendarSettings } from '@/hooks/useCalendarEvents'
 import {
   useMindSweepSettings, useUpdateMindSweepSettings,
@@ -25,11 +26,12 @@ import {
 } from '@/hooks/useMindSweep'
 import { MindSweepSettingsPanel } from '@/components/mindsweep/MindSweepSettingsPanel'
 import type { MindSweepSettings } from '@/types/mindsweep'
-import { useFamily } from '@/hooks/useFamily'
+import { useFamily, type Family } from '@/hooks/useFamily'
 import { useTheme } from '@/lib/theme'
-import { supabase } from '@/lib/supabase/client'
 import { getMemberColor } from '@/lib/memberColors'
 import { useShell } from '@/components/shells/ShellProvider'
+import { MemberSettingsHub } from '@/components/family/MemberSettingsHub'
+import { useMemberSaveAndConsentGate } from '@/hooks/useMemberSaveAndConsentGate'
 
 // ── Tour Reset Helper ────────────────────────────────────────────
 const TOUR_STORAGE_KEY = 'myaim_intro_tour_dismissed'
@@ -136,7 +138,7 @@ export function SettingsPage() {
       {/* Family Management (Mom only) */}
       {shell === 'mom' && (
         <SettingsSection title="Family Management" icon={Users}>
-          <FamilyManagementSection familyId={family?.id} loginName={family?.family_login_name ?? undefined} />
+          <FamilyManagementSection familyId={family?.id} loginName={family?.family_login_name ?? undefined} mom={member} family={family} />
         </SettingsSection>
       )}
 
@@ -444,72 +446,96 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
 
 // ── Family Management Section ───────────────────────────────────
 
-function FamilyManagementSection({ familyId, loginName }: { familyId?: string; loginName?: string }) {
-  const [members, setMembers] = useState<any[]>([])
-
-  useEffect(() => {
-    if (!familyId) return
-    supabase
-      .from('family_members')
-      .select('id, display_name, role, auth_method, is_active, date_of_birth, member_color, assigned_color')
-      .eq('family_id', familyId)
-      .eq('is_active', true)
-      .neq('role', 'family')
-      // PRD-40 Slice 5: suspended-for-deletion members hidden from rosters
-      .eq('is_suspended_for_deletion', false)
-      .then(({ data }) => {
-        if (data) {
-          const roleOrder: Record<string, number> = {
-            primary_parent: 0, additional_adult: 1, special_adult: 2, member: 3,
-          }
-          data.sort((a, b) => {
-            const ra = roleOrder[a.role] ?? 9
-            const rb = roleOrder[b.role] ?? 9
-            if (ra !== rb) return ra - rb
-            // Within same role group, oldest first (earliest DOB)
-            if (a.date_of_birth && b.date_of_birth) return a.date_of_birth.localeCompare(b.date_of_birth)
-            if (a.date_of_birth) return -1
-            if (b.date_of_birth) return 1
-            return 0
-          })
-          setMembers(data)
-        }
-      })
-  }, [familyId])
+/**
+ * MEMBER-SETTINGS-HUB (2026-09-07): the founder's original complaint was
+ * specifically that THIS roster preview was unclickable — mom had to press
+ * "Manage Members & PINs" first just to open one kid's settings. Rows here
+ * now open the SAME MemberSettingsHub used by /family-members's own roster
+ * (same component, same save/consent-gate hook — no fork). "Manage Members &
+ * PINs" stays as its own door to the full page below.
+ */
+function FamilyManagementSection({ familyId, loginName, mom, family }: { familyId?: string; loginName?: string; mom: FamilyMember | null | undefined; family: Family | null | undefined }) {
+  const queryClient = useQueryClient()
+  const { data: members = [] } = useFamilyMembers(familyId)
+  const [hubMemberId, setHubMemberId] = useState<string | null>(null)
+  const { handleSaveMember, handleUnder13Transition, gateModals } = useMemberSaveAndConsentGate({
+    momId: mom?.id,
+    isFoundingFamily: family?.is_founding_family,
+  })
 
   if (!familyId) return null
+
+  const hubTarget = hubMemberId ? members.find((m) => m.id === hubMemberId) : undefined
 
   return (
     <div className="space-y-3">
       {/* Quick member overview */}
       <div className="space-y-1.5">
-        {members.map((m) => (
-          <div
-            key={m.id}
-            className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg"
-            style={{ backgroundColor: 'var(--color-bg-secondary)' }}
-          >
+        {members.map((m) => {
+          const isMom = m.role === 'primary_parent'
+          const roleLabel = isMom ? 'Mom' : m.role === 'additional_adult' ? 'Adult' : m.role === 'special_adult' ? 'Special Adult' : 'Member'
+          const rowContent = (
+            <>
+              <div
+                className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                style={{
+                  backgroundColor: getMemberColor(m),
+                  color: '#fff',
+                }}
+              >
+                {m.display_name?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+                  {m.display_name}
+                </p>
+              </div>
+              <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+                {roleLabel}
+                {m.auth_method ? ` · ${m.auth_method}` : ''}
+              </span>
+            </>
+          )
+          // Mom's own row has no meaningful hub (Allowance/Privacy/Safety
+          // Monitoring don't apply to her, "View as Mom" is nonsensical) —
+          // stays a plain summary row, exactly as before.
+          return isMom ? (
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{
-                backgroundColor: getMemberColor(m),
-                color: '#fff',
-              }}
+              key={m.id}
+              className="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg"
+              style={{ backgroundColor: 'var(--color-bg-secondary)' }}
             >
-              {m.display_name?.charAt(0)?.toUpperCase() || '?'}
+              {rowContent}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
-                {m.display_name}
-              </p>
-            </div>
-            <span className="text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
-              {m.role === 'primary_parent' ? 'Mom' : m.role === 'additional_adult' ? 'Adult' : m.role === 'special_adult' ? 'Special Adult' : 'Member'}
-              {m.auth_method ? ` · ${m.auth_method}` : ''}
-            </span>
-          </div>
-        ))}
+          ) : (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setHubMemberId(m.id)}
+              data-testid={`settings-member-hub-open-${m.id}`}
+              title={`Open ${m.display_name}'s settings`}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-left"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', border: 'none' }}
+            >
+              {rowContent}
+              <ChevronRight size={14} className="shrink-0" style={{ color: 'var(--color-text-tertiary)' }} />
+            </button>
+          )
+        })}
       </div>
+
+      {hubTarget && mom && family && (
+        <MemberSettingsHub
+          targetMember={hubTarget}
+          mom={mom}
+          family={family}
+          onClose={() => setHubMemberId(null)}
+          onSaveProfile={(updates) => handleSaveMember(hubTarget.id, updates)}
+          onUnder13Transition={(updates) => handleUnder13Transition(hubTarget.id, hubTarget.display_name, hubTarget.family_id, updates)}
+          onInvalidate={() => queryClient.invalidateQueries({ queryKey: ['family-members'] })}
+        />
+      )}
+      {gateModals}
 
       {/* Navigation links */}
       <div className="space-y-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>

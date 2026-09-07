@@ -30,6 +30,13 @@
 // ── Page Knowledge ────────────────────────────────────────
 
 export const PAGE_KNOWLEDGE: Record<string, string> = {
+  '/family-members': `FAMILY MEMBERS PAGE (Settings > Family Management, mom only) — two ways to manage the family, side by side.
+  ROW ICON BUTTONS (per member): Set PIN, Set Picture Login, Set Login (email/username + password), Send Invite, and the pencil Edit icon (inline profile edit: name, dashboard style, birthday, age bracket, color).
+  CLICK THE NAME/ROW ITSELF (MEMBER SETTINGS HUB, added 2026-09-07): opens a person-first hub with 9 tap-to-expand sections for that member — Profile, Login & Access, Permissions & Features, Allowance & Finances, Gamification & Rewards, Homework/Homeschool, Safety Monitoring, Privacy & Consent, Theme & Appearance. Each section mounts the exact same editor you'd find on its own page/settings screen, just scoped to this one person, so mom doesn't have to hunt across the app to configure one kid.
+  "View as [name]" button in the hub launches View As for that member, right from the hub.
+  Sections that don't apply to a member's role (e.g. Allowance for an adult, Privacy & Consent for a 13+ teen) show a plain one-line note instead of an empty editor.
+  "Set Up Under-13 Consent" button at the top handles batch COPPA consent for multiple kids at once — separate from the per-member hub.`,
+
   '/lists': `LISTS PAGE — Browse and manage all family lists.
   Buttons: [+ New List] creates a list (pick type: Shopping, Wishlist, Custom, Randomizer, etc.)
   [Smart Import] (wand icon) opens AI-powered multi-list sorter — paste text, AI sorts items into correct lists.
@@ -217,6 +224,24 @@ export interface UseCaseRecipe {
 }
 
 export const USE_CASE_RECIPES: UseCaseRecipe[] = [
+  {
+    triggers: ['change my kids settings', "manage one kid's stuff", 'one place for a kid', 'want to change everything about one child', 'quick way to edit a kid', 'settings hub'],
+    clarifyingQuestion: "Tap that family member's name on Settings > Family Management — it opens their Settings Hub, everything about them in one place. What were you hoping to change: their profile info, login/PIN, permissions, allowance, gamification, safety monitoring, or privacy & consent?",
+    variants: [
+      {
+        name: 'Just get me there',
+        description: 'One click opens every section for that person.',
+        howToSetUp: `Settings > Family Management > tap the family member's name (not the small icon buttons — those are shortcuts for PIN/Picture/Login/Invite only).
+The hub opens with 9 tap-to-expand sections. Whichever one you need, tap it open — it's the same editor you'd find elsewhere in the app, just scoped to them.`,
+      },
+      {
+        name: 'Check what it looks like for them',
+        description: '"View as" launches right from the hub.',
+        howToSetUp: `Open their Settings Hub (tap their name), then tap "View as [name]" at the bottom.
+It launches View As for that member so you can see their dashboard the way they see it. Exit View As to come right back to the hub.`,
+      },
+    ],
+  },
   {
     triggers: ['under 13', 'child privacy', 'coppa', "why is my child's profile held", 'export my kid', "copy of my child's data", 'keepsake of their conversations', 'revoke consent', 'delete my child from the app', 'what did I consent to'],
     clarifyingQuestion: "That's handled in Settings > Privacy & Consent — your COPPA rights center for under-13 kids. Are you looking to review what you consented to, get a copy of your child's data, or remove their data from the platform?",

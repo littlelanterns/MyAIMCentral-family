@@ -152,7 +152,7 @@ function Avatar({ record }: { record: CoppaConsentRecord }) {
   )
 }
 
-function ActiveRow({ record, onRequestRevoke }: { record: CoppaConsentRecord; onRequestRevoke: () => void }) {
+export function ActiveRow({ record, onRequestRevoke }: { record: CoppaConsentRecord; onRequestRevoke: () => void }) {
   const [replayOpen, setReplayOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const toast = useRoutingToast()
@@ -216,7 +216,7 @@ function ActiveRow({ record, onRequestRevoke }: { record: CoppaConsentRecord; on
   )
 }
 
-function RevokedRow({ record }: { record: CoppaConsentRecord }) {
+export function RevokedRow({ record }: { record: CoppaConsentRecord }) {
   const undo = useUndoCoppaRevocation()
   return (
     <div className="rounded-xl p-4 space-y-3" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-error, #d64545)' }}>
@@ -248,7 +248,7 @@ function RevokedRow({ record }: { record: CoppaConsentRecord }) {
   )
 }
 
-function AgedOutRow({ record }: { record: CoppaConsentRecord }) {
+export function AgedOutRow({ record }: { record: CoppaConsentRecord }) {
   const [replayOpen, setReplayOpen] = useState(false)
   return (
     <div className="rounded-xl p-4 space-y-2" style={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border)', opacity: 0.85 }}>
@@ -279,3 +279,60 @@ function AgedOutRow({ record }: { record: CoppaConsentRecord }) {
 
 // Exposed for the eyes-on tour / bracket label reuse if needed later.
 export { BRACKET_LABELS }
+
+/**
+ * MEMBER-SETTINGS-HUB (2026-09-07): one member's slice of this exact page —
+ * same classification logic, same rows, same revocation modal. The modal is
+ * owned HERE (not inside ActiveRow) for the identical reason the page keeps
+ * it at page level: the moment revoke_coppa_consent succeeds the record
+ * reclassifies and ActiveRow would unmount mid-flow, taking a nested modal
+ * down with it (found live during the Convention #277 tour, 2026-08-24).
+ */
+export function MemberPrivacyConsentCard({ memberId, memberName }: { memberId: string; memberName: string }) {
+  const { data: records = [], isLoading } = useCoppaConsentRecords()
+  const [revoking, setRevoking] = useState(false)
+
+  const memberRecords = records.filter((r) => r.child_member_id === memberId)
+  // A member can accumulate multiple consent rows over time (revoke+re-consent,
+  // supersede-on-13th-birthday); the most recently consented row is the one
+  // that reflects their CURRENT status.
+  const record = memberRecords.length > 0
+    ? [...memberRecords].sort((a, b) => new Date(b.consented_at).getTime() - new Date(a.consented_at).getTime())[0]
+    : undefined
+
+  if (isLoading) {
+    return <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>Loading…</p>
+  }
+
+  if (!record) {
+    return (
+      <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        No COPPA consent record on file for {memberName} yet. This only applies to children under 13 —
+        set their age bracket to "Under 13" in Profile to start the consent flow.
+      </p>
+    )
+  }
+
+  const isRevokedInGrace = !!record.revoked_at && !record.deletion_completed_at
+  const isAgedOut = !!record.superseded_at || record.child_coppa_age_bracket !== 'under_13'
+
+  return (
+    <div className="space-y-2">
+      {isRevokedInGrace ? (
+        <RevokedRow record={record} />
+      ) : isAgedOut ? (
+        <AgedOutRow record={record} />
+      ) : (
+        <ActiveRow record={record} onRequestRevoke={() => setRevoking(true)} />
+      )}
+      {revoking && (
+        <CoppaRevocationModal
+          isOpen={true}
+          onClose={() => setRevoking(false)}
+          childMemberId={record.child_member_id}
+          childName={memberName}
+        />
+      )}
+    </div>
+  )
+}

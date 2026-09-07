@@ -11,6 +11,16 @@ export interface FeatureGuideEntry {
 }
 
 export const FEATURE_GUIDE_REGISTRY: Record<string, FeatureGuideEntry> = {
+  member_settings_hub: {
+    title: "This Family Member's Settings",
+    description:
+      "Everything about this person, in one place. Tap any section to expand it — Profile, Login & Access (PIN/Picture/Login/Invite), Permissions, Allowance, Gamification, Homework, Safety Monitoring, Privacy & Consent, and Theme — each one opens the SAME editor you'd find elsewhere in the app, just scoped to them so you don't have to hunt across pages.",
+    bullets: [
+      'Click a family member\'s name on Family Management to open this hub',
+      '"View as [name]" lets you check what things look like for them, right from here',
+      'Every existing page (Allowance, Permission Hub, Manage Members & PINs) still works exactly as before — this is a second door into the same rooms',
+    ],
+  },
   coppa_consent_review: {
     title: 'Privacy & Consent',
     description:

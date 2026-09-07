@@ -35,6 +35,11 @@ interface HelpPattern {
 
 const HELP_PATTERNS: HelpPattern[] = [
   {
+    category: 'member_settings_hub',
+    keywords: ['change kid settings', "change my kid's settings", 'edit their settings', 'one place for a kid', 'all their settings', 'manage one kid', "change my child's pin", 'settings for one kid', 'kid settings hub', 'member settings', "click their name"],
+    response: "Go to Settings > Family Management and tap the family member's name (or the row itself, not the small icon buttons) — that opens their Settings Hub. It's everything about that person in one place: Profile, Login & Access (PIN/Picture/Login/Invite), Permissions, Allowance, Gamification, Homework, Safety Monitoring, Privacy & Consent, and Theme, each as a tap-to-expand section. There's also a \"View as [name]\" button right there if you want to check what things look like for them.",
+  },
+  {
     category: 'wishlists',
     keywords: ['wishlist', 'wish list', 'wishcatch', 'gift idea', 'gift planning', 'gift ideas', 'grandma wish list', 'put it on the list', 'want for christmas', 'want for birthday'],
     response: "WishLists lives in the Family section of your sidebar (or tap the Gift icon in the + menu). Capture is fast: pick who it's for, type it, speak it, snap a photo, or paste a link — it saves instantly. Everyone has their own wishlist, and kids see everything on theirs including what you added. Mom (and any adult you grant Gift Planning to) also gets a hidden Gift Planning tab for gift-ideas notes and \"Considering\" picks — kids never see that part. Want help setting up a share link for grandma? That's coming in the next update.",
