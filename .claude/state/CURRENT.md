@@ -46,9 +46,25 @@ dead on all surfaces she tried; TWO new UX findings for the SMFX pile: (a) hardw
 mic (F9) records silence with no indication — add live level indicator + "not hearing
 anything" hint; (b) mobile recording shows no feedback until stop ("Transcribing…" then
 correct words) — add a visible listening animation/timer (interim text impossible on the
-Whisper path, liveness isn't). One open clarifier: a LiLa surface "sort of worked" —
-awaiting one founder sentence, then investigate. STILL OPEN: kid-tablet PECON feel-pass ·
-keepsake exports · virtual mailbox.
+Whisper path, liveness isn't). Clarifier answered: the "sort of worked" voice surface = the LiLa OPTIMIZER drawer mode —
+investigate with the other two voice-UX findings (one small session covers all three).
+**CEREMONY TAIL CLOSED (2026-09-07):** keepsake offer satisfied — all four kids offered,
+Ruthie's export tested (completed + file built; founder must refresh for the Download
+link — if no link surfaces after refresh, that's a NEW UX finding), remaining three
+declined by informed founder choice. The retention-cron precondition ("offered every
+under-13 child") is SATISFIED. STILL OPEN: kid-tablet PECON feel-pass · virtual mailbox
+(founder briefed, deferred by choice — revisit before first paying stranger-family).
+
+**MEMBER-SETTINGS-HUB CLOSED (2026-09-07, commit `618f041`):** person-first settings —
+clickable roster rows on BOTH Settings → Family Management and Manage Members & PINs open
+the per-member hub (9 sections, existing editors, View-As shortcut). Founder taste-pass
+approved from the original offending screen. Key consolidation:
+`useMemberSaveAndConsentGate` — the COPPA consent gate now has ONE owner across both
+pages. Real bug found: View-As launched from a mom-only route self-blocks via MomOnlyRoute
+(fixed via /dashboard-first, the universal pattern). Stubs: Homework + Theme sections
+(no such editors exist anywhere yet — they light up when those editors are ever built).
+New voice-UX investigation trio parked: level indicator for hardware-muted mics · mobile
+listening feedback · Optimizer-drawer "sort of worked".
 
 ## 2026-08-23/24 session delta (six lanes closed)
 
