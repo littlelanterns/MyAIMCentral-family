@@ -23,6 +23,23 @@ of it in-window. Consequences, all landed:
   at the seat's commit gate and fixed; **the deployed copy of coppa-export-child-data
   predates the fix — redeploy on the next authorized deploy pass.**
 
+## 2026-09-07 — THE BACKFILL CEREMONY IS COMPLETE (R-9 ✅)
+
+All four of the founder's under-13 children have active consent (Mosiah via the single-kid
+flow against v1.0.0 with a real $1 TEST charge; Ruthie/Avigaile/Simeon via the brand-new
+BATCH flow against v1.1.0 — built mid-ceremony on founder order, live-proven by her own
+use within the hour). Testworth fixture kids seeded (Step 3b). **The platform-wide
+sequencing counter is ZERO — the attorney stamp is UNBLOCKED and untouched.** Template
+v1.1.0 active (founder-approved texts: vendor categories not names, no Reach-a-Human, no
+home address); v1.0.0 retired. Fixed same-day: OurFamily was never flagged
+is_founding_family (the only founding family was the Testworth FIXTURE — corrected;
+founder = spot #1; SMFX note: exclude test families from the public founding counter).
+Commits `e5183f5`/`e51c11d`. **Remaining ceremony tail:** founder keepsake exports
+(Settings → Privacy & Consent, per kid) — REQUIRED before migration 100324 (retention
+crons) is ever applied. **PRD-40 now waits on: keepsake exports → attorney → stamp.**
+Also this week (2026-09-02): aimagicformoms.com LIVE, Stripe activated, pricing rulings.
+Dispatched next: MEMBER-SETTINGS-HUB (person-first settings navigation, founder-designed).
+
 ## 2026-08-23/24 session delta (six lanes closed)
 
 - **Fable ruling:** Fable in normal plan usage — judgment tier + daily driver; security/
