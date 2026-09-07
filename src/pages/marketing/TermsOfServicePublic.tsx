@@ -40,7 +40,8 @@ export function TermsOfServicePublic() {
         <p>
           Some features require a paid subscription. Subscription prices, tiers, and any limited-time
           founding-family rates are shown on our pricing page and inside the app. Payments are processed by
-          Stripe; we never store your full card number. Subscriptions renew automatically until canceled.
+          our payment processor; we never store your full card number. Subscriptions renew automatically
+          until canceled.
           You can cancel at any time from Settings, and cancellation takes effect at the end of your current
           billing period unless otherwise stated. Founding-family rates are offered to a limited number of
           early families and may be lost if a subscription lapses, as described at signup.
@@ -131,9 +132,10 @@ export function TermsOfServicePublic() {
       <div>
         <h2>12. Contact us</h2>
         <p>
-          Three Little Lanterns LLC · 4032 State Highway VV, Verona, MO 65769 · 208-351-4622 ·{' '}
+          Three Little Lanterns LLC ·{' '}
           <a href="mailto:aimagicformoms@gmail.com">aimagicformoms@gmail.com</a>
         </p>
+        <p>Mailing address: [Mailing address — pending; flagged for counsel].</p>
       </div>
     </LegalPageShell>
   )

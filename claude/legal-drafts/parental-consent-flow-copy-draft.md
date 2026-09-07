@@ -4,11 +4,23 @@
 >
 > Prepared 2026-07-04. This document resolves every `[LAWYER REVIEW REQUIRED]` anchor in
 > PRD-40 into reviewable draft language. The text counsel approves here becomes, verbatim,
-> **consent template version 1.0.0** in the platform's versioned-consent system
+> **consent template version 1.1.0** in the platform's versioned-consent system
 > (`coppa_consent_templates`): five stored sections — *what_we_collect*, *how_lila_uses*,
 > *who_sees_it*, *your_rights*, *parent_affirmation* — plus the surrounding flow copy. The
 > software will not allow any real parent to consent until counsel's approval date is
 > recorded against this version (`lawyer_approved_at`).
+>
+> **Revised 2026-09-07 (founder text rulings), superseding v1.0.0:** v1.0.0 was published
+> 2026-07-08 and has been retired (mid-flow retirement is by design — see
+> `commit_consented_members`; any consent already recorded under v1.0.0 stays valid and
+> unchanged). This v1.1.0 revision applies three rulings throughout: (a) vendor names
+> (Supabase, Vercel, Anthropic, OpenRouter, OpenAI, Stripe) replaced with generic service
+> categories ("our AI providers," "our payment processor," etc.) — the real names stay in the
+> *Data-Practices Summary* §4 for your contract review; (b) the "Reach a Human" bullet is
+> removed everywhere it appeared, replaced with a plain contact-email line carrying no
+> response-time commitment; (c) the founder's home mailing address and phone number are
+> removed from every screen and email below — email-only contact, mailing address shown as
+> `[pending — virtual mailbox]` until she has a business address to publish.
 >
 > **Voice:** deliberately warm and plain. The reader is a tired mom adding her kids at
 > 9:40pm. The five-section, checkbox-per-section, scroll-enforced design is the evidentiary
@@ -74,11 +86,10 @@ LiLa is our AI assistant. Here's how AI features handle your child's information
   questions, personalize suggestions, and support your parenting — **never to train AI
   models.**
 - **Where processing happens.** When someone in your family uses LiLa, the conversation —
-  plus family context you've approved — is processed by our AI service providers (Anthropic,
-  via a routing service called OpenRouter, and OpenAI for voice-to-text and search
-  relevance). They process it to generate the response and are bound by agreements limiting
-  their use of your data to providing our service. *(They may not use your family's content
-  to train their models. — see counsel note below.)*
+  plus family context you've approved — is processed by our AI providers to generate the
+  response. They are bound by agreements limiting their use of your data to providing our
+  service. *(They may not use your family's content to train their models. — see counsel note
+  below.)*
 - **Search memory stays home.** The "search memory" we build from your family's items
   (embeddings) is stored only in our own database and is never shared.
 - **LiLa doesn't fish.** LiLa is designed never to ask your child for personal information.
@@ -113,9 +124,10 @@ LiLa is our AI assistant. Here's how AI features handle your child's information
 - **No advertisers, no marketers, no data brokers.** None of them get your child's
   information, full stop.
 - **The only outside companies that touch it** are the ones that run the platform for us,
-  under contract: Supabase (database and storage), Vercel (hosting), the AI providers from
-  Section 2, and Stripe (which processes your verification charge — your card details go to
-  Stripe, never to us). They may use your family's data only to provide our service.
+  under contract: our database and storage providers, our hosting provider, the AI providers
+  from Section 2, and our payment processor (which processes your verification charge — your
+  card details go to them, never to us). They may use your family's data only to provide our
+  service.
 - **Law enforcement** gets information only through valid legal process, and we'll tell you
   if we're ever required to hand something over unless the law forbids us from telling you.
 
@@ -143,8 +155,8 @@ These aren't buried-in-the-fine-print rights. They're buttons in your Settings:
 - **Walk away cleanly.** Revoke your consent for [Child Name] entirely. Their data is deleted
   after a 14-day grace window (in case you tapped by accident), and revoking for one child
   never touches your other children's data.
-- **Reach a human.** Contact Three Little Lanterns LLC directly about any privacy concern:
-  aimagicformoms@gmail.com, 208-351-4622, or 4032 State Highway VV, Verona, MO 65769.
+- **Reach us anytime.** Email aimagicformoms@gmail.com with any privacy question or concern
+  about [Child Name].
 
 One more promise: we never require [Child Name] to hand over more information than an
 activity actually needs in order to participate.
@@ -170,7 +182,8 @@ charge your card **$1.00, one time**. You won't be charged again when you add mo
 It will show up on your statement as **MYAIM VERIFY**, and we'll email you a receipt along
 with a copy of everything you just read.
 
-*(Stripe payment form appears here. Card details go directly to Stripe — we never see them.)*
+*(Payment form appears here, handled by our payment processor. Card details go directly to
+them — we never see them.)*
 
 **Authorization line (above the button):**
 

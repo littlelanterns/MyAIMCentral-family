@@ -55,7 +55,7 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
           <div>
             <img src="/aimfm-logo-transparent.png" alt="a.i.magic for moms" style={{ height: 32, marginBottom: 12 }} />
             <p style={{ opacity: 0.8 }}>Three Little Lanterns LLC</p>
-            <p style={{ opacity: 0.8 }}>4032 State Highway VV, Verona, MO 65769</p>
+            <p style={{ opacity: 0.8 }}>[Mailing address — pending; flagged for counsel]</p>
           </div>
           <div>
             <p className="font-semibold mb-2">Contact</p>
@@ -71,7 +71,6 @@ export function MarketingLayout({ children }: MarketingLayoutProps) {
               <Mail size={16} />
               aimagicformoms@gmail.com
             </a>
-            <p style={{ opacity: 0.8, marginTop: 4 }}>208-351-4622</p>
           </div>
           <div>
             <p className="font-semibold mb-2">Legal</p>

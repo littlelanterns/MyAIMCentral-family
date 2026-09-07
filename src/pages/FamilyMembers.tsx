@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles, Image as ImageIcon, Check, LogIn, AtSign } from 'lucide-react'
+import { ArrowLeft, Edit2, Key, UserPlus, Users, Eye, EyeOff, Settings2, Mail, LinkIcon, Cake, LayoutDashboard, Sparkles, Image as ImageIcon, Check, LogIn, AtSign, ShieldCheck } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useFamilyMember, useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useFamily } from '@/hooks/useFamily'
@@ -13,6 +13,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { CoppaConsentFlow } from '@/components/coppa/CoppaConsentFlow'
 import { CoppaAcknowledgeModal } from '@/components/coppa/CoppaAcknowledgeModal'
 import { CoppaDormantCard } from '@/components/coppa/CoppaDormantCard'
+import { BatchConsentModal } from '@/components/coppa/BatchConsentModal'
 import { BRACKET_LABELS, CONSENT_SECTION_KEYS, type CoppaAgeBracket } from '@/lib/coppa/brackets'
 import {
   useActiveConsentTemplate,
@@ -78,6 +79,7 @@ export function FamilyMembers() {
   const [pictureModal, setPictureModal] = useState<string | null>(null)
   const [inviteModal, setInviteModal] = useState<string | null>(null)
   const [loginModal, setLoginModal] = useState<string | null>(null)
+  const [batchConsentOpen, setBatchConsentOpen] = useState(false)
   const { data: consentTemplate } = useActiveConsentTemplate()
   const { data: parentVerification } = useParentVerification()
   const [coppaGate, setCoppaGate] = useState<CoppaEditGateState>({ kind: 'none' })
@@ -147,6 +149,16 @@ export function FamilyMembers() {
           Family Members
         </h1>
         <div className="flex gap-2">
+          {otherMembers.some((m) => m.role === 'member') && (
+            <button
+              type="button"
+              onClick={() => setBatchConsentOpen(true)}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-primary)' }}
+            >
+              <ShieldCheck size={16} /> Set Up Under-13 Consent
+            </button>
+          )}
           <Link
             to="/family-setup"
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white"
@@ -281,6 +293,26 @@ export function FamilyMembers() {
         />
       )}
 
+      {/* ── PRD-40: batch consent setup for several existing children ── */}
+      <BatchConsentModal
+        isOpen={batchConsentOpen}
+        onClose={() => setBatchConsentOpen(false)}
+        allMembers={otherMembers.map((m) => ({
+          id: m.id,
+          display_name: m.display_name,
+          role: m.role,
+          coppa_age_bracket: m.coppa_age_bracket ?? 'adult',
+          member_color: m.member_color,
+          assigned_color: m.assigned_color,
+          calendar_color: m.calendar_color,
+        }))}
+        onCommitted={async () => {
+          await queryClient.invalidateQueries({ queryKey: ['family-members'] })
+          await queryClient.invalidateQueries({ queryKey: ['coppa-consent-records'] })
+          await queryClient.invalidateQueries({ queryKey: ['coppa-parent-verification'] })
+        }}
+      />
+
       {/* ── PRD-40 Slice 3: consent gate for edit-to-under-13 ── */}
       {coppaGate.kind === 'dormant' && (
         <CoppaDormantCard
@@ -380,7 +412,14 @@ function MemberRow({
           </p>
           <p className="text-xs flex items-center gap-1" style={{ color: 'var(--color-text-secondary)' }}>
             {roleLabel}
-            {member.age ? ` | Age ${member.age}` : ''}
+            {(() => {
+              // Display-only: derive from date_of_birth (same math the edit
+              // modal uses) so the list never shows a stale age snapshot.
+              // Falls back to the static column only when there's no DOB to
+              // compute from. Never writes member.age.
+              const displayAge = member.date_of_birth ? calculateAge(member.date_of_birth) : member.age
+              return displayAge != null ? ` | Age ${displayAge}` : ''
+            })()}
             {member.date_of_birth && (
               <span className="inline-flex items-center gap-0.5">
                 <Cake size={10} /> {formatBirthday(member.date_of_birth)}

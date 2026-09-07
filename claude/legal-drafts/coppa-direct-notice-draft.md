@@ -2,6 +2,12 @@
 
 > **DRAFT — FOR ATTORNEY REVIEW — NOT LEGAL ADVICE**
 >
+> **Revised 2026-09-07 (founder text rulings), same three revisions applied to the consent
+> flow draft: (a) vendor names replaced with generic service categories (real names stay in
+> the *Data-Practices Summary* §4 for your review); (b) the "Reach us" line drops the phone
+> number and drops any response-time commitment; (c) the founder's home mailing address and
+> phone number are removed, replaced with `[pending — virtual mailbox]`.**
+>
 > Prepared 2026-07-04. This is the notice-to-parents document shaped to 16 C.F.R. § 312.4
 > (as amended, in force since June 23, 2025; compliance mandatory since April 22, 2026). It
 > is designed to be (a) emailed to the parent when the consent flow begins and again with the
@@ -20,8 +26,7 @@
 ## Direct Notice: Our Collection of Personal Information from Your Child
 
 **From:** Three Little Lanterns LLC (operator of MyAIM Central)
-4032 State Highway VV, Verona, MO 65769 · 208-351-4622 ·
-aimagicformoms@gmail.com · myaimcentral.com
+[pending — virtual mailbox] · aimagicformoms@gmail.com · myaimcentral.com
 
 You're receiving this notice because you told us **[Child Name]** is under 13. A U.S. federal
 law — the Children's Online Privacy Protection Act (COPPA) — requires us to tell you exactly
@@ -75,14 +80,18 @@ collecting more information than is reasonably necessary for that activity.
 Your child's information is disclosed only to the service providers that run the platform for
 us, under contracts limiting their use to providing our service:
 
-| Recipient | Purpose |
+| Category | Purpose |
 |---|---|
-| Supabase | Database, sign-in, and file storage (where all family data lives) |
-| Vercel | Web hosting |
-| Anthropic (via OpenRouter) | Generating LiLa's AI responses when your child or family uses LiLa |
-| OpenAI | Search-relevance processing (embeddings) and voice-to-text transcription |
-| Stripe | Processing your $1.00 verification charge (your card details go directly to Stripe, never to us) |
-| [Email provider — TBD] | Sending you receipts and notices |
+| Our database and storage providers | Database, sign-in, and file storage (where all family data lives) |
+| Our hosting provider | Web hosting |
+| Our AI providers | Generating LiLa's AI responses when your child or family uses LiLa; search-relevance processing (embeddings) and voice-to-text transcription |
+| Our payment processor | Processing your $1.00 verification charge (your card details go directly to them, never to us) |
+| Our transactional email provider | Sending you receipts and notices **[FOUNDER INPUT NEEDED — provider not yet chosen]** |
+
+> **[Note for counsel]:** the real vendor names behind each category are in the
+> *Data-Practices Summary* §4 for your contract-review purposes; the founder's 2026-09-07
+> ruling is to publish generic categories to parents, never vendor names, unless you advise
+> otherwise.
 
 We do not disclose your child's personal information to any third party for that party's own
 purposes — not advertisers, not marketers, not data brokers, not "partners." If we are ever
@@ -131,7 +140,7 @@ MyAIM Central for yourself and family members 13 and older.
 - **Revoke your consent entirely** (Settings → Privacy & Consent → Revoke). Your child's
   information is then deleted — you get a 14-day window to change your mind, and after that
   the deletion is permanent. Revoking for one child never affects your other children.
-- **Contact us** about any of this: aimagicformoms@gmail.com, 208-351-4622, or 4032 State Highway VV, Verona, MO 65769.
+- **Contact us** about any of this: aimagicformoms@gmail.com.
 
 We will honor review, deletion, and refusal-of-further-collection requests even while your
 consent remains otherwise active.

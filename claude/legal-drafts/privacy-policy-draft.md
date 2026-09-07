@@ -9,6 +9,16 @@
 > tagged **[PLANNED — ships with PRD-40 build]** so counsel can see exactly what is live vs.
 > specified. Factual claims trace to the companion *Data-Practices Summary* (same folder).
 > Blockquotes marked **[Note for counsel]** are margin notes, not policy text.
+>
+> **Revised 2026-09-07 (founder text rulings):** third-party names replaced with generic
+> service categories throughout the public-facing text below ("our database and storage
+> providers," "our hosting provider," "our AI providers," "our payment processor") — the
+> *Data-Practices Summary*'s own provider table (§4 there) keeps the real vendor names for
+> your internal review, since you need them to evaluate contracts; only the copy that
+> actually publishes to users is genericized. The founder's home mailing address is removed
+> from all published text and replaced with `[pending — virtual mailbox]` — she is arranging
+> a business mailing address and will supply it before publication. No response-time
+> commitment is made for support/rights requests anywhere in this draft.
 
 ---
 
@@ -46,9 +56,8 @@ The short version, in plain words:
 ## 1. Who we are
 
 1.1. Three Little Lanterns LLC is a Missouri limited liability company.
-Mailing address: **4032 State Highway VV, Verona, MO 65769**. Email:
-**aimagicformoms@gmail.com** (a monitored inbox read directly by the founder). Phone:
-**208-351-4622**.
+Email: **aimagicformoms@gmail.com** (a monitored inbox read directly by the founder). Mailing
+address: **[pending — virtual mailbox]**.
 
 1.2. We operate two connected products: **MyAIM Central**, a private family management
 platform, and **AI Magic for Moms**, a public blog and membership. This policy covers both;
@@ -70,8 +79,9 @@ outside the U.S.
 
 - Account details: name, email address, password (stored hashed), subscription and billing
   status.
-- Payment information: processed by **Stripe**; card numbers never touch our servers.
-  **[PLANNED — ships with PRD-40 build: the one-time $1.00 parental-verification charge.]**
+- Payment information: processed by **our payment processor**; card numbers never touch our
+  servers. **[PLANNED — ships with PRD-40 build: the one-time $1.00 parental-verification
+  charge.]**
 - Everything the parent creates: family profiles, tasks, calendars, journals, notes about
   family members (including optional health, school, and faith-related notes the parent
   chooses to record), lists, goals, uploaded books and documents, photos, and AI
@@ -135,10 +145,8 @@ your children, or training AI models. We do not build advertising profiles.
 ## 5. AI features (LiLa) and AI service providers
 
 5.1. When you or a family member talks to LiLa, we send the conversation — along with the
-family context the parent has approved for AI use — to our AI service providers to generate a
-response. Our current providers are **Anthropic** (Claude models, routed through
-**OpenRouter**) and **OpenAI** (used for search-relevance embeddings and voice-to-text
-transcription).
+family context the parent has approved for AI use — to our AI providers to generate a
+response.
 
 5.2. These providers process your content to provide the service to us. [They are
 contractually prohibited from using your family's content to train their models. —
@@ -165,14 +173,19 @@ Section 8.6 for children under 13.)
 6.2. **Our service providers:** the companies that host and power the platform on our behalf,
 under contracts limiting their use of your data to providing the service to us:
 
-| Provider | What they do for us |
+| Category | What they do for us |
 |---|---|
-| Supabase | Database, authentication, file storage, server functions |
-| Vercel | Web hosting |
-| Stripe | Payment processing **[PLANNED for the verification charge]** |
-| Anthropic (via OpenRouter) | AI responses |
-| OpenAI | Embeddings and voice transcription |
-| [Email provider — TBD] | Transactional email (receipts, notices) **[FOUNDER INPUT NEEDED]** |
+| Our database and storage providers | Database, authentication, file storage, server functions |
+| Our hosting provider | Web hosting |
+| Our payment processor | Payment processing **[PLANNED for the verification charge]** |
+| Our AI providers | AI responses, embeddings, and voice transcription |
+| Our transactional email provider | Transactional email (receipts, notices) **[FOUNDER INPUT NEEDED — provider not yet chosen]** |
+
+> **[Note for counsel]:** the real vendor names behind each category (Supabase, Vercel,
+> Stripe, Anthropic via OpenRouter, OpenAI) are in the *Data-Practices Summary* §4 for your
+> contract-review purposes — the founder's 2026-09-07 ruling is to publish generic categories
+> to users, never vendor names, so this table stays generic even after your review unless you
+> advise otherwise.
 
 6.3. **Nobody else**, with two exceptions every honest company must name:
 - **Legal process:** we disclose information if validly required by law (for example, a
@@ -288,10 +301,13 @@ your data, correct it, delete it, and close your account.
 > whether any apply **now**.
 
 10.2. How to exercise rights: in-app (Settings) where available, or by emailing
-**aimagicformoms@gmail.com**. We verify requests, respond within [45] days,
+**aimagicformoms@gmail.com**. We verify requests, respond as promptly as we reasonably can,
 and never discriminate against you for exercising rights. If we decline a request, we explain
-why and how to appeal. **[Note for counsel: appeal mechanics required by several state laws —
-include now or upon applicability?]**
+why and how to appeal. **[Note for counsel: founder ruling 2026-09-07 is to make no specific
+response-time commitment in the published text; several state laws mandate a specific window
+(e.g., CCPA's 45 days) — please advise whether a specific number is legally required here
+despite that preference, and if so we will add it back with your number. Appeal mechanics
+required by several state laws — include now or upon applicability?]**
 
 10.3. **Consumer health data.** Some optional features let your family record health-related
 information (for example, medical notes in Archives or mood check-ins). We treat this as
@@ -338,8 +354,7 @@ and our consent records always preserve the exact text each parent agreed to.
 ## 14. Contact us
 
 Three Little Lanterns LLC
-4032 State Highway VV, Verona, MO 65769
-208-351-4622
+[pending — virtual mailbox]
 aimagicformoms@gmail.com
 
 If you have any privacy concern, email us and a human — the founder — will read it.

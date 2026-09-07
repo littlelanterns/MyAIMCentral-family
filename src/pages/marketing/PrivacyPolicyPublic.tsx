@@ -42,9 +42,9 @@ export function PrivacyPolicyPublic() {
       <div>
         <h2>Who we are</h2>
         <p>
-          Three Little Lanterns LLC is a Missouri limited liability company. Mailing address: 4032 State
-          Highway VV, Verona, MO 65769. Email: aimagicformoms@gmail.com (a monitored inbox read directly by
-          the founder). Phone: 208-351-4622.
+          Three Little Lanterns LLC is a Missouri limited liability company. Email: aimagicformoms@gmail.com
+          (a monitored inbox read directly by the founder). Mailing address: [Mailing address — pending;
+          flagged for counsel].
         </p>
       </div>
 
@@ -52,7 +52,8 @@ export function PrivacyPolicyPublic() {
         <h2>Information we collect</h2>
         <p>
           From the parent who creates the account: name, email, password (stored hashed), and subscription
-          status. Payment information is processed by Stripe — card numbers never touch our servers.
+          status. Payment information is processed by our payment processor — card numbers never touch our
+          servers.
         </p>
         <p>
           About family members the parent adds: profile basics (name or nickname, age or birthdate,
@@ -165,9 +166,10 @@ export function PrivacyPolicyPublic() {
       <div>
         <h2>Contact us</h2>
         <p>
-          Three Little Lanterns LLC · 4032 State Highway VV, Verona, MO 65769 · 208-351-4622 ·{' '}
+          Three Little Lanterns LLC ·{' '}
           <a href="mailto:aimagicformoms@gmail.com">aimagicformoms@gmail.com</a>
         </p>
+        <p>Mailing address: [Mailing address — pending; flagged for counsel].</p>
         <p>If you have any privacy concern, email us and a human — the founder — will read it.</p>
       </div>
     </LegalPageShell>

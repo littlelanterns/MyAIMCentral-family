@@ -617,6 +617,98 @@ test('RPC: existing-member path (member-edit → under_13) writes bracket + cons
   expect(consents ?? []).toHaveLength(1)
 })
 
+// ── 4b. Batch consent UI: several existing under-13 children at once ──────
+
+test('Family Members page: "Set Up Under-13 Consent" batches acknowledgment for several existing children in one pass', async ({ page }) => {
+  const verificationId = await seedSarahVerification()
+
+  const { data: batchKids, error: batchInsertError } = await sr
+    .from('family_members')
+    .insert([
+      {
+        family_id: familyId,
+        display_name: 'COPPATEST Batch1',
+        role: 'member',
+        dashboard_mode: 'guided',
+        relationship: 'child',
+        age: 7,
+        in_household: true,
+        dashboard_enabled: true,
+        auth_method: 'pin',
+        is_active: true,
+        coppa_age_bracket: 'under_13',
+      },
+      {
+        family_id: familyId,
+        display_name: 'COPPATEST Batch2',
+        role: 'member',
+        dashboard_mode: 'guided',
+        relationship: 'child',
+        age: 9,
+        in_household: true,
+        dashboard_enabled: true,
+        auth_method: 'pin',
+        is_active: true,
+        coppa_age_bracket: 'under_13',
+      },
+    ])
+    .select('id, display_name')
+  expect(batchInsertError).toBeNull()
+  expect(batchKids).toHaveLength(2)
+  createdMemberIds.push(...batchKids!.map((k) => k.id))
+  const [kid1, kid2] = batchKids!
+
+  await loginAsMom(page)
+  await page.goto('/family-members')
+
+  await page.getByRole('button', { name: 'Set Up Under-13 Consent' }).click()
+  await expect(page.getByTestId('coppa-batch-consent-select')).toBeVisible()
+
+  // Both eligible children render as pills, pre-checked.
+  const pill1 = page.getByTestId(`member-pill-${kid1.id}`)
+  const pill2 = page.getByTestId(`member-pill-${kid2.id}`)
+  await expect(pill1).toBeVisible()
+  await expect(pill2).toBeVisible()
+  await expect(pill1).toHaveAttribute('data-selected', 'true')
+  await expect(pill2).toHaveAttribute('data-selected', 'true')
+
+  await page.getByTestId('coppa-batch-consent-continue').click()
+
+  // Verification already on file → the sequential acknowledgment path, not
+  // the full disclosure+charge flow.
+  await expect(page.getByTestId('coppa-acknowledge-modal')).toBeVisible()
+  await expect(page.getByText('Child 1 of 2', { exact: false })).toBeVisible()
+  await page.getByTestId('coppa-acknowledge-check').check()
+  await page.getByTestId('coppa-acknowledge-continue').click()
+
+  await expect(page.getByText('Child 2 of 2', { exact: false })).toBeVisible()
+  await page.getByTestId('coppa-acknowledge-check').check()
+  await page.getByTestId('coppa-acknowledge-continue').click()
+
+  // Both modals close once the batch commits.
+  await expect(page.getByTestId('coppa-acknowledge-modal')).not.toBeVisible({ timeout: 20000 })
+  await expect(page.getByTestId('coppa-batch-consent-select')).not.toBeVisible()
+
+  // DB truth: one consent row per child, both linked to the SAME
+  // verification, all five sections acknowledged, bracket unchanged.
+  const { data: consents } = await sr
+    .from('coppa_consents')
+    .select('id, child_member_id, verification_id, acknowledged_sections')
+    .in('child_member_id', [kid1.id, kid2.id])
+  expect(consents ?? []).toHaveLength(2)
+  createdConsentIds.push(...(consents ?? []).map((c) => c.id))
+  for (const c of consents ?? []) {
+    expect(c.verification_id).toBe(verificationId)
+    for (const s of REQUIRED_SECTIONS) expect(c.acknowledged_sections).toContain(s)
+  }
+
+  const { data: after } = await sr
+    .from('family_members')
+    .select('id, coppa_age_bracket')
+    .in('id', [kid1.id, kid2.id])
+  for (const m of after ?? []) expect(m.coppa_age_bracket).toBe('under_13')
+})
+
 // ── 5. Zero COPPA surface for non-mom roles ───────────────────────────────
 
 test('non-mom roles: no COPPA UI, no COPPA data', async ({ page }) => {

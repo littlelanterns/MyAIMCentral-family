@@ -9,6 +9,17 @@
 > regenerated from production 2026-07-05), the platform conventions file (`CLAUDE.md`), or a
 > direct codebase check performed on 2026-07-04. Items we could not verify are marked
 > **[UNKNOWN — FOR COUNSEL]** or **[FOUNDER INPUT NEEDED]** — nothing is papered over.
+>
+> **Note added 2026-09-07:** the three PUBLISHED-facing drafts (privacy policy, direct notice,
+> consent-flow copy — now v1.1.0) have been revised per founder ruling to (a) replace every
+> vendor name below with a generic service category in the text a user or parent actually
+> reads, (b) drop the "Reach a Human" framing and any response-time commitment, and (c) remove
+> the founder's home mailing address and phone number, using `[pending — virtual mailbox]`
+> until she has a business mailing address. **This document is unchanged** — the provider
+> table in §4 below keeps the real vendor names (Supabase, Vercel, Anthropic/OpenRouter,
+> OpenAI, Stripe) and the founder's real contact details in §1.1, because you need the actual
+> facts to evaluate contracts and compliance posture. Only the copy that publishes to users is
+> genericized; this internal grounding document stays accurate.
 
 ---
 
