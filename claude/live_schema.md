@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-08-24
+> Auto-generated from live Supabase on 2026-09-07
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -119,7 +119,7 @@
 | 9 | `granted_to` |
 | 10 | `access_level` |
 
-### `staff_permissions` — 0 rows
+### `staff_permissions` — 1 rows
 
 | # | Column |
 |---|---|
@@ -452,7 +452,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 962 rows
+### `ai_usage_tracking` — 964 rows
 
 | # | Column |
 |---|---|
@@ -731,7 +731,7 @@
 | 18 | `reward_image_url` |
 | 19 | `reward_image_asset_key` |
 
-### `tasks` — 237 rows
+### `tasks` — 238 rows
 
 | # | Column |
 |---|---|
@@ -862,7 +862,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2488 rows
+### `routine_step_completions` — 2575 rows
 
 | # | Column |
 |---|---|
@@ -902,7 +902,7 @@
 | 20 | `life_area_tags` |
 | 21 | `allow_out_of_order` |
 
-### `task_claims` — 12 rows
+### `task_claims` — 13 rows
 
 | # | Column |
 |---|---|
@@ -917,7 +917,7 @@
 | 9 | `released` |
 | 10 | `released_at` |
 
-### `task_rewards` — 12 rows
+### `task_rewards` — 13 rows
 
 | # | Column |
 |---|---|
@@ -1845,7 +1845,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 115 rows
+### `notifications` — 141 rows
 
 | # | Column |
 |---|---|
@@ -2255,7 +2255,7 @@
 | 7 | `collection_id` |
 | 8 | `created_at` |
 
-### `bookshelf_member_settings` — 6 rows
+### `bookshelf_member_settings` — 7 rows
 
 | # | Column |
 |---|---|
@@ -2422,7 +2422,7 @@
 | 3 | `vault_item_id` |
 | 4 | `created_at` |
 
-### `vault_user_progress` — 15 rows
+### `vault_user_progress` — 16 rows
 
 | # | Column |
 |---|---|
@@ -2794,7 +2794,7 @@
 
 ## COPPA Compliance & Parental Verification (PRD-40)
 
-### `coppa_consent_templates` — 1 rows
+### `coppa_consent_templates` — 2 rows
 
 | # | Column |
 |---|---|
@@ -2811,7 +2811,7 @@
 | 11 | `notes` |
 | 12 | `created_at` |
 
-### `parent_verifications` — 1 rows
+### `parent_verifications` — 3 rows
 
 | # | Column |
 |---|---|
@@ -2830,7 +2830,7 @@
 | 13 | `created_at` |
 | 14 | `updated_at` |
 
-### `coppa_consents` — 0 rows
+### `coppa_consents` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2853,7 +2853,7 @@
 | 17 | `created_at` |
 | 18 | `updated_at` |
 
-### `parent_verification_attempts` — 5 rows
+### `parent_verification_attempts` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2898,7 +2898,7 @@
 | 9 | `job_run_id` |
 | 10 | `executed_at` |
 
-### `stripe_webhook_events` — 5 rows
+### `stripe_webhook_events` — 6 rows
 
 | # | Column |
 |---|---|
@@ -2930,7 +2930,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 6 rows
+### `ai_output_scans` — 0 rows
 
 | # | Column |
 |---|---|
@@ -3032,7 +3032,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 95 rows
+### `allowance_periods` — 105 rows
 
 | # | Column |
 |---|---|
@@ -3431,7 +3431,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 168 rows
+### `financial_transactions` — 182 rows
 
 | # | Column |
 |---|---|
@@ -4354,7 +4354,7 @@
 | 5 | `notification_channels` |
 | 6 | `created_at` |
 
-### `safety_pattern_summaries` — 91 rows
+### `safety_pattern_summaries` — 113 rows
 
 | # | Column |
 |---|---|
@@ -4557,7 +4557,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `waitlist_signups` — 0 rows
+### `waitlist_signups` — 1 rows
 
 | # | Column |
 |---|---|
