@@ -40,6 +40,16 @@ crons) is ever applied. **PRD-40 now waits on: keepsake exports → attorney →
 Also this week (2026-09-02): aimagicformoms.com LIVE, Stripe activated, pricing rulings.
 Dispatched next: MEMBER-SETTINGS-HUB (person-first settings navigation, founder-designed).
 
+**Founder feel-passes (2026-09-07):** Growth-cards mobile tap ✅ CLOSED (opens on a real
+phone — the synthetic-click failure was robot-only). VOICE ✅ duplication repair confirmed
+dead on all surfaces she tried; TWO new UX findings for the SMFX pile: (a) hardware-muted
+mic (F9) records silence with no indication — add live level indicator + "not hearing
+anything" hint; (b) mobile recording shows no feedback until stop ("Transcribing…" then
+correct words) — add a visible listening animation/timer (interim text impossible on the
+Whisper path, liveness isn't). One open clarifier: a LiLa surface "sort of worked" —
+awaiting one founder sentence, then investigate. STILL OPEN: kid-tablet PECON feel-pass ·
+keepsake exports · virtual mailbox.
+
 ## 2026-08-23/24 session delta (six lanes closed)
 
 - **Fable ruling:** Fable in normal plan usage — judgment tier + daily driver; security/
