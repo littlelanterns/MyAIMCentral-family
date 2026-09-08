@@ -232,3 +232,48 @@ test('View As launches from the hub and exits back cleanly', async ({ page }) =>
   // same as leaving any other page would). No blocked card, no crash.
   await expect(page.getByRole('heading', { name: 'Parent-only area' })).toHaveCount(0)
 })
+
+test('minimize/restore/dismiss lifecycle (founder ruling, 2026-09-07): X truly closes, backdrop minimizes to a pill, the pill reopens with state preserved, and the pill\'s own x discards it for good', async ({ page }) => {
+  await loginAsMom(page)
+  await page.goto('/family-members')
+  await page.getByTestId(`member-hub-open-${caseyId}`).click()
+  await expect(page.getByText("Casey's Settings")).toBeVisible()
+
+  // Change state we can later verify survives a minimize/restore round trip:
+  // expand Login & Access (only Profile is open by default on a fresh hub).
+  await page.getByTestId('hub-section-toggle-login-access').click()
+  await expect(page.getByText('Set PIN', { exact: true })).toBeVisible()
+
+  // (2) Click the page underneath (the backdrop) → minimize to a pill.
+  await page.getByTestId('modal-backdrop').click({ position: { x: 10, y: 10 }, force: true })
+  await expect(page.getByText("Casey's Settings")).toBeHidden()
+  const pill = page.getByRole('button', { name: /^Casey's Setting/i })
+  await expect(pill).toBeVisible()
+
+  // (3) Click the pill → reopens with state preserved (Login & Access is
+  // STILL expanded — this is the exact restore that was previously broken:
+  // clicking the pill used to just make it vanish with nothing reopening).
+  await pill.click()
+  await expect(page.getByText("Casey's Settings")).toBeVisible()
+  await expect(page.getByText('Set PIN', { exact: true })).toBeVisible()
+  await expect(pill).toHaveCount(0)
+
+  // Re-minimize, then (4) use the pill's own small dismiss button — this
+  // discards for good: no pill, AND the underlying hub is truly gone (not
+  // just hidden), proven by reopening fresh and finding Login & Access
+  // back to its default COLLAPSED state (no leftover mounted instance).
+  await page.getByTestId('modal-backdrop').click({ position: { x: 10, y: 10 }, force: true })
+  await expect(page.getByRole('button', { name: /^Casey's Setting/i })).toBeVisible()
+  await page.getByRole('button', { name: /Dismiss Casey's Settings/i }).click()
+  await expect(page.getByRole('button', { name: /^Casey's Setting/i })).toHaveCount(0)
+  await expect(page.getByText("Casey's Settings")).toHaveCount(0)
+
+  await page.getByTestId(`member-hub-open-${caseyId}`).click()
+  await expect(page.getByText("Casey's Settings")).toBeVisible()
+  await expect(page.getByText('Set PIN', { exact: true })).toHaveCount(0) // fresh mount, Login & Access collapsed again
+
+  // (1) Click the X → fully done, no pill remains at all.
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(page.getByText("Casey's Settings")).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Casey's Setting/i })).toHaveCount(0)
+})

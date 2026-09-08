@@ -78,3 +78,37 @@ test('tour (desktop): the SAME hub opened from Settings → Family Management (f
   await page.waitForTimeout(500)
   await page.screenshot({ path: 'eyes-on-tour/member-settings-hub-desktop-4-settings-entry-open.png', fullPage: true })
 })
+
+test('tour (desktop): the pill lifecycle (founder ruling, 2026-09-07)', async ({ page }) => {
+  // Founder ruling: X = fully done (no pill), backdrop click = minimize to
+  // a pill, clicking the pill = reopen with state preserved, and the pill
+  // gets its own small dismiss x. This proves the minimize→pill→restore leg
+  // visually (the part that was previously broken — clicking the pill used
+  // to just make it vanish with nothing reopening).
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await loginAsMom(page)
+  await page.goto('/family-members')
+  await page.getByTestId(`member-hub-open-${caseyId}`).click()
+  await expect(page.getByText("Casey's Settings")).toBeVisible()
+  await page.getByTestId('hub-section-toggle-login-access').click()
+  await expect(page.getByText('Set PIN', { exact: true })).toBeVisible()
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'eyes-on-tour/member-settings-hub-desktop-5-pill-1-before-minimize.png', fullPage: true })
+
+  // Click the page underneath (the backdrop) — minimizes to a pill; the
+  // page underneath becomes fully usable again (that's the whole point).
+  await page.getByTestId('modal-backdrop').click({ position: { x: 10, y: 10 } })
+  await expect(page.getByText("Casey's Settings")).toBeHidden()
+  const pill = page.getByRole('button', { name: /^Casey's Setting/i })
+  await expect(pill).toBeVisible()
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'eyes-on-tour/member-settings-hub-desktop-5-pill-2-minimized-with-pill.png', fullPage: true })
+
+  // Click the pill — reopens with Login & Access still expanded (state
+  // preserved), pill gone.
+  await pill.click()
+  await expect(page.getByText("Casey's Settings")).toBeVisible()
+  await expect(page.getByText('Set PIN', { exact: true })).toBeVisible()
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: 'eyes-on-tour/member-settings-hub-desktop-5-pill-3-restored.png', fullPage: true })
+})

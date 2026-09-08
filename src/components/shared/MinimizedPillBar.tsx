@@ -9,7 +9,7 @@ import { useModalManager } from '@/contexts/ModalManagerContext'
 import { MinimizedPill } from './MinimizedPill'
 
 export function MinimizedPillBar() {
-  const { minimizedModals, restore, close } = useModalManager()
+  const { minimizedModals, restore, dismiss } = useModalManager()
 
   if (minimizedModals.length === 0) return null
 
@@ -36,7 +36,7 @@ export function MinimizedPillBar() {
           key={modal.id}
           modal={modal}
           onRestore={restore}
-          onClose={close}
+          onDismiss={dismiss}
         />
       ))}
     </div>

@@ -6,6 +6,22 @@
  *
  * Part of the Modal System Architecture (specs/Modal-System-Architecture.md).
  * Zero hardcoded colors — all CSS custom properties.
+ *
+ * Minimize/restore (2026-09-07 fix): minimizing a persistent modal used to
+ * call the consumer's onClose(), which unmounted the whole subtree — so the
+ * pill was purely decorative; clicking it removed the pill but nothing ever
+ * reopened. Minimizing now keeps the modal's children mounted (hidden via
+ * CSS) so all of its internal React state survives on its own; the pill's
+ * click just needs to remove itself from the manager's minimized list for
+ * the overlay to reappear exactly as it was — no per-consumer
+ * serialize/deserialize wiring required. The pill's own dismiss action
+ * (right-click, or its small x) uses `dismiss()` instead, which also tells
+ * this still-mounted instance to truly close via its real onClose.
+ *
+ * `closeButtonBehavior` lets one consumer opt the header X (and Escape)
+ * into a TRUE close (no pill left behind) instead of the platform default
+ * of minimizing — every existing consumer keeps the default 'minimize'
+ * unless it explicitly opts in.
  */
 
 import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react'
@@ -48,6 +64,16 @@ export interface ModalV2Props {
   batchProgress?: { current: number; total: number }
   /** Mobile rendering preference override */
   mobileStyle?: 'bottom-sheet' | 'full-screen'
+  /**
+   * What the header X button (and Escape) do on a persistent modal.
+   * 'minimize' (default) — matches every existing consumer: X sends the
+   * modal to the pill bar, same as clicking the backdrop. The separate
+   * minimize (—) button always minimizes regardless of this setting.
+   * 'close' — X (and Escape) fully close with no pill left behind; only
+   * the backdrop click and the — button still minimize. Opt in per
+   * consumer; never the platform default.
+   */
+  closeButtonBehavior?: 'minimize' | 'close'
 }
 
 const sizeMaxWidths: Record<string, string> = {
@@ -74,43 +100,95 @@ export function ModalV2({
   children,
   footer,
   batchProgress,
+  closeButtonBehavior = 'minimize',
 }: ModalV2Props) {
   const manager = useModalManager()
   const contentRef = useRef<HTMLDivElement>(null)
   const [showDraftPrompt, setShowDraftPrompt] = useState(false)
   const isPersistent = type === 'persistent'
+  const isMinimizedNow = manager.isMinimized(id)
+  // Whether the overlay should actually be visible right now. `isOpen`
+  // still governs whether this instance exists at all (a true close still
+  // unmounts everything); `isMinimizedNow` governs whether the (mounted)
+  // overlay is showing or hidden behind a pill.
+  const visuallyOpen = isOpen && !isMinimizedNow
 
-  // Handle restore from minimized state
-  useEffect(() => {
-    if (isOpen && onRestore) {
-      const wasMinimized = manager.isMinimized(id)
-      if (wasMinimized) {
-        const restored = manager.restore(id)
-        if (restored) {
-          onRestore(restored.state)
-        }
+  const focusFirstElement = useCallback(() => {
+    requestAnimationFrame(() => {
+      const focusable = contentRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (focusable && focusable.length > 0) {
+        focusable[0].focus()
       }
-    }
-  }, [isOpen]) // intentionally only on isOpen change
+    })
+  }, [])
 
-  // Prevent body scroll when open
+  // Restore: fires once when this instance transitions from minimized back
+  // to visible (pill clicked, or restore() called directly elsewhere). The
+  // subtree never unmounted while minimized, so this is a notification
+  // hook for consumers — not what makes state survive.
+  const wasMinimizedRef = useRef(isMinimizedNow)
   useEffect(() => {
-    if (isOpen) {
+    if (wasMinimizedRef.current && !isMinimizedNow && isOpen) {
+      onRestore?.({})
+      focusFirstElement()
+    }
+    wasMinimizedRef.current = isMinimizedNow
+  }, [isMinimizedNow, isOpen, onRestore, focusFirstElement])
+
+  // The pill's own dismiss action (not a restore) — this instance is still
+  // mounted (nothing unmounted it), so it must close itself for real.
+  // `lastSeenDismissTokenRef` starts at whatever token already existed at
+  // MOUNT time — a fresh remount of the same id (e.g. reopening after a
+  // prior dismiss) must not immediately re-fire on that stale signal.
+  const lastSeenDismissTokenRef = useRef(manager.dismissedSignal?.token ?? null)
+  useEffect(() => {
+    const sig = manager.dismissedSignal
+    if (sig && sig.id === id && sig.token !== lastSeenDismissTokenRef.current) {
+      lastSeenDismissTokenRef.current = sig.token
+      onClose()
+    } else if (sig) {
+      lastSeenDismissTokenRef.current = sig.token
+    }
+    // Only re-run when the signal itself changes, not on every onClose identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manager.dismissedSignal, id])
+
+  // A real close (parent flips isOpen false, for any reason) must never
+  // leave a stale pill behind.
+  useEffect(() => {
+    if (!isOpen) {
+      manager.close(id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, id])
+
+  // Prevent body scroll + track the active modal only while VISUALLY open —
+  // never while minimized, since the whole point of minimizing is that the
+  // page underneath becomes fully usable again.
+  useEffect(() => {
+    if (visuallyOpen) {
       document.body.style.overflow = 'hidden'
       manager.setActiveModalId(id)
     }
     return () => {
       document.body.style.overflow = ''
     }
-  }, [isOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visuallyOpen, id])
 
   // Escape key handler
   useEffect(() => {
-    if (!isOpen) return
+    if (!visuallyOpen) return
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (isPersistent) {
-          handleMinimize()
+          if (closeButtonBehavior === 'close') {
+            onClose()
+          } else {
+            handleMinimize()
+          }
         } else {
           onClose()
         }
@@ -118,21 +196,16 @@ export function ModalV2({
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [isOpen, isPersistent, hasUnsavedChanges])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visuallyOpen, isPersistent, closeButtonBehavior, hasUnsavedChanges])
 
   // Focus first focusable element on open
   useEffect(() => {
-    if (isOpen) {
-      requestAnimationFrame(() => {
-        const focusable = contentRef.current?.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        )
-        if (focusable && focusable.length > 0) {
-          focusable[0].focus()
-        }
-      })
+    if (visuallyOpen) {
+      focusFirstElement()
     }
-  }, [isOpen])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visuallyOpen])
 
   const handleMinimize = useCallback(() => {
     if (!isPersistent) {
@@ -144,6 +217,7 @@ export function ModalV2({
       return
     }
     doMinimize()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPersistent, hasUnsavedChanges, onSaveDraft])
 
   const doMinimize = useCallback(() => {
@@ -158,10 +232,12 @@ export function ModalV2({
     })
     if (success) {
       onMinimize?.()
-      onClose()
+      // No onClose() here — the modal stays mounted (just visually hidden
+      // via CSS) so every bit of its internal state survives until the
+      // pill is clicked. This is the core of the minimize/restore fix.
     }
     setShowDraftPrompt(false)
-  }, [id, title, icon, hasUnsavedChanges, manager, onMinimize, onClose])
+  }, [id, title, icon, hasUnsavedChanges, manager, onMinimize])
 
   const handleBackdropClick = useCallback(() => {
     if (isPersistent) {
@@ -173,11 +249,15 @@ export function ModalV2({
 
   const handleHeaderClose = useCallback(() => {
     if (isPersistent) {
-      handleMinimize()
+      if (closeButtonBehavior === 'close') {
+        onClose()
+      } else {
+        handleMinimize()
+      }
     } else {
       onClose()
     }
-  }, [isPersistent, handleMinimize, onClose])
+  }, [isPersistent, closeButtonBehavior, handleMinimize, onClose])
 
   if (!isOpen) return null
 
@@ -187,7 +267,7 @@ export function ModalV2({
         position: 'fixed',
         inset: 0,
         zIndex: 'var(--z-modal-content, 55)' as unknown as number,
-        display: 'flex',
+        display: visuallyOpen ? 'flex' : 'none',
         alignItems: 'center',
         justifyContent: 'center',
         padding: 0,
@@ -195,6 +275,7 @@ export function ModalV2({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
+      aria-hidden={!visuallyOpen}
     >
       <ModalBackdrop onClick={handleBackdropClick} />
 

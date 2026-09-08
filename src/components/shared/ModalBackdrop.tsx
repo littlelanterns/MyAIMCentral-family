@@ -11,6 +11,7 @@ export function ModalBackdrop({ onClick, zIndex }: ModalBackdropProps) {
   return (
     <div
       onClick={onClick}
+      data-testid="modal-backdrop"
       style={{
         position: 'absolute',
         inset: 0,

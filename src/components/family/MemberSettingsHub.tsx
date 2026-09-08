@@ -108,6 +108,12 @@ export function MemberSettingsHub({
       isOpen={!isViewingAs}
       onClose={onClose}
       type="persistent"
+      // Founder ruling (2026-09-07): the X button here means fully done —
+      // no pill left behind. Only the backdrop click (and the separate —
+      // minimize button) send the hub to the pill bar. This is scoped to
+      // the hub specifically, not a platform-wide default — see
+      // ModalV2Props.closeButtonBehavior.
+      closeButtonBehavior="close"
       size="xl"
       title={`${targetMember.display_name}'s Settings`}
       subtitle="Everything about this family member, in one place"
