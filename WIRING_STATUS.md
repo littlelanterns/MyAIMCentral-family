@@ -1,7 +1,21 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-08-24 (PRD-40 COPPA Slices 1–6).
+> Updated each build session. Last updated: 2026-09-11 (STUDIO ST-B NLC v2).
+
+## STUDIO-EXPERIENCE ST-B — Natural Language Composition v2 (2026-09-11, commit `820c40b`)
+
+"Describe what you want" now routes the FULL creation catalog with prefill. Convention #253 is real on the Studio front door. Full record: `.claude/rules/current-builds/STUDIO-EXPERIENCE.md` → "## ST-B — NLC v2".
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Dedicated `nlc-compose` Edge Function (Haiku, temperature 0, full SAFETY-BETA-GATE scaffold, `_shared/json-extract.ts`) | Shared 15-outcome router prompt in `_shared/nlc-router-prompt.ts`, imported by BOTH the function and its live vitest so the two can never drift | **Wired (deployed, matches committed source)** | Client no longer calls `ai-parse` for NLC |
+| Full-catalog routing (6 original + 8 new outcomes + first-class `none_confident`) | `Studio.tsx` `handleNLCOpenWizard` covers 14 wizards; `none_confident`/errors → restate mom's words + full catalog, never "I don't understand" | **Wired** | `nlc-composition.spec.ts` 5/5 (worker ×2 + seat ×1); `nlc-router.test.ts` 29/29 live |
+| Prefill into every wizard (memberName → member id; listType/preset/title/items; verbatim routine description; spouse/kids/everyone audience) | New `initial*` props on StarChart/GetToKnow/RoutineBuilder/UniversalList; `resolveMemberIdByName`; `isChildMember`/`isOptInAdult` audience resolution | **Wired** | Stale-closure bug on the auto-open path caught by the seat referee and fixed pre-commit |
+| S3: "surprise/pick one" routine step → linked randomizer | RoutineBuilderWizard's own parse marks `linked_randomizer`; list created ONLY on "Use This Routine" (HITM) | **Wired** | Orphan risk if mom abandons the follow-up TaskCreationModal (disclosed design note) |
+| NLC visible during search; input preserved on error | `Studio.tsx` gate removed; error state keeps text | **Wired** | |
+| Prompt hygiene rules (naming = head noun; actionTaskName = single occurrence; no meta-commentary in restate) | Router prompt + `normalizeRestate()` client guard falling back to mom's own words | **Wired** | All three found by the proof slot, fixed in code, no assertion touched |
+| Residue discipline lesson | Time-window any-name query is the authoritative residue check; name matching is a supplement (a prefix sweep missed 30 orphaned sequential children across ST-A/ST-B runs — swept by the seat 2026-09-11) | **Recorded** | `studio-shelf-truth.spec.ts` sweep now collects children via FK before the parent |
 
 ## PRD-40 COPPA Compliance & Parental Verification — Slices 1–6 (2026-07-08 → 2026-08-24)
 

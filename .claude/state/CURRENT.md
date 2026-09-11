@@ -1,4 +1,38 @@
-# Current State — 2026-08-24 (SIX lanes closed in 48h; DATA-LOSS INCIDENT recorded; production-touch gate now law)
+# Current State — 2026-09-11 (STUDIO ST-B CLOSED; seat handoff to Fable 5.1 complete; next: PRD-31 Slice 2)
+
+## 2026-09-11 — STUDIO ST-B (NLC v2) CLOSED — commit `820c40b`, pushed
+
+New seat (Fable 5.1) took over 2026-09-11 from the Fable 5 seat: committed the model-routing
+generation refresh (`0938b65`), dispatched ST-B, and refereed every worker report before anything
+moved. **"Describe what you want" now routes the full creation catalog with prefill** — the four
+founder probe phrases (chore board $, potty chart for Ruthie, shared grocery list with husband,
+morning routine) all open the right wizard pre-filled; two were mis-routed before. Dedicated
+`nlc-compose` function DEPLOYED (three seat deploys, each founder-approved per instance; final
+deploy matches committed source — no live-vs-committed drift). Proof: `nlc-composition.spec.ts`
+5/5 (worker ×2 back-to-back + **seat ×1 at 19:41Z** — the commit message says "twice", the
+worker declined to record a run it couldn't see; this line is the record), `studio-shelf-truth`
+16/16, router vitest 29/29 live, audit tour 89 tiles clean, ST-B tour 14 shots read.
+**Eight real defects fixed in code during proof, zero assertions touched** — three router
+(temperature, naming rule, single-occurrence actionTaskName), one mom-facing copy defect found by
+reading a screenshot, one seat-caught stale closure, three spec-traversal fixes. **Residue lesson
+(now law in WIRING_STATUS): the time-window any-name query is the authoritative residue check;
+name-prefix sweeps are a supplement.** A prefix sweep had silently leaked 30 orphaned sequential
+child tasks in Testworth across ST-A/ST-B runs (ST-A's "zero residue" reports were wrong); the
+seat deleted all 30 on founder approval, 0 remain platform-wide. The worker committed from its
+own window with the founder's message; seat verified the 16-file set matched the refereed tree
+and pushed. Process note for the record: that worker lane ran on Opus 5 (founder's window
+setting) — harmless per routing policy.
+
+**Still-open items ST-B surfaced but does not own (fold into ST-E/ST-G or SMFX):** gamification
+member picker still offers Special Adults + mom · `studio-intelligence-phase1.spec.ts` test 1C
+still stale against the retired Tasks→Sequential tab · Growth-section 375px tap wants a real-phone
+check · `coppa-consent-screens.spec.ts` NF-family cleanup FK-order gap (TEEN-CRED record).
+
+**Next in queue:** **PRD-31 Slice 2 (Stripe subscriptions)** — extends PRD-40's live webhook
+router (never a second one); must be born with current pricing: normals 7.99/13.99/19.95, Creator
+hidden, founding ladder 4.99/9.99/14.99 lifetime-locked ×100; `subscription_tiers` seed is the
+source of truth. Then STUDIO ST-C (Drafts v2). Founder-owned, no deadline: attorney package,
+virtual mailbox, kid-tablet PECON feel-pass, voice-UX trio.
 
 ## ⚠️ 2026-08-24 INCIDENT RECORD (permanent — never soften this)
 

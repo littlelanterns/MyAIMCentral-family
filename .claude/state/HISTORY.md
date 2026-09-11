@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-11 — STUDIO-EXPERIENCE ST-B (NLC v2) CLOSED
+
+**Type:** Feature slice (Convention #253 front door) + proof-driven defect sweep
+**Scope:** "Describe what you want" routes the full 15-outcome creation catalog with per-wizard prefill via a dedicated `nlc-compose` Edge Function; four founder probe phrases open the right wizard pre-filled (two were mis-routed before). Prefill props on StarChart/GetToKnow/RoutineBuilder/UniversalList; S3 surprise-step → linked randomizer on accept (HITM).
+**Commit:** `820c40b` (16 files, worker-committed from its own window with the founder's message; seat verified the set matched the refereed tree and pushed).
+**Proof:** `nlc-composition.spec.ts` 5/5 (worker ×2 + seat ×1) · `studio-shelf-truth` 16/16 · `nlc-router.test.ts` 29/29 live · audit tour 89 tiles clean · ST-B tour 14 shots read · residue 0 (time-window + name-matched).
+**Found and fixed during proof (8):** router temperature unpinned; no naming rule ("Extra Jobs" vs "Chore Board"); plural `actionTaskName`; router meta-commentary leaking into the mom-facing restate; seat-caught stale closure on the auto-open path; three spec-traversal fixes.
+**Production actions (all founder-approved per instance, seat-executed):** `nlc-compose` deployed ×3 (final = committed source); 30 orphaned sequential child tasks deleted from Testworth (a prefix-based sweep in `studio-shelf-truth.spec.ts` had leaked them since 2026-08-23 — sweep fixed; lesson recorded: time-window residue query is authoritative).
+**Seat handoff:** Fable 5.1 seat took over 2026-09-11; model-routing generation refresh committed `0938b65`.
+**Next:** PRD-31 Slice 2 (Stripe subscriptions, extends PRD-40's router; current pricing + founding ladder from live `subscription_tiers`).
+
 ## 2026-06-08 — Member-Day Task State (Single Source of Truth) CLOSED
 
 **Type:** Architectural refactor + money-math bug fix + named convention (#271)
