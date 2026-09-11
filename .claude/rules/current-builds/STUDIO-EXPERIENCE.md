@@ -1,6 +1,6 @@
 # Active Build: STUDIO-EXPERIENCE — Studio Surface Audit + Cleanup
 
-> **Status: ST-A + ST-F CODE COMPLETE, PINS GREEN — HOLDING for founder review + commit approval. NOTHING COMMITTED.** ST-A: 14/14 E2E + 25 vitest + 8/8 relevant regressions, 2026-08-23 (see "## ST-A — Shelf truth" below; migrations 100317+100318 applied). ST-F: 16/16 E2E (14 ST-A pins + 2 new, full serial file green twice) + 14/14 constraint vitest, 2026-08-23 (see "## ST-F — Reward-wire truth" below; migrations 100319+100320 applied + ledger-repaired). Next slice after sign-off: ST-B.
+> **Status: ST-A + ST-F + ST-B CODE COMPLETE — HOLDING for founder review + commit approval. NOTHING COMMITTED.** ST-A: 14/14 E2E + 25 vitest + 8/8 relevant regressions, 2026-08-23 (see "## ST-A — Shelf truth" below; migrations 100317+100318 applied). ST-F: 16/16 E2E (14 ST-A pins + 2 new, full serial file green twice) + 14/14 constraint vitest, 2026-08-23 (see "## ST-F — Reward-wire truth" below; migrations 100319+100320 applied + ledger-repaired). **ST-B (2026-09-07): local proof green (tsc/eslint/prebuild/redteam all clean; the new router vitest — 29/29 — RAN LIVE against real OpenRouter, a pure external-API call outside the production-touch gate's enumerated list). A seat referee pass caught and this session fixed a real stale-closure bug on the high-confidence auto-open path (Probe 4's exact path would have opened `RoutineBuilderWizard` with an empty description on a fresh session — see the "Seat referee finding" note in the ST-B section) — re-verified clean after the fix. **ST-B PROOF COMPLETE (2026-09-11) — holding for referee + founder commit. NOTHING COMMITTED.** All three seat-granted suites green: `nlc-composition` **5/5 (run twice back-to-back)**, `studio-shelf-truth` **16/16**, Studio audit tour **1/1 (89 tiles, zero console errors)**, plus a new ST-B eyes-on tour **2/2 (14 shots, all read, zero console errors)**. The slot surfaced **eight real defects, every one fixed in code with no assertion ever touched**: three router defects (no `temperature`, no naming guidance, no `actionTaskName` guidance — each verified deterministic 5/5 or 3/3 before asking for a redeploy), one mom-facing copy defect found by READING a screenshot (router meta-commentary leaking into the restate sentence mom sees), three spec-traversal defects (a step off-by-one, a wrong assumption about the Items-step UI, and a 3s-vs-9s race in the confidence-card helper that made a real card sit unclicked), and one orphaned-row leak in an ST-A test file that had silently accumulated 30 rows since August (25 pre-dating this session; seat swept them). Residue after two consecutive 5/5 runs: **0 on both the time-window and fixture-name queries across all five tables.** No migration needed (zero schema changes). See "## ST-B — NLC v2" below.
 > Previous: ST-0 + F-23 MICRO-FIX COMPLETE, VISUALLY VERIFIED, COMMITTED `9676734` (2026-07-04).
 > Ledger: migration 100283 applied to production; wizard insert fixed (status 'pending', wizard_templates correct shape + `template_source:'family'` + isolated try/catch); pins green (constraint vitest 13/13; permanent deploy pin incl. success-screen + wizard_templates-row assertions, 1/1); Convention #277 visual pass done by Claude (desktop 1440 + mobile 375 full flow → "Chart deployed!" screen → Casey dashboard/tasks render — Mom-UI table below); zero STUDIOAUD residue; commit = 4 files + hook-required live_schema.md regen.
 > F-21 corrected ('studio'/'wizard' were NEVER in any constraint version — broken since birth). F-23 has a THIRD layer: `template_source` CHECK ('system'/'family'/'community') — `'wizard'` illegal, so ALL THREE wizard_templates writers were broken; chart wizard fixed, ListReveal + SharedTaskList remain in ST-A item 11.
@@ -497,6 +497,249 @@ Also fixed the SAME class of dead-field bug directly adjacent to what I was test
 
 At commit time: `npm run schema:dump` (migrations 100319+100320 change `contracts`/`tasks` constraint state, not columns, so a schema-dump diff will be minimal/none — run it anyway for hygiene). Same DO-NOT-STAGE list as ST-A's note above still applies for any files from concurrent lanes still present in the tree at commit time — re-check `git status` fresh, don't rely on the ST-A snapshot.
 
+## ST-B — NLC v2 (worker session 2026-09-07) — CODE COMPLETE, HOLDING for a seat-granted E2E slot
+
+**Freshness preamble:** `git log --oneline --since=2026-08-23` confirmed ST-A (`88993b0`) and ST-F (`8b4c5c1`) are on `main`; tree clean at session start; next-free migration number 100333 (not needed — this slice added zero schema). `git status --porcelain` confirmed an empty tree throughout, no concurrent lanes active.
+
+**What shipped:**
+
+1. **`supabase/functions/nlc-compose/index.ts`** — a dedicated Edge Function replacing the client's direct `ai-parse` call. Full SAFETY-BETA-GATE scaffold copied from `recipe-extract` (the seat-designated reference, NOT `curriculum-parse` which has no `detectCrisis`): `authenticateRequest`, `detectCrisis` on the free-text input, `buildSafetyPreamble` on the system prompt, `callOpenRouter`/`withNoTraining` from the shared no-training client, `scanUtilityInput`/`scanUtilityOutput`/`enqueueOutputScan` (PRD-41 Tier-0, optional — skipped when `family_id`/`member_id` aren't supplied, matching `recipe-extract`'s own optionality), `logAICost`, and `extractJsonObject` from `_shared/json-extract.ts` for tolerant JSON parsing (never the bare fence-strip regex the F-01 finding's own predecessor bug class came from). `verify_jwt = false` + a `[functions.nlc-compose]` config.toml entry added in the same commit (the JWT config guard — `node scripts/check-function-jwt-config.cjs` — passes, 64/64 functions covered).
+2. **`supabase/functions/_shared/nlc-router-prompt.ts`** — the full 15-outcome catalog + system prompt extracted to a zero-import module (mirrors `json-extract.ts`/`crisis-detection.ts`), so the Edge Function AND its live-model vitest pin import the SAME prompt and can never silently drift onto two different prompts (the exact discipline that motivated `_shared/json-extract.ts`'s own creation). The 15 outcomes: the original 6 (`rewards_list`, `repeated_action_chart`, `list_reveal_assignment_opportunity`, `list_reveal_assignment_draw`, `activity_list_wizard`, `shared_task_list_wizard`) plus the dispatch's required 8 (`universal_list`, `routine_builder`, `sequential_creator`, `star_chart`, `meeting_setup`, `get_to_know`, `gamification_setup`, `task_quick_create`) plus `none_confident` as a first-class outcome (never a hard failure).
+3. **`src/components/studio/NaturalLanguageComposition.tsx`** rebuilt on `supabase.functions.invoke('nlc-compose', ...)` (the `recipe-extract`/`RecipeCaptureModal.tsx` client-caller pattern — auth handled automatically). Handles `data.crisis` (Convention #7 display, takes priority over everything else), `data.error` (§2.9 fallback: full 14-wizard catalog, never "I don't understand"), and the `none_confident` outcome (always falls through to the full-catalog card regardless of the reported confidence — a `high`-confidence `none_confident` would otherwise auto-open nothing). `ALL_WIZARD_TYPES` now lists all 14 real wizards (was 6) for both the error-fallback chips and the low-confidence list. Visible even while Studio's search box has text (F-07 — the `{!searchQuery.trim() && (...)}` gate around the component was removed in `Studio.tsx`).
+4. **`finalizePreFill()` — the routine_builder verbatim-description guarantee.** Live-testing the router against the four probe phrases (see below) found a real gap: the model doesn't reliably echo the `description` field back for `routine_builder` even though the prompt explicitly asks for mom's original wording verbatim (the "morning routine" probe returned `{routineName:"morning routine"}` with NO `description` key at all). Rather than fight the model's compliance, `finalizePreFill()` always overrides `description` with `lastSubmittedText` (captured at submit time, survives into the confirmation card's later button clicks) whenever the target wizard is `routine_builder` — guaranteed verbatim by construction, not by prompt compliance. Applied at all four `onOpenWizard` call sites (high-confidence auto-open, error-fallback catalog, medium-confidence confirm, low-confidence catalog pick).
+5. **Prefill plumbing added to 4 wizards that previously had none** (Convention 255 Q9 / Composition doc §2.9's "every wizard accepts a prefilled entry state"). All four are conditionally mounted by `Studio.tsx` (`{xOpen && <Wizard isOpen={xOpen} .../>}`) so a fresh mount happens on every open — no `preFillApplied`-ref restore-on-open dance was needed, just plain lazy `useState(initial ?? default)` initializers (StarChartWizard, GetToKnowWizard) or a mount-only `useEffect([])` guarded by the same "don't stomp a restored draft" pattern `UniversalListWizard`'s own `initialPreset` effect already used:
+   - **`StarChartWizard`**: `initialChartName?`, `initialMemberIds?`.
+   - **`GetToKnowWizard`**: `initialMemberId?` (also skips step 0 "Pick a Person" straight to the first category when set).
+   - **`RoutineBuilderWizard`**: `initialRoutineName?`, `initialDescription?`, plus `familyId?`/`ownerId?` (new — required only for the S3 linked-randomizer feature below; degrades gracefully to a normal static step when absent, never crashes).
+   - **`UniversalListWizard`**: `initialTitle?`, `initialItems?: string[]`, `initialListType?`, `initialSharingMode?`, `initialSharedMemberIds?` — extends the existing `initialPreset` mount effect with an `else if` branch (same `!state.detectedListType` restored-draft guard), jumping `setCurrentStep(1)` to skip the Purpose step since the router already decided the list type.
+6. **`resolveMemberIdByName()`** — a shared helper in `Studio.tsx` (extracted from the pre-existing ST-A `repeated_action_chart` inline logic, now reused by `star_chart`, `get_to_know`, `gamification_setup`, `task_quick_create`). Case-insensitive full-name/first-name/nickname match against the active roster; returns `undefined` on no match rather than inventing one.
+7. **`sharedWithRelationship` → real audience resolution** for `universal_list` ("shared grocery list with my husband"). Reuses `isChildMember`/`isOptInAdult` from `src/lib/members/isChildMember.ts` (the ST-A F-20 classification helper) rather than inventing a second predicate: `'spouse'` → the roster's `additional_adult` (Testworth-verified: Mark, `role='additional_adult'`, `relationship='spouse'`); `'kids'` → every `isChildMember` match; `'everyone'` → `sharingMode='family'`. `listType` is defensively whitelisted against the 8 known-valid values before it ever reaches a DB CHECK-constrained column (a raw, unvalidated model string was never handed straight to `detectedListType`).
+8. **`task_quick_create`** wires a new `modalInitialAssigneeId` state in `Studio.tsx` through the ALREADY-EXISTING `initialAssigneeId` prop on `TaskCreationModal` (found via grep — the prop existed, nothing in `Studio.tsx` had ever wired it).
+9. **S3 (Composition doc §2.9 composition gap) — "surprise/random step" detection inside `RoutineBuilderWizard`'s OWN internal AI parse** (not the top-level NLC router — a separate, pre-existing `sendAIMessage` call the wizard has always made to turn free text into sections). Rule 8 added to that prompt: a step describing a random/surprise pick gets `"stepType": "linked_randomizer"` + an optional `"randomizerItems"` array. The Review step renders a `Dices`-icon "Surprise pick" badge + an explanatory note. **`handleAccept` became async and is the HITM gate** (Convention #4) — nothing is created during parsing, only proposed; clicking "Use This Routine" is mom's real confirmation, and ONLY THEN does the wizard call `useCreateList()` (`list_type: 'randomizer'`) + a batched `list_items` insert for any enumerated candidate items, then sets that step's `step_type: 'linked_randomizer'` / `linked_source_id: newList.id` / `linked_source_type: 'randomizer_list'` — the exact shape `RoutineSectionEditor.tsx`'s own `LinkedSourcePicker.onSelect` already uses for a manually-linked step, so the resulting step is indistinguishable from one mom linked by hand. A step with `stepType==='linked_randomizer'` but no `familyId`/`ownerId` available degrades to a normal static step (never a crash, never a silently dropped step) — flagged with a disclosed design note below. `isFinishing`/`acceptError` wired into `SetupWizard`'s pre-existing `isFinishing` prop (found via grep — it already existed, unused by this wizard before).
+
+**Disclosed design decision — S3 creates the randomizer list on Accept, before the follow-up `TaskCreationModal` save.** "Use This Routine" is itself a real confirm action (matches the button's own label), so treating it as the HITM gate for the list-creation side effect is consistent with the rest of the wizard's design language. The tradeoff: if mom accepts the routine parse but then abandons the subsequent `TaskCreationModal` without saving, the randomizer list persists unlinked. This mirrors the platform's general pattern of accepting some orphan-risk at a genuine confirm step rather than deferring every side effect to the final possible moment — flagged here rather than silently accepted.
+
+**Live proof — the router itself (ran live, not gated — see below):**
+
+`tests/nlc-router.test.ts` — 29 real mom descriptions (4 required Composition-doc §2.9 probe phrases + 25 more spanning all 15 outcomes) calling OpenRouter directly with the EXACT shared prompt module the deployed function will use. **29/29 passed on the first live run.** Confirmed the four probe phrases now route correctly (all were broken under the old 6-outcome `ai-parse` prompt per F-01):
+
+| Phrase | Old behavior (F-01) | New `wizardType` (live, 2026-09-07) | preFill |
+|---|---|---|---|
+| "chore board where kids earn money for doing extra jobs" | hard-failed | `list_reveal_assignment_opportunity` (confidence: high) | `{listName:"Chore Board"}` |
+| "set up a potty chart for Ruthie" | (already worked) | `repeated_action_chart` (high) | `{chartName:"Potty Chart", actionTaskName:"potty trip", memberName:"Ruthie"}` |
+| "a shared grocery list with my husband" | mis-routed to `shared_task_list_wizard` | `universal_list` (high) | `{title:"Grocery List", listType:"shopping", sharedWithRelationship:"spouse"}` |
+| "help me set up a morning routine" | mis-routed to Progress Chart | `routine_builder` (high) | `{routineName:"morning routine"}` (no `description` — the gap `finalizePreFill()` closes, see item 4 above) |
+
+**Why the router vitest ran live but the E2E suite did not (the production-touch gate):** `tests/nlc-router.test.ts` calls OpenRouter directly — no Supabase, no deployed Edge Function, no shared dev server, no production-row mutation. None of the gate's enumerated items (migrations, Edge Function deploys, cron scheduling, shared Playwright suites, production-row mutation, invoking a deployed function) apply to a stateless external AI API call, so this ran as ordinary local proof — the same class of action ST-A/ST-F workers already took when authoring and verifying their own prompts. `tests/e2e/features/nlc-composition.spec.ts`, by contrast, drives the real dev server against the real Testworth family in production Supabase — squarely "running a shared Playwright suite," which the gate reserves for a founder-approved, seat-granted slot. It was written, `--list`-parsed clean (5/5 tests), eslint-clean, and code-reviewed against the actual component/wizard source (every locator traced back to a real `value={state.x}`/`data-testid`/computed-style in the source before being written — not guessed), but NOT executed.
+
+**`tests/e2e/features/nlc-composition.spec.ts` — 5 tests, written and parse-verified, NOT run:**
+1. Probe 1 (chore board) — full deploy + DB assertion (`is_opportunity=true`), the dispatch's explicit "continue to DEPLOY" requirement.
+2. Probe 2 (potty chart) — `chartName`/`actionTaskName` input-value assertions + Ruthie's `[data-testid="member-pill-<id>"]` `data-selected="true"` attribute (a real DOM state attribute, not innerText — `MemberPillSelector.tsx` already stamps this).
+3. Probe 3 (shared grocery list) — `Create a List` fallback title (proves it landed on `UniversalListWizard`, not `shared_task_list_wizard`), Mark's pre-selected pill via computed `color: rgb(255,255,255)` (the Sharing step's inline pill implementation has no shared component/testid to key on), title input value on Review.
+4. Probe 4 (morning routine) — the EXACT original phrase as the textarea's value (verbatim, per `finalizePreFill()`).
+5. S3 — types a "surprise chore pick" step, asserts the "Surprise pick" badge renders, accepts, DB-asserts a real `list_type='randomizer'` row was created, and asserts the step title survives into the `TaskCreationModal` handoff.
+
+All interactive locators are scoped to `page.getByRole('dialog')` (ModalV2's own `role="dialog"`) to avoid any background-page collision on short, reusable button labels like "Next"/"Add item"/"Mark". Cleanup tracks created row ids explicitly (NLC-extracted titles are model-derived English phrases like "Chore Board", not a stable `PREFIX`) plus a title-based safety-net sweep in `beforeAll`/`afterAll`.
+
+**Proof commands run (local only):**
+- `npx tsc -b` — clean, zero errors, both before and after every edit.
+- `npx eslint` on all 11 touched/new files — 0 errors; the one pre-existing `Studio.tsx:914` `exhaustive-deps` warning reconfirmed unrelated via a `git stash`/re-lint round-trip (identical warning on unmodified `main`).
+- `npm run prebuild` — 0 errors / 78 pre-existing warnings (all outside this slice's files); `verify_jwt` 64/64; Safe Harbor filter 64/64, 0 unguarded queries; under-13 aggregation-exclusion 87 files / 4 writers.
+- `npm run redteam` — 77/77.
+- `npx playwright test tests/e2e/features/nlc-composition.spec.ts --list` — 5/5 parse-clean.
+- `npx vitest run tests/convention-lint.test.ts` — 4 pre-existing failures (all in `ArchiveMemberCard.tsx`/`BestIntentionsFocusSection.tsx`, neither touched by this slice) reconfirmed identical on a clean `git stash` of `main` — not a regression.
+- `git status --porcelain` — exactly the 11-file change set below, confirmed empty before AND after (no concurrent lanes touched during this session).
+
+**Seat referee finding (2026-09-07) — stale closure on the high-confidence auto-open path, FIXED.** `finalizePreFill()` originally closed over `lastSubmittedText` STATE rather than taking the text as a parameter. `handleSubmit` calls `setLastSubmittedText(text)` and then, in the SAME synchronous-continuation closure (after the `await` on the network round trip, but still the same invocation of `handleSubmit`), calls `finalizePreFill()` on the high-confidence auto-open path — a state update scheduled earlier in that same closure has not yet applied to variables read within that closure, so `finalizePreFill` was reading the PREVIOUS value of `lastSubmittedText` (`''` on the very first submit of a session), meaning Probe 4's exact path (a high-confidence "morning routine" match) would have opened `RoutineBuilderWizard` with an EMPTY description — the precise gap `finalizePreFill()` was built to close, silently un-closed on its most direct path. The three confirmation-card button call sites (medium-confidence "Yes, open it", the error-fallback catalog, the low-confidence catalog list) were NOT affected — they fire from a separate, later user click after React has re-rendered with the committed `lastSubmittedText` value.
+
+**Fix:** `finalizePreFill(wizardType, preFill, text)` now takes `text` as an explicit third parameter instead of reading state — genuinely stable (`useCallback(..., [])`). The high-confidence call site (line ~182) passes the LOCAL `text` const from `handleSubmit`'s own scope (guaranteed correct, no state round-trip needed at all). The three later call sites pass `lastSubmittedText` (correct at that point, per the reasoning above). `tsc -b` and `eslint` re-verified clean (0 errors, 0 new warnings) after the fix; `tests/e2e/features/nlc-composition.spec.ts --list` re-verified 5/5 parse-clean (Probe 4's assertion — the EXACT phrase as the textarea value — now actually holds on the code path it exercises). No change was needed to `tests/nlc-router.test.ts` (a router-prompt-level test, unaffected by this purely client-side bug) or to any wizard file.
+
+### Files touched (selective-staging list)
+`supabase/functions/nlc-compose/index.ts` (new) · `supabase/functions/_shared/nlc-router-prompt.ts` (new) · `supabase/supabase/config.toml` (1 new `[functions.nlc-compose]` entry) · `src/components/studio/NaturalLanguageComposition.tsx` (rewritten) · `src/pages/Studio.tsx` (`handleNLCOpenWizard` expanded to 14 outcomes, `resolveMemberIdByName` extracted, 4 new prefill state vars, `modalInitialAssigneeId` + `initialAssigneeId` wiring, NLC component always-visible) · `src/components/studio/wizards/StarChartWizard.tsx` · `src/components/studio/wizards/GetToKnowWizard.tsx` · `src/components/studio/wizards/RoutineBuilderWizard.tsx` (S3 feature) · `src/components/studio/wizards/UniversalListWizard.tsx` · `tests/nlc-router.test.ts` (new) · `tests/e2e/features/nlc-composition.spec.ts` (new) · this file.
+
+### Seat-granted suite slot (2026-09-11) — ALL THREE SUITES GREEN. PROOF COMPLETE.
+
+The seat deployed `nlc-compose`, granted the three-suite slot, then (after round 1) redeployed with
+the first three fixes and swept the orphans. Per-suite results and every defect found:
+
+#### Suite 1 — `tests/e2e/features/nlc-composition.spec.ts`
+
+**FINAL: 5/5 GREEN, twice back-to-back.**
+
+| # | Test | R1 (pre-redeploy) | R2 (naming fix) | R3 (ACTION RULE) | **FINAL** |
+|---|---|---|---|---|---|
+| 1 | Probe 1 — chore board → opportunity wizard, prefill, **real DEPLOY + DB assert** | ❌ `"Extra Jobs"` | ✅ PASS | ✅ | ✅ **PASS** (12.1s) |
+| 2 | Probe 2 — potty chart → progress chart, Ruthie preselected | — | ❌ `"potty trips"` | ❌ traversal off-by-one | ✅ **PASS** (10.1s) |
+| 3 | Probe 3 — shared grocery list → universal_list, spouse preselected | — | — | ❌ wrong Items-step UI | ✅ **PASS** (15.4s) |
+| 4 | Probe 4 — morning routine → routine builder, verbatim description | — | — | ✅ | ✅ **PASS** (11.2s) |
+| 5 | S3 — surprise-chore step → linked randomizer, created on accept | — | — | ❌ helper race | ✅ **PASS** (14.1s) |
+
+Three further defects were found after the redeploys, all in the SPEC's own traversal/assumptions —
+never in an assertion, and never in the product (each was confirmed against the real component and,
+for probe 2, against a tour screenshot that already showed the correct rendering):
+
+- **Probe 2 — step traversal off by one.** `STEPS = [name, action, display, milestones, assign,
+  review]`; from `action` (1) reaching `assign` (4) takes THREE Next clicks, and the spec did two,
+  landing on Milestones where the pill is legitimately absent. (`MemberPillSelector` DOES stamp
+  `data-testid="member-pill-${id}"` and the chart wizard uses it — the locator was right all along.)
+  Identical off-by-one to the one caught and fixed in the ST-B tour.
+- **Probe 3 — the Items step is a BULK-PASTE textarea, not a repeat-add list.** The spec clicked a
+  non-existent "Add item" button. The textarea binds to `state.rawInput`, and `canAdvance` for that
+  step requires `state.items.length > 0`, which ONLY `parseItems` ("Organize with AI") produces —
+  so the spec now pastes, organizes, waits for "N items ready", then advances, exactly as mom does.
+  The failure screenshot independently re-proved the F-01 routing fix: "Create a List" with Purpose
+  auto-completed, i.e. it landed on `UniversalListWizard`, not `shared_task_list_wizard`.
+- **S3 — a race in `confirmMediumConfidenceIfShown`.** It probed for the "Yes, open it" button with
+  a 3s timeout while the router round-trip takes 5-9s, so the probe expired BEFORE the card
+  rendered, silently skipped the click, and the wizard never opened. The screenshot showed the card
+  sitting on screen unclicked. Probes 1-4 passed only because those phrases draw HIGH confidence and
+  auto-open; "set up an evening routine" draws MEDIUM. Now races the two real outcomes (dialog vs
+  card) with a 30s ceiling, so it waits exactly as long as the model takes and no longer. The suite
+  timeout also went 90s → 120s (matching `studio-shelf-truth`) since probes 3 and 5 each make TWO
+  real AI round-trips. **Re-ran twice to confirm this holds across a different confidence draw.**
+
+**Three router defects found, all fixed in code, NO assertion touched.** Each was verified through
+the vitest path (direct OpenRouter call — no deployed function, outside the production-touch gate):
+
+1. **`nlc-compose` pinned no `temperature`.** Routing + field extraction is deterministic-by-intent,
+   and every other extraction/classification function in the platform pins `temperature: 0`
+   (`calendar-extract`, `validate-ai-output`, `safety-classify`'s classifier path, the
+   board-of-directors gates). At the model default the router re-decided borderline extractions
+   run-to-run — a phrase naming two plausible titles ("chore board … extra jobs") returned either.
+   Fixed, and mirrored into `tests/nlc-router.test.ts` so the pin calls the router the way the
+   function does. Verified: 5 consecutive live calls, 5/5 identical.
+2. **The prompt had ZERO naming guidance.** With determinism restored it stabilized on the WRONG
+   name — "Extra Jobs" is what's *on* the board, not the board. Mom said "a chore board"; Convention
+   #249 names a thing for what it is. Fixed with a NAMING RULE covering every name-shaped field
+   (listName/title/chartName/subjectName/routineName): take the head noun of what she asked for,
+   ignore trailing contents/purpose clauses. Re-verified 5/5 → "Chore Board". **Probe 1 then passed
+   end-to-end including its real deploy**, confirming the fix in production.
+3. **No guidance for `actionTaskName` either — same root-cause class.** The router deterministically
+   returned the PLURAL "potty trips". That field is not a label: it becomes `tasks.title`, a real
+   tappable task on the kid's dashboard, and the field's own help text says *"Creates a tappable
+   task. Each tap = one mark on the chart"* with singular placeholders (*"e.g., Used the potty!,
+   Practiced piano"*). A plural title contradicts the wizard's own stated design. Fixed with an
+   ACTION RULE stating the SEMANTICS (one tap = one occurrence → name a single occurrence)
+   deliberately rather than a surface form, so the rule isn't written to match a test string.
+   Re-verified → `"potty trip"`, matching the test on its own merits.
+
+**All four probe phrases verified stable + correct after the ACTION RULE** (each called twice;
+`stable: true` on all four), so one redeploy should carry suite 1 to 5/5 rather than surfacing the
+next field serially:
+
+| Phrase | wizardType | preFill |
+|---|---|---|
+| chore board … extra jobs | `list_reveal_assignment_opportunity` (high) | `{"listName":"Chore Board"}` |
+| potty chart for Ruthie | `repeated_action_chart` (high) | `{"chartName":"Potty Chart","actionTaskName":"potty trip","memberName":"Ruthie"}` |
+| shared grocery list with my husband | `universal_list` (high) | `{"title":"Grocery List","listType":"shopping","sharedWithRelationship":"spouse"}` |
+| help me set up a morning routine | `routine_builder` (high) | `{"routineName":"Morning Routine"}` (description is client-guaranteed verbatim) |
+
+Full 29-case router vitest **29/29** after every prompt change — no other routing or extraction
+expectation regressed.
+
+#### Suite 2 — `tests/e2e/features/studio-shelf-truth.spec.ts`: **16/16 GREEN** (run twice)
+
+First attempt had test 3 time out inside the shared `loginAsAlex` helper on
+`waitForLoadState('networkidle')` — the documented flake class (TEEN-CRED / family-auth-two-door
+records); it passed at 29.6s on re-run, confirming no regression from ST-B's `UniversalListWizard` /
+`Studio.tsx` changes.
+
+#### Suite 3 — Studio audit tour: **1/1 GREEN, 89 tiles, ZERO console errors**
+
+Three tiles recorded "no dialog"; I read all three screenshots rather than infer — all three DO open
+the member picker, which simply isn't a `role="dialog"` element. Zero dead tiles. (Confirmed
+still-open, pre-existing, already-ST-G-scoped: that picker offers Amy — a Special Adult — and mom.)
+
+**ST-B eyes-on tour (new): `nlc-composition-eyes-on-tour.spec.ts`, 2/2 at desktop 1440 + mobile 375,
+14 shots, all read, zero console errors.** Rows in the Mom-UI table above.
+
+#### A fourth defect, found by READING a screenshot (no assertion covered it)
+
+On the mobile fallback shot the restate rendered as *"you want to **this phrase doesn't match any
+family management wizard. Please describe what you'd like to set up…***" — the model answered the
+routing question in the mom-facing `description` field, producing a broken sentence and leaking
+machine voice at mom. Same class as the F-12 restate bug, which `normalizeRestate()` only guarded
+against as a leading-prefix problem. Fixed in two layers, mirroring how `finalizePreFill` guarantees
+verbatim client-side rather than trusting the model: the prompt now forbids meta-commentary and
+multi-sentence answers in that field, AND `normalizeRestate(description, momText)` rejects
+meta-commentary / multi-sentence / over-long values and falls back to mom's own words — which is
+what Composition doc §2.9 asks the fallback to restate anyway. The client guard needs no redeploy
+(frontend is served from local dev) and the re-run tour confirms it live: the sentence now reads
+"you want to xylophone tuesday sandwich protocol". 4 new unit cases;
+`tests/studio-shelf-truth-units.test.ts` **16/16**.
+
+#### A fifth defect, found by the residue query — and it is NOT ST-B's
+
+The name-based residue check reported zero. A stronger time-window check — *any* row created in the
+five tables during the session, regardless of name — found **5 orphaned `tasks` rows**. Root cause:
+in `studio-shelf-truth.spec.ts`, test 5's sequential child tasks keep their seeded chapter titles
+("Chapter 1: Getting Started", …) and never carry `PREFIX`, so the title-prefix task sweep never
+collected them; deleting the parent collection orphaned all 5 on **every single run**. Production
+held **30 orphans across 6 runs** — 25 from the ST-A build sessions (2026-08-23/24), which reported
+"zero residue" for exactly the reason the first check here did: a name-based sweep cannot see them.
+Same failure class the TEEN-CRED record documents. Fixed the sweep to collect children via the
+`sequential_collection_id` FK *before* the parent row is deleted, and verified decisively: a full
+16/16 re-run that creates 5 chapter tasks left the total at **30, not 35**. The 30 pre-existing
+orphans were left for the seat (unprefixed production rows, 25 predating this session) and the seat
+has since deleted them — re-verified here: **0 "Chapter %" tasks remain**, `tasks` total 245→215.
+
+#### Residue — both queries, after TWO consecutive 5/5 runs (window from `2026-09-11T19:22:54.931Z`)
+
+| Table | (A) time-window: rows created during the runs, ANY name | (B) fixture-name matched, whole table |
+|---|---|---|
+| `lists` | 0 | 0 of 57 |
+| `list_items` | 0 | 0 of 216 |
+| `tasks` | 0 | 0 of 215 |
+| `dashboard_widgets` | 0 | 0 of 51 |
+| `wizard_templates` | 0 | 0 of 0 |
+| **TOTAL** | **0** | **0** |
+
+Every row these runs created — including probe 1's real board deploy and S3's real randomizer list —
+was swept by the suite's own `afterAll`. `"Chapter %"` orphans remaining = **0** (seat's sweep
+independently re-confirmed).
+
+**A note on query (B), because it cuts both ways.** An intermediate run used a deliberately
+over-broad keyword filter ('milk', 'eggs', 'bread', 'surprise', 'Morning Routine', 'Potty Chart')
+and returned 20 "matches" — all of which were **genuine pre-existing founder data** dated March–May
+2026 (real grocery items like "12 bags Guittard milk chocolate chips", real widgets named "Morning
+Routine"), none from this session. That false-positive direction is the mirror image of the weakness
+that let a name-based sweep MISS the orphaned chapter tasks earlier. Which is the whole point: **the
+time-window query (A) is the authoritative residue check**; name matching is a supplement, never the
+proof. The table above reports (B) against the strict fixture names only.
+
+#### Nothing outstanding
+
+No deploys, migrations, applies, invocations outside the browser flow, or row deletions were
+performed by this lane at any point.
+
+### Selective-staging file list (16 entries — verify against a FRESH `git status` at commit time)
+
+| # | File | Why it's in this commit |
+|---|---|---|
+| 1 | `supabase/functions/nlc-compose/index.ts` | NEW — the dedicated NLC Edge Function (+ `temperature: 0`) |
+| 2 | `supabase/functions/_shared/nlc-router-prompt.ts` | NEW — shared 15-outcome catalog + NAMING RULE + ACTION RULE + no-meta-commentary rule |
+| 3 | `supabase/supabase/config.toml` | 1 new `[functions.nlc-compose]` entry (`verify_jwt = false`, auth in code) |
+| 4 | `src/components/studio/NaturalLanguageComposition.tsx` | Rewritten onto `nlc-compose`; `finalizePreFill` stale-closure fix; `normalizeRestate` meta-commentary guard |
+| 5 | `src/pages/Studio.tsx` | 14-outcome routing, `resolveMemberIdByName`, 4 prefill state vars, `initialAssigneeId` wiring, NLC always-visible (F-07) |
+| 6 | `src/components/studio/wizards/StarChartWizard.tsx` | New prefill entry state (`initialChartName`, `initialMemberIds`) |
+| 7 | `src/components/studio/wizards/GetToKnowWizard.tsx` | New prefill entry state (`initialMemberId`, skips the person-picker step) |
+| 8 | `src/components/studio/wizards/RoutineBuilderWizard.tsx` | Prefill entry state + the S3 linked-randomizer detection/HITM-accept feature |
+| 9 | `src/components/studio/wizards/UniversalListWizard.tsx` | Prefill entry state (title/items/listType/sharing) + Purpose-step skip |
+| 10 | `tests/nlc-router.test.ts` | NEW — 29-case live router pin; mirrors the function's `temperature: 0` |
+| 11 | `tests/e2e/features/nlc-composition.spec.ts` | NEW — the 5 ST-B probe pins (probe 1 deploys for real + asserts DB rows) |
+| 12 | `tests/e2e/features/nlc-composition-eyes-on-tour.spec.ts` | NEW — Convention #277 ST-B tour, desktop + mobile |
+| 13 | `tests/e2e/features/studio-shelf-truth.spec.ts` | **ST-A file** — sweep fix for the orphaned-sequential-children leak (defect 5) |
+| 14 | `tests/studio-shelf-truth-units.test.ts` | **ST-A file** — 4 new `normalizeRestate` cases for the meta-commentary guard (defect 4) |
+| 15 | `.gitignore` | Adds `studio-audit-out/`; the tour's 90-screenshot dump was untracked and one `git add .` from being committed (`eyes-on-tour/` was already ignored) |
+| 16 | `.claude/rules/current-builds/STUDIO-EXPERIENCE.md` | This build record |
+
+Entries 13–15 are outside ST-B's original file list and are called out deliberately: 13 and 14 fix
+real defects in ST-A-owned files that this slice's proof surfaced, 15 is hygiene created by this
+session's own tour. No other lane's files are in the tree.
+
+**Next steps:** the redeploy + suite-1 re-run above, then founder review + selective staging +
+commit, same discipline as ST-A/ST-F.
+
 ## Retroactive verification (founder ruling)
 The graded 89-tile matrix + Pass B/scenario evidence in the evidence record §2–§3 constitutes the retroactive Post-Build Verification for Phase 3.7 and Phase 3.8 (their feature-decision files' tables were never filled). Copy at close-out.
 
@@ -535,6 +778,19 @@ Visual-pass notes fed back into slices: (1) mobile Assign pill needed a verified
 | **ST-F** Draw-flavor "Pick a Reveal" step (animation card grid) | ✅ read directly: step 3/7 "Pick a Reveal", Spinner/Card Flip/Door Open/chest variants render as themed cards | — | — | Mom | ad-hoc debug screenshot, read during locator troubleshooting | 2026-08-23 |
 | **ST-F** Randomizer draw + assign flow (Draw button → spin → Assign to → member picker → Confirm) | ✅ E2E-asserted only (real clicks succeeded, real `tasks` row landed with correct assignee) — not separately screenshotted/read | — | — | Mom (assigning) | E2E pass, DB-asserted | 2026-08-23 |
 | **ST-F** Drawn task rendering on the assignee's own Tasks page | ✅ E2E-asserted (`getByText` found the task title on Alex's `/tasks`) — not separately screenshotted/read | — | — | Independent (Alex) | E2E pass | 2026-08-23 |
+
+*(ST-B rows below — Convention #277, `tests/e2e/features/nlc-composition-eyes-on-tour.spec.ts`, 2/2 green at BOTH viewports, all 14 screenshots read by Claude, zero console errors at either viewport. Tablet was not toured: every ST-B surface is a ModalV2 dialog that is width-fluid between the two verified extremes, matching the ST-A precedent for the same dialogs.)*
+
+| Surface | Desktop 1440 | Tablet ~768px | Mobile 375 | Shells Tested | Evidence | Timestamp |
+|---------|--------------|---------------|------------|---------------|----------|-----------|
+| **ST-B** F-07: NLC input stays visible while the Studio search box has text | ✅ search filtered to "chart", NLC input still rendered above the filtered results (it used to be hidden behind `{!searchQuery.trim() && …}`) | — | ✅ same at 375px; "Use as-is" + "Customize" on the Potty Chart example also render correctly | Mom | `nlc-stb-{vp}-2-nlc-visible-while-searching.png` (both read) | 2026-09-11 |
+| **ST-B** §2.9 full-catalog fallback (`none_confident`) | ✅ second-person restate, full outcome-named catalog with "Best match" first, mom's text preserved in the input, never "I don't understand" | — | ✅ full catalog readable at 375px, BottomNav present, cards stack cleanly | Mom | `nlc-stb-{vp}-3-fallback-full-catalog.png` (both read) | 2026-09-11 |
+| **ST-B** Restate copy guard (tour finding, fixed + re-verified) | ✅ after fix reads "you want to **xylophone tuesday sandwich protocol**" — mom's own words, sentence frame intact | — | ✅ same (this is the viewport the defect was caught on) | Mom | `nlc-stb-mobile-3` before/after (both read) | 2026-09-11 |
+| **ST-B** Prefilled wizard from a description — chart name (probe 2) | ✅ "Set Up a Progress Chart" opens at step 1/6 with Chart name = "Potty Chart" | — | ✅ bottom-sheet, step dots condense, all fields reachable | Mom | `nlc-stb-{vp}-4-prefilled-chart-name.png` (both read) | 2026-09-11 |
+| **ST-B** Prefilled action name (probe 2) | ✅ step 2/6 "Pick Action", task input = "potty trip" | — | ✅ same ("potty trips") | Mom | `nlc-stb-{vp}-5-prefilled-action-name.png` (both read) | 2026-09-11 |
+| **ST-B** memberName resolution → Assign preselect (probe 2) | ✅ step 5/6 Assign: Ruthie's pill FILLED in her member color, Alex/Casey/Jordan outline-only; pill bar kid-scoped (no adults/Special Adults — ST-A rider (b) still holding) | — | ✅ same at 375px, Back/Next reachable | Mom | `nlc-stb-{vp}-6-assign-ruthie-preselected.png` (both read) | 2026-09-11 |
+| **ST-B** Routine builder verbatim description passthrough (probe 4) | ✅ Routine Name "Morning Routine" + textarea holding the EXACT original phrase "help me set up a morning routine" — the `finalizePreFill` guarantee, on the very path the seat's referee finding flagged | — | ✅ same at 375px | Mom | `nlc-stb-{vp}-7-routine-verbatim-description.png` (both read) | 2026-09-11 |
+| **ST-B** Studio shelf sweep regression (Pass A tour) | ✅ 89/89 tiles open their intended surface, **zero console errors across all 89** | — | — | Mom | `studio-audit-out/pass-a.ndjson` + 89 shots; 3 flagged "no dialog" tiles read individually and confirmed WORKING (member picker isn't `role="dialog"`) | 2026-09-11 |
 
 ## Post-Build Verification
 *(Checkpoint 5 of the cleanup build — every finding F-01…F-21 + Bucket-1 item: Wired / Stubbed / Missing. Zero Missing required.)*

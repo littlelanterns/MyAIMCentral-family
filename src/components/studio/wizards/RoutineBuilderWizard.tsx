@@ -8,12 +8,17 @@
  */
 
 import { useState, useCallback } from 'react'
-import { ListChecks, Sparkles, Loader } from 'lucide-react'
+import { ListChecks, Sparkles, Loader, Dices } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
+import { useCreateList } from '@/hooks/useLists'
+import { supabase } from '@/lib/supabase/client'
 import type { RoutineSection, SectionFrequency } from '@/components/tasks/RoutineSectionEditor'
 
-// Same AI prompt as RoutineBrainDump — keep them in sync
+// Same AI prompt as RoutineBrainDump — keep them in sync, PLUS the ST-B
+// (Composition doc §2.9 / S3) linked_randomizer detection: a step language
+// like "do a surprise chore" or "pick one from the list" gets flagged so
+// mom can confirm turning it into a real linked randomizer list on accept.
 const SYSTEM_PROMPT = `You are an AI assistant that helps organize household routines. A mom is describing a routine the way she'd explain it to her kids — naturally, conversationally, maybe a little scattered. Your job is to organize this into structured sections grouped by frequency.
 
 RULES:
@@ -32,6 +37,7 @@ RULES:
 5. Keep step titles SHORT and actionable — like a checklist item a kid can understand.
 6. If a step has notes, put them in the "notes" field, keeping the title short.
 7. instanceCount > 1 when a step should be done multiple times.
+8. SURPRISE/RANDOM STEPS: if a step describes doing something random, a surprise pick, or choosing one from a set of options (e.g. "do a surprise chore", "pick a random workout", "choose one activity from the list"), mark that step with "stepType": "linked_randomizer". If the text enumerates candidate options, list them in "randomizerItems" (short item names); otherwise use an empty array — mom will fill them in. Every other step omits "stepType" entirely (defaults to a normal step).
 
 Return ONLY a JSON array of section objects:
 {
@@ -40,7 +46,7 @@ Return ONLY a JSON array of section objects:
   "customDays": [0,1,2,3,4,5,6],
   "showUntilComplete": false,
   "steps": [
-    { "title": "Step name", "notes": "", "instanceCount": 1 }
+    { "title": "Step name", "notes": "", "instanceCount": 1, "stepType": "linked_randomizer", "randomizerItems": ["Option A", "Option B"] }
   ]
 }
 
@@ -51,7 +57,13 @@ interface ParsedSection {
   frequency: SectionFrequency
   customDays?: number[]
   showUntilComplete: boolean
-  steps: { title: string; notes: string; instanceCount: number }[]
+  steps: {
+    title: string
+    notes: string
+    instanceCount: number
+    stepType?: 'linked_randomizer'
+    randomizerItems?: string[]
+  }[]
 }
 
 const STEPS: WizardStep[] = [
@@ -95,19 +107,36 @@ interface RoutineBuilderWizardProps {
   onClose: () => void
   /** Called with the parsed sections when the user accepts. The parent should open TaskCreationModal with these pre-loaded. */
   onAccept: (routineName: string, sections: RoutineSection[]) => void
+  /** ST-B / Composition doc §2.9 description passthrough — mom's original
+   *  wording from Natural Language Composition, prefilled into the textarea
+   *  she still reviews and can edit before parsing (Convention #4 HITM). */
+  initialDescription?: string
+  initialRoutineName?: string
+  /** Required only to create linked randomizer lists on accept (S3 —
+   *  surprise/random step detection). Without these, a linked_randomizer
+   *  step degrades gracefully to a normal static step rather than crashing. */
+  familyId?: string
+  ownerId?: string
 }
 
 export function RoutineBuilderWizard({
   isOpen,
   onClose,
   onAccept,
+  initialDescription,
+  initialRoutineName,
+  familyId,
+  ownerId,
 }: RoutineBuilderWizardProps) {
   const [step, setStep] = useState(0)
-  const [routineName, setRoutineName] = useState('')
-  const [inputText, setInputText] = useState('')
+  const [routineName, setRoutineName] = useState(initialRoutineName ?? '')
+  const [inputText, setInputText] = useState(initialDescription ?? '')
   const [parsedSections, setParsedSections] = useState<ParsedSection[]>([])
   const [isParsing, setIsParsing] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
+  const [isAccepting, setIsAccepting] = useState(false)
+  const [acceptError, setAcceptError] = useState<string | null>(null)
+  const createList = useCreateList()
 
   const reset = useCallback(() => {
     setStep(0)
@@ -116,6 +145,8 @@ export function RoutineBuilderWizard({
     setParsedSections([])
     setIsParsing(false)
     setParseError(null)
+    setIsAccepting(false)
+    setAcceptError(null)
   }, [])
 
   const handleClose = useCallback(() => {
@@ -151,35 +182,86 @@ export function RoutineBuilderWizard({
     }
   }, [inputText])
 
-  const handleAccept = useCallback(() => {
-    // Convert parsed sections to RoutineSection format
-    const routineSections: RoutineSection[] = parsedSections.map((sec, i) => ({
-      id: generateId(),
-      name: sec.name,
-      frequency: sec.frequency,
-      customDays: sec.customDays ?? [],
-      showUntilComplete: sec.showUntilComplete,
-      sort_order: i,
-      isEditing: false,
-      steps: sec.steps.map((st, j) => ({
-        id: generateId(),
-        title: st.title,
-        notes: st.notes || '',
-        showNotes: !!st.notes,
-        instanceCount: st.instanceCount ?? 1,
-        requirePhoto: false,
-        sort_order: j,
-        step_type: 'static' as const,
-        linked_source_id: null,
-        linked_source_type: null,
-        display_name_override: null,
-      })),
-    }))
+  const handleAccept = useCallback(async () => {
+    if (isAccepting) return
+    setIsAccepting(true)
+    setAcceptError(null)
 
-    const name = routineName.trim() || 'My Routine'
-    onAccept(name, routineSections)
-    handleClose()
-  }, [parsedSections, routineName, onAccept, handleClose])
+    try {
+      // S3 (Composition doc §2.9): mom's confirmation HERE is the HITM gate
+      // for creating a real randomizer list per linked_randomizer step —
+      // nothing was created during parsing, only proposed for her review.
+      const routineSections: RoutineSection[] = []
+      for (let i = 0; i < parsedSections.length; i++) {
+        const sec = parsedSections[i]
+        const steps = []
+        for (let j = 0; j < sec.steps.length; j++) {
+          const st = sec.steps[j]
+          const base = {
+            id: generateId(),
+            title: st.title,
+            notes: st.notes || '',
+            showNotes: !!st.notes,
+            instanceCount: st.instanceCount ?? 1,
+            requirePhoto: false,
+            sort_order: j,
+          }
+          if (st.stepType === 'linked_randomizer' && familyId && ownerId) {
+            const newList = await createList.mutateAsync({
+              family_id: familyId,
+              owner_id: ownerId,
+              title: st.title,
+              list_type: 'randomizer',
+            })
+            const items = (st.randomizerItems ?? []).filter((t) => t.trim())
+            if (items.length > 0) {
+              const { error: itemErr } = await supabase.from('list_items').insert(
+                items.map((content, idx) => ({ list_id: newList.id, content, sort_order: idx })),
+              )
+              if (itemErr) console.warn('[RoutineBuilderWizard] Failed to seed randomizer items:', itemErr.message)
+            }
+            steps.push({
+              ...base,
+              step_type: 'linked_randomizer' as const,
+              linked_source_id: newList.id,
+              linked_source_type: 'randomizer_list' as const,
+              display_name_override: st.title,
+            })
+          } else {
+            // Degrades gracefully to a normal static step when family/owner
+            // ids aren't available — never a crash, never a silently
+            // dropped step.
+            steps.push({
+              ...base,
+              step_type: 'static' as const,
+              linked_source_id: null,
+              linked_source_type: null,
+              display_name_override: null,
+            })
+          }
+        }
+        routineSections.push({
+          id: generateId(),
+          name: sec.name,
+          frequency: sec.frequency,
+          customDays: sec.customDays ?? [],
+          showUntilComplete: sec.showUntilComplete,
+          sort_order: i,
+          isEditing: false,
+          steps,
+        })
+      }
+
+      const name = routineName.trim() || 'My Routine'
+      onAccept(name, routineSections)
+      handleClose()
+    } catch (err) {
+      console.error('[RoutineBuilderWizard] Accept failed:', err)
+      setAcceptError('Something went wrong setting up a surprise-pick list. Try again, or remove the surprise-pick step.')
+    } finally {
+      setIsAccepting(false)
+    }
+  }, [isAccepting, parsedSections, routineName, familyId, ownerId, createList, onAccept, handleClose])
 
   const removeSection = useCallback((index: number) => {
     setParsedSections(prev => prev.filter((_, i) => i !== index))
@@ -210,6 +292,7 @@ export function RoutineBuilderWizard({
       canAdvance={inputText.trim().length > 10}
       canFinish={parsedSections.length > 0 && totalSteps > 0}
       finishLabel="Use This Routine"
+      isFinishing={isAccepting}
     >
       {/* Step 1: Describe */}
       {step === 0 && (
@@ -370,15 +453,34 @@ export function RoutineBuilderWizard({
                         <span className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
                           {st.title}
                         </span>
+                        {st.instanceCount > 1 && (
+                          <span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>
+                            (x{st.instanceCount})
+                          </span>
+                        )}
+                        {st.stepType === 'linked_randomizer' && (
+                          <span
+                            className="inline-flex items-center gap-1 ml-2 text-xs rounded-full px-2 py-0.5"
+                            style={{
+                              backgroundColor: 'color-mix(in srgb, var(--color-btn-primary-bg) 12%, transparent)',
+                              color: 'var(--color-btn-primary-bg)',
+                            }}
+                          >
+                            <Dices size={11} />
+                            Surprise pick
+                          </span>
+                        )}
                         {st.notes && (
                           <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                             {st.notes}
                           </p>
                         )}
-                        {st.instanceCount > 1 && (
-                          <span className="text-xs ml-1" style={{ color: 'var(--color-text-muted)' }}>
-                            (x{st.instanceCount})
-                          </span>
+                        {st.stepType === 'linked_randomizer' && (
+                          <p className="text-xs mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                            {(st.randomizerItems?.length ?? 0) > 0
+                              ? `Creates a new randomizer list with ${st.randomizerItems!.length} option${st.randomizerItems!.length !== 1 ? 's' : ''} — you can edit it after.`
+                              : 'Creates a new, empty randomizer list you can fill in after.'}
+                          </p>
                         )}
                       </div>
                       <button
@@ -404,6 +506,12 @@ export function RoutineBuilderWizard({
             <Sparkles size={14} />
             Re-parse from scratch
           </button>
+
+          {acceptError && (
+            <p className="text-xs mt-3" style={{ color: 'var(--color-text-error, #dc2626)' }}>
+              {acceptError}
+            </p>
+          )}
         </div>
       )}
     </SetupWizard>

@@ -155,8 +155,33 @@ async function sweep() {
     await sr.from('lists').delete().in('id', listIds)
   }
 
-  // ── sequential collections ──
-  await sr.from('sequential_collections').delete().eq('family_id', FAMILY_ID).ilike('title', `${PREFIX}%`)
+  // ── sequential collections + THEIR CHILD TASKS ──
+  // The child tasks keep their seeded chapter titles ("Chapter 1: Getting
+  // Started", ...) and never carry PREFIX, so the title-prefix task sweep
+  // above never collected them: deleting the collection orphaned all 5 on
+  // every single run. Found 2026-09-11 by a time-window residue query (the
+  // name-based check this suite's own afterAll uses could not see them) —
+  // 30 orphans had accumulated across 6 runs. Collect the children via the
+  // FK BEFORE the parent row goes away, or they become unreachable.
+  const { data: seqColls } = await sr
+    .from('sequential_collections')
+    .select('id')
+    .eq('family_id', FAMILY_ID)
+    .ilike('title', `${PREFIX}%`)
+  const seqCollIds = (seqColls ?? []).map((c) => c.id as string)
+  if (seqCollIds.length) {
+    const { data: seqChildren } = await sr
+      .from('tasks')
+      .select('id')
+      .in('sequential_collection_id', seqCollIds)
+    const seqChildIds = (seqChildren ?? []).map((t) => t.id as string)
+    if (seqChildIds.length) {
+      await sr.from('task_completions').delete().in('task_id', seqChildIds)
+      await sr.from('task_assignments').delete().in('task_id', seqChildIds)
+      await sr.from('tasks').delete().in('id', seqChildIds)
+    }
+    await sr.from('sequential_collections').delete().in('id', seqCollIds)
+  }
 
   // ── best intentions created by the starter wizard ──
   await sr.from('best_intentions').delete().eq('family_id', FAMILY_ID).eq('source', 'studio_wizard')

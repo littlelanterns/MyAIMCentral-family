@@ -84,4 +84,33 @@ describe('normalizeRestate', () => {
     expect(normalizeRestate('Create a shared grocery list'))
       .toBe('create a shared grocery list')
   })
+
+  // ST-B eyes-on tour finding (2026-09-11): on the none_confident path the
+  // router answered the ROUTING question in this field, rendering the
+  // mom-facing sentence "you want to this phrase doesn't match any family
+  // management wizard. Please describe...". The frame must never break.
+  it('falls back to mom\'s own words when the model returns meta-commentary', () => {
+    const momText = 'xylophone tuesday sandwich protocol'
+    expect(
+      normalizeRestate(
+        "This phrase doesn't match any family management wizard. Please describe what you'd like to set up.",
+        momText,
+      ),
+    ).toBe(momText)
+  })
+
+  it('rejects multi-sentence and over-long descriptions in favour of mom\'s words', () => {
+    expect(normalizeRestate('Set up a chart. Then assign it to a child.', 'a potty chart'))
+      .toBe('a potty chart')
+    expect(normalizeRestate('x'.repeat(200), 'a potty chart')).toBe('a potty chart')
+  })
+
+  it('still returns the model phrase when it is a usable verb phrase', () => {
+    expect(normalizeRestate('track potty trips for Ruthie', 'some raw mom text'))
+      .toBe('track potty trips for Ruthie')
+  })
+
+  it('degrades safely when there is no mom text to fall back to', () => {
+    expect(normalizeRestate("this doesn't match any wizard", '')).toBe("this doesn't match any wizard")
+  })
 })

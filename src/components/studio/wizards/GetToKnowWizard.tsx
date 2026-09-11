@@ -44,6 +44,11 @@ interface GetToKnowWizardProps {
     member_color?: string | null
     dashboard_mode?: string | null
   }>
+  /** NLC prefill (Convention 253 §2.9) — resolved memberName from mom's
+   *  description. Studio.tsx conditionally mounts this component fresh on
+   *  every open, so a lazy initializer is safe (no restore-on-open effect
+   *  needed). When set, skip straight past the "Pick a Person" step. */
+  initialMemberId?: string
 }
 
 export function GetToKnowWizard({
@@ -52,9 +57,10 @@ export function GetToKnowWizard({
   familyId,
   memberId,
   familyMembers,
+  initialMemberId,
 }: GetToKnowWizardProps) {
-  const [step, setStep] = useState(0)
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  const [step, setStep] = useState(initialMemberId ? 1 : 0)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(initialMemberId ?? null)
 
   // Track entries per category: { category: string[] }
   const [entries, setEntries] = useState<Record<string, string[]>>({})

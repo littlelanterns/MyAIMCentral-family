@@ -48,6 +48,12 @@ interface StarChartWizardProps {
     assigned_color?: string | null
     member_color?: string | null
   }>
+  /** Convention 255 Q9 / Convention 253 §2.9: NLC prefill entry state. This
+   *  component is always freshly mounted on open (Studio.tsx conditionally
+   *  renders it), so a plain lazy initializer is safe — no restore-on-open
+   *  effect needed. */
+  initialChartName?: string
+  initialMemberIds?: string[]
 }
 
 export function StarChartWizard({
@@ -56,12 +62,14 @@ export function StarChartWizard({
   familyId,
   memberId,
   familyMembers,
+  initialChartName,
+  initialMemberIds,
 }: StarChartWizardProps) {
   const [step, setStep] = useState(0)
 
   // Step state
-  const [chartName, setChartName] = useState('')
-  const [assignedTo, setAssignedTo] = useState<string[]>([])
+  const [chartName, setChartName] = useState(initialChartName ?? '')
+  const [assignedTo, setAssignedTo] = useState<string[]>(initialMemberIds ?? [])
   const [visual, setVisual] = useState('star_chart')
   const [targetCount, setTargetCount] = useState(10)
   const [revealConfig, setRevealConfig] = useState<RevealAttachmentConfig | null>(null)

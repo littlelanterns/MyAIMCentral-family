@@ -95,6 +95,7 @@ import { RepeatedActionChartWizard } from '@/components/studio/wizards/RepeatedA
 import { SharedTaskListWizard } from '@/components/studio/wizards/SharedTaskListWizard'
 import { BestIntentionsStarterWizard } from '@/components/studio/wizards/BestIntentionsStarterWizard'
 import { NaturalLanguageComposition } from '@/components/studio/NaturalLanguageComposition'
+import { isChildMember, isOptInAdult } from '@/lib/members/isChildMember'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import { ModalV2 } from '@/components/shared/ModalV2'
 
@@ -432,6 +433,8 @@ export function StudioPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalInitialType, setModalInitialType] = useState<string>('task')
   const [modalDefaultTitle, setModalDefaultTitle] = useState<string>('')
+  // ST-B: NLC task_quick_create memberName resolution preselects the assignee
+  const [modalInitialAssigneeId, setModalInitialAssigneeId] = useState<string | undefined>(undefined)
   const [modalPreloadedSections, setModalPreloadedSections] = useState<RoutineSection[] | undefined>(undefined)
   /** When editing an existing routine template, this holds the template ID for UPDATE instead of INSERT */
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
@@ -498,6 +501,17 @@ export function StudioPage() {
   // ST-A F-04: guided-form example mom-section prefill + example title
   const [guidedFormPrefill, setGuidedFormPrefill] = useState<Record<string, string> | undefined>(undefined)
   const [guidedFormExampleTitle, setGuidedFormExampleTitle] = useState<string | undefined>(undefined)
+  // ST-B: NLC prefill plumbing for wizards that previously had no prefill props
+  const [universalListNLCPrefill, setUniversalListNLCPrefill] = useState<{
+    title?: string
+    items?: string[]
+    listType?: string
+    sharingMode?: 'private' | 'specific' | 'family'
+    sharedMemberIds?: string[]
+  } | undefined>(undefined)
+  const [routineBuilderPrefill, setRoutineBuilderPrefill] = useState<{ routineName?: string; description?: string } | undefined>(undefined)
+  const [starChartPrefill, setStarChartPrefill] = useState<{ chartName?: string; memberIds?: string[] } | undefined>(undefined)
+  const [getToKnowPrefill, setGetToKnowPrefill] = useState<{ memberId?: string } | undefined>(undefined)
   // ST-A F-09: archive requires confirmation (ModalV2, no window.confirm)
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; isList: boolean } | null>(null)
   const [archiving, setArchiving] = useState(false)
@@ -899,8 +913,33 @@ export function StudioPage() {
     }
   }, [navigate, loadRoutineTemplate])
 
+  // ST-B: shared memberName → member id resolution, used by every NLC
+  // outcome that can extract a person's name (repeated_action_chart,
+  // star_chart, get_to_know, gamification_setup, task_quick_create).
+  // Case-insensitive full name, first name, or nickname match against the
+  // active roster — never invents a match nobody actually has.
+  const resolveMemberIdByName = useCallback((name: unknown): string | undefined => {
+    if (!name) return undefined
+    const wanted = String(name).trim().toLowerCase()
+    if (!wanted) return undefined
+    const match = familyMembers.find(
+      (m) =>
+        m.is_active &&
+        (m.display_name.toLowerCase() === wanted ||
+          m.display_name.toLowerCase().split(' ')[0] === wanted ||
+          (m.nicknames ?? []).some((n) => n.toLowerCase() === wanted)),
+    )
+    return match?.id
+  }, [familyMembers])
+
   const handleNLCOpenWizard = useCallback((
-    wizardType: 'rewards_list' | 'repeated_action_chart' | 'list_reveal_assignment_opportunity' | 'list_reveal_assignment_draw' | 'activity_list_wizard' | 'shared_task_list_wizard',
+    wizardType:
+      | 'rewards_list' | 'repeated_action_chart'
+      | 'list_reveal_assignment_opportunity' | 'list_reveal_assignment_draw'
+      | 'activity_list_wizard' | 'shared_task_list_wizard'
+      | 'universal_list' | 'routine_builder' | 'sequential_creator'
+      | 'star_chart' | 'meeting_setup' | 'get_to_know'
+      | 'gamification_setup' | 'task_quick_create',
     preFill: Record<string, unknown>,
   ) => {
     if (wizardType === 'activity_list_wizard') {
@@ -929,17 +968,8 @@ export function StudioPage() {
       // ST-A item 10: NLC extracts memberName ("a potty chart for Ruthie") —
       // resolve it to a member id so the Assign step starts preselected
       // instead of discarding mom's words.
-      if (preFill.memberName) {
-        const wanted = String(preFill.memberName).trim().toLowerCase()
-        const match = familyMembers.find(
-          (m) =>
-            m.is_active &&
-            (m.display_name.toLowerCase() === wanted ||
-              m.display_name.toLowerCase().split(' ')[0] === wanted ||
-              (m.nicknames ?? []).some((n) => n.toLowerCase() === wanted)),
-        )
-        if (match) initial.selectedMemberIds = [match.id]
-      }
+      const matchId = resolveMemberIdByName(preFill.memberName)
+      if (matchId) initial.selectedMemberIds = [matchId]
       setRepeatedActionChartInitial(Object.keys(initial).length > 0 ? initial : undefined)
       setChartStartKey(undefined)
       setRepeatedActionChartWizardOpen(true)
@@ -991,8 +1021,88 @@ export function StudioPage() {
       }
       setListRevealPreFill(pf)
       setListRevealWizardOpen(true)
+    } else if (wizardType === 'universal_list') {
+      // ST-B: "shared grocery list with my husband" — sharedWithRelationship
+      // resolves to a real audience via the same isChildMember/isOptInAdult
+      // classification the rest of Studio already uses (never a guess at
+      // who "the kids" are). "spouse" is a heuristic: the second adult in
+      // the roster (additional_adult) — matches how these families actually
+      // use the app (mom = primary_parent, dad = additional_adult).
+      const relationship = preFill.sharedWithRelationship as string | undefined
+      let sharingMode: 'private' | 'specific' | 'family' | undefined
+      let sharedMemberIds: string[] | undefined
+      if (relationship === 'spouse') {
+        const spouse = familyMembers.find((m) => isOptInAdult(m) && m.role === 'additional_adult')
+        sharingMode = 'specific'
+        sharedMemberIds = spouse ? [spouse.id] : []
+      } else if (relationship === 'kids') {
+        sharingMode = 'specific'
+        sharedMemberIds = familyMembers.filter(isChildMember).map((m) => m.id)
+      } else if (relationship === 'everyone') {
+        sharingMode = 'family'
+      }
+      // Defensive whitelist — never hand an unvalidated model string
+      // straight into a DB CHECK-constrained column.
+      const VALID_LIST_TYPES = new Set(['shopping', 'wishlist', 'packing', 'expenses', 'todo', 'custom', 'ideas', 'prayer'])
+      const rawListType = preFill.listType as string | undefined
+      setUniversalListNLCPrefill({
+        title: (preFill.title as string) ?? undefined,
+        items: (preFill.items as string[]) ?? undefined,
+        listType: rawListType && VALID_LIST_TYPES.has(rawListType) ? rawListType : undefined,
+        sharingMode,
+        sharedMemberIds,
+      })
+      setListWizardPreset(undefined)
+      setListWizardOpen(true)
+    } else if (wizardType === 'routine_builder') {
+      // Conv 253 §2.9 "description passthrough" — mom's original wording
+      // goes straight into the routine wizard's own textarea; the wizard
+      // still runs its own AI parse when she continues (Convention #4 HITM
+      // — nothing here skips her review of the parsed sections).
+      setRoutineBuilderPrefill({
+        routineName: (preFill.routineName as string) ?? undefined,
+        description: (preFill.description as string) ?? undefined,
+      })
+      setRoutineBuilderWizardOpen(true)
+    } else if (wizardType === 'sequential_creator') {
+      const items = preFill.items as string[] | undefined
+      setSequentialPrefill({
+        title: (preFill.title as string) ?? '',
+        items: items ?? [],
+      })
+      setSequentialTemplateId(null)
+      setSequentialModalOpen(true)
+    } else if (wizardType === 'star_chart') {
+      const matchId = resolveMemberIdByName(preFill.memberName)
+      setStarChartPrefill({
+        chartName: (preFill.chartName as string) ?? undefined,
+        memberIds: matchId ? [matchId] : undefined,
+      })
+      setStarChartWizardOpen(true)
+    } else if (wizardType === 'meeting_setup') {
+      // No extractable fields — the wizard bootstraps the whole family's
+      // meeting calendar from the roster it already has.
+      setMeetingSetupWizardOpen(true)
+    } else if (wizardType === 'get_to_know') {
+      const matchId = resolveMemberIdByName(preFill.memberName)
+      setGetToKnowPrefill({ memberId: matchId })
+      setGetToKnowWizardOpen(true)
+    } else if (wizardType === 'gamification_setup') {
+      const matchId = resolveMemberIdByName(preFill.memberName)
+      if (matchId) {
+        openGamificationForMember(matchId, 'nlc')
+      } else {
+        setGamificationPickerAction('gamification_setup')
+        setGamificationPickerOpen(true)
+      }
+    } else if (wizardType === 'task_quick_create') {
+      const matchId = resolveMemberIdByName(preFill.memberName)
+      if (preFill.title) setModalDefaultTitle(preFill.title as string)
+      setModalInitialAssigneeId(matchId)
+      setModalInitialType('task')
+      setModalOpen(true)
     }
-  }, [familyMembers])
+  }, [familyMembers, resolveMemberIdByName, openGamificationForMember])
 
   // ── Use as-is (ST-A, finding F-13) ───────────────────────────
   // Previously an alias of Customize — two buttons, one behavior. Now a real
@@ -1217,13 +1327,15 @@ export function StudioPage() {
       {/* ── Browse Templates tab ─────────────────────────────── */}
       {activeTab === 'browse' && (
         <div>
-          {/* Natural Language Composition — Convention 253 */}
-          {!searchQuery.trim() && (
-            <NaturalLanguageComposition
-              familyMemberNames={familyMembers.filter(m => m.is_active).map(m => m.display_name)}
-              onOpenWizard={handleNLCOpenWizard}
-            />
-          )}
+          {/* Natural Language Composition — Convention 253. ST-B: stays
+              visible even while Studio's search box has text (F-07 —
+              a mom typing to search shouldn't lose her other on-ramp). */}
+          <NaturalLanguageComposition
+            familyMemberNames={familyMembers.filter(m => m.is_active).map(m => m.display_name)}
+            onOpenWizard={handleNLCOpenWizard}
+            familyId={family?.id}
+            memberId={member?.id}
+          />
 
           {noSearchResults ? (
             <EmptyState
@@ -1643,6 +1755,7 @@ export function StudioPage() {
             setModalPreloadedSections(undefined)
             setEditingTemplateId(null)
             setDeployFromTemplateId(null)
+            setModalInitialAssigneeId(undefined)
           }}
           onSave={handleTaskSaved}
           initialTaskType={modalInitialType}
@@ -1651,6 +1764,7 @@ export function StudioPage() {
           editMode={!!editingTemplateId}
           editingTemplateId={editingTemplateId}
           deployFromTemplateId={deployFromTemplateId}
+          initialAssigneeId={modalInitialAssigneeId}
         />
       )}
 
@@ -1904,34 +2018,42 @@ export function StudioPage() {
       {starChartWizardOpen && family?.id && member?.id && (
         <StarChartWizard
           isOpen={starChartWizardOpen}
-          onClose={() => setStarChartWizardOpen(false)}
+          onClose={() => { setStarChartWizardOpen(false); setStarChartPrefill(undefined) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
+          initialChartName={starChartPrefill?.chartName}
+          initialMemberIds={starChartPrefill?.memberIds}
         />
       )}
 
       {getToKnowWizardOpen && family?.id && member?.id && (
         <GetToKnowWizard
           isOpen={getToKnowWizardOpen}
-          onClose={() => setGetToKnowWizardOpen(false)}
+          onClose={() => { setGetToKnowWizardOpen(false); setGetToKnowPrefill(undefined) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
+          initialMemberId={getToKnowPrefill?.memberId}
         />
       )}
 
       {routineBuilderWizardOpen && (
         <RoutineBuilderWizard
           isOpen={routineBuilderWizardOpen}
-          onClose={() => setRoutineBuilderWizardOpen(false)}
+          onClose={() => { setRoutineBuilderWizardOpen(false); setRoutineBuilderPrefill(undefined) }}
           onAccept={(routineName, sections) => {
             setRoutineBuilderWizardOpen(false)
+            setRoutineBuilderPrefill(undefined)
             setModalDefaultTitle(routineName)
             setModalPreloadedSections(sections)
             setModalInitialType('routine')
             setModalOpen(true)
           }}
+          familyId={family?.id}
+          ownerId={member?.id}
+          initialRoutineName={routineBuilderPrefill?.routineName}
+          initialDescription={routineBuilderPrefill?.description}
         />
       )}
 
@@ -1951,8 +2073,13 @@ export function StudioPage() {
       {listWizardOpen && (
         <UniversalListWizard
           isOpen={listWizardOpen}
-          onClose={() => { setListWizardOpen(false); setListWizardPreset(undefined) }}
+          onClose={() => { setListWizardOpen(false); setListWizardPreset(undefined); setUniversalListNLCPrefill(undefined) }}
           initialPreset={listWizardPreset}
+          initialTitle={universalListNLCPrefill?.title}
+          initialItems={universalListNLCPrefill?.items}
+          initialListType={universalListNLCPrefill?.listType}
+          initialSharingMode={universalListNLCPrefill?.sharingMode}
+          initialSharedMemberIds={universalListNLCPrefill?.sharedMemberIds}
         />
       )}
 

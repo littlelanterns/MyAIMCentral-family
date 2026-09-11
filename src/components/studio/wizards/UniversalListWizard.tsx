@@ -127,12 +127,27 @@ interface UniversalListWizardProps {
   onClose: () => void
   /** Pre-select a specific preset on open */
   initialPreset?: string
+  /** ST-B NLC prefill (Convention 253 §2.9) — used instead of initialPreset
+   *  when the router extracted a listType directly rather than matching a
+   *  named preset. Guarded the same way initialPreset is: only applied when
+   *  no draft has already been restored (state.detectedListType is still
+   *  null), so a mom resuming an in-progress list never gets stomped. */
+  initialTitle?: string
+  initialItems?: string[]
+  initialListType?: string
+  initialSharingMode?: 'private' | 'specific' | 'family'
+  initialSharedMemberIds?: string[]
 }
 
 export function UniversalListWizard({
   isOpen,
   onClose,
   initialPreset,
+  initialTitle,
+  initialItems,
+  initialListType,
+  initialSharingMode,
+  initialSharedMemberIds,
 }: UniversalListWizardProps) {
   const { data: family } = useFamily()
   const { data: currentMember } = useFamilyMember()
@@ -227,6 +242,21 @@ export function UniversalListWizard({
   useEffect(() => {
     if (initialPreset && !state.detectedListType) {
       selectPreset(initialPreset)
+      return
+    }
+    // ST-B: NLC extracted a listType directly (no named preset matched).
+    // Skip straight past the Purpose step since the router already decided
+    // it — mom lands on Items with her extracted items already populated.
+    if (!initialPreset && (initialListType || (initialItems && initialItems.length > 0) || initialTitle) && !state.detectedListType) {
+      setState((prev) => ({
+        ...prev,
+        detectedListType: (initialListType as ListType) ?? 'custom',
+        listTitle: initialTitle ?? '',
+        items: (initialItems ?? []).map((text) => ({ text })),
+        ...(initialSharingMode ? { sharingMode: initialSharingMode } : {}),
+        ...(initialSharedMemberIds ? { sharedMemberIds: initialSharedMemberIds } : {}),
+      }))
+      setCurrentStep(1)
     }
     // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
