@@ -124,3 +124,36 @@ $15), memorable for word-of-mouth, revenue delta capped at ~$100/mo by the 100-f
 limit. Applied to production 2026-09-02, drift pin green. Slice 2 Stripe products must be
 born with normal + founding price points; the lock-loss rule (cancellation / 14-day
 non-payment) stands.
+
+### Addendum — Founder Ruling 2026-09-11: soft founding cap, founder-minted founding codes, scholarship forward-design
+
+Given to the seat 2026-09-11 while sequencing Slice 2; recorded here as LAW for Slices 2–6.
+
+1. **The 100-family founding cap is SOFT.** "I'm okay with slightly more than 100. If two sign up at
+   the same time, I'd like them both to get it." Amends the pack's "atomic 100-counter that refuses
+   at 100": founding eligibility is decided at Checkout-session creation time (spots remaining > 0
+   at that instant → founding price offered); the webhook honors whatever price the session was
+   created with and never refuses after the fact. Simultaneous sign-ups both win by construction.
+   The PUBLIC counter (`get_founding_family_count()` / launch page) clamps at "0 left" once ≥100 —
+   it never shows a negative or an overshoot.
+2. **Founder-minted one-time Founding codes.** "The ability to generate a one time code to offer
+   additional people Founding Family privileges as I create connections." A `founding_codes` table
+   (code, minted_by, note, expires_at, redeemed_by_family_id, redeemed_at; single-use; RLS: no
+   client reads of unredeemed codes — redemption is server-side only). A code redeemed at checkout
+   grants the founding price + lifetime lock + badge REGARDLESS of the counter. Code-granted
+   families do NOT consume public spots (public count = organic founding families only, and never
+   test families — SMFX note stands). Minting = a founder/staff-gated SECURITY DEFINER RPC built in
+   Slice 2 (Convention #280 from birth); the admin UI for minting lands in Slice 6's Tier
+   Assignment tab; until then the seat mints on the founder's word via the RPC.
+3. **Scholarship tier — forward design, not built now.** "I'll want to be able to offer
+   Scholarships in the future … I want to see what the average AI/storage costs are per family for
+   actual users, which tools use what, etc. to eventually create a Scholarship tier." Design
+   constraint for Slice 2: per-family pricing is ONE generalized mechanism, not a founding-only
+   special case — `family_subscriptions` carries a `price_adjustment_kind`
+   (`'founding' | 'founding_code' | 'scholarship'`, NULL = none) alongside the existing locked-rate
+   columns, and the Stripe side applies per-family pricing the same way for every kind. Adding a
+   scholarship later is a new kind + an amount, never a rework. The cost data she wants:
+   `ai_usage_tracking` already records per-family / per-feature / per-model estimated cost (Slice 3
+   metering sharpens it); **per-family STORAGE cost is NOT tracked today** (only BookShelf file
+   sizes) — registered as a follow-up rollup for PRD-32 analytics, not Slice 2 scope.
+

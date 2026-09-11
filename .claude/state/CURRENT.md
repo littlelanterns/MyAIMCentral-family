@@ -31,7 +31,8 @@ check · `coppa-consent-screens.spec.ts` NF-family cleanup FK-order gap (TEEN-CR
 **Next in queue:** **PRD-31 Slice 2 (Stripe subscriptions)** — extends PRD-40's live webhook
 router (never a second one); must be born with current pricing: normals 7.99/13.99/19.95, Creator
 hidden, founding ladder 4.99/9.99/14.99 lifetime-locked ×100; `subscription_tiers` seed is the
-source of truth. Then STUDIO ST-C (Drafts v2). Founder-owned, no deadline: attorney package,
+source of truth; **2026-09-11 rulings: SOFT founding cap, founder-minted founding codes,
+scholarship-ready `price_adjustment_kind`** (ruling record addendum). Then STUDIO ST-C (Drafts v2). Founder-owned, no deadline: attorney package,
 virtual mailbox, kid-tablet PECON feel-pass, voice-UX trio.
 
 ## ⚠️ 2026-08-24 INCIDENT RECORD (permanent — never soften this)
