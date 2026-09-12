@@ -34,7 +34,11 @@ export interface ParentVerification {
   verified_at: string
   stripe_payment_intent_id: string | null
   revoked_at: string | null
+  verification_method?: string
 }
+
+const PARENT_VERIFICATION_SELECT =
+  'id, parent_member_id, verified_at, stripe_payment_intent_id, revoked_at, verification_method'
 
 /**
  * The current (most recently published, non-retired) consent template.
@@ -78,15 +82,36 @@ export async function fetchActiveConsentTemplate(): Promise<CoppaConsentTemplate
   return (data as CoppaConsentTemplate | null) ?? null
 }
 
+/**
+ * BETA-COHORT (migration 100338): a parent can hold TWO simultaneously-
+ * active parent_verifications rows once "finish verifying" completes post-
+ * cutover — one real, one beta_interim (immutable, per PRD-40 §9.3). Each
+ * category is independently unique (uq_pv_active_real_per_parent /
+ * uq_pv_active_interim_per_parent), so this is two `.maybeSingle()` reads
+ * (each guaranteed <=1 row) rather than one query relying on the old single-
+ * active-row invariant. Real always wins when both exist — that's what makes
+ * Screen 7-vs-1-5 gating and the "finish verifying" prompt both correct.
+ */
 export async function fetchParentVerification(parentMemberId: string): Promise<ParentVerification | null> {
-  const { data, error } = await supabase
+  const { data: real, error: realError } = await supabase
     .from('parent_verifications')
-    .select('id, parent_member_id, verified_at, stripe_payment_intent_id, revoked_at')
+    .select(PARENT_VERIFICATION_SELECT)
     .eq('parent_member_id', parentMemberId)
     .is('revoked_at', null)
+    .neq('verification_method', 'beta_interim')
     .maybeSingle()
-  if (error) throw error
-  return (data as ParentVerification | null) ?? null
+  if (realError) throw realError
+  if (real) return real as ParentVerification
+
+  const { data: interim, error: interimError } = await supabase
+    .from('parent_verifications')
+    .select(PARENT_VERIFICATION_SELECT)
+    .eq('parent_member_id', parentMemberId)
+    .is('revoked_at', null)
+    .eq('verification_method', 'beta_interim')
+    .maybeSingle()
+  if (interimError) throw interimError
+  return (interim as ParentVerification | null) ?? null
 }
 
 export async function fetchIsFoundingFamily(familyId: string): Promise<boolean> {
@@ -99,21 +124,81 @@ export async function fetchIsFoundingFamily(familyId: string): Promise<boolean> 
   return !!data?.is_founding_family
 }
 
-/** Mom's active (non-revoked) parent verification, if any. */
+// ── BETA-COHORT (PRD-40 §9 + PRD-31 2026-09-12 addendum, migration 100338) ──
+
+/**
+ * Imperative read of the single platform-wide beta-cohort switch. Gate
+ * decisions (Screen 5 interim-vs-real, "finish verifying" visibility) resolve
+ * this the same way they resolve the consent template and founding status —
+ * imperatively at gate-fire time, never from possibly-still-loading hook
+ * state (the FamilySetup/useMemberSaveAndConsentGate lesson).
+ */
+export async function fetchBetaCohortMode(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('get_beta_cohort_mode')
+  if (error) throw error
+  return !!data
+}
+
+/** Hook variant, for surfaces that can tolerate loading state (Screen 8). */
+export function useBetaCohortMode() {
+  return useQuery({
+    queryKey: ['beta-cohort-mode'],
+    queryFn: fetchBetaCohortMode,
+    staleTime: 60 * 1000,
+  })
+}
+
+export interface BetaInterimVerificationResult {
+  success: boolean
+  verification_id: string
+  verified_at: string
+  existing: boolean
+}
+
+/**
+ * Records (or idempotently reuses) a no-charge interim parent_verifications
+ * row for a founding family while beta cohort mode is on. Server-side gate
+ * order (create_beta_interim_verification, migration 100338): real session ->
+ * is_founding_family -> beta cohort mode ON -> only then read/write — the
+ * client-side eligibility check (founding && betaCohortMode) that decides
+ * whether to even OFFER this button is a UX convenience, never the source of
+ * truth; the RPC re-derives everything itself and throws
+ * not_founding_family / beta_cohort_mode_disabled / already_verified if the
+ * client's assumption was stale.
+ */
+export async function createBetaInterimVerification(): Promise<BetaInterimVerificationResult> {
+  const { data, error } = await supabase.rpc('create_beta_interim_verification')
+  if (error) throw new Error(error.message)
+  return data as BetaInterimVerificationResult
+}
+
+/**
+ * The "finish verifying" prompt trigger (PRD-40 §9.3): appears only once
+ * mom's ONLY verification is interim AND the switch has flipped off (Stripe
+ * live). While the switch stays on, interim-only is fine — nothing prompts.
+ * Pure and unit-testable on purpose; PrivacyConsentPage consumes it directly.
+ */
+export function needsFinishVerifying(
+  verification: ParentVerification | null | undefined,
+  betaCohortModeEnabled: boolean | null | undefined,
+): boolean {
+  if (!verification) return false
+  if (verification.verification_method !== 'beta_interim') return false
+  return betaCohortModeEnabled === false
+}
+
+/**
+ * Mom's EFFECTIVE active parent verification: a real one, if she has one,
+ * else her interim one, else null. See fetchParentVerification's doc
+ * comment for why this is two guaranteed-<=1-row reads rather than one.
+ */
 export function useParentVerification() {
   const { data: member } = useFamilyMember()
   return useQuery({
     queryKey: ['coppa-parent-verification', member?.id],
     queryFn: async (): Promise<ParentVerification | null> => {
       if (!member?.id) return null
-      const { data, error } = await supabase
-        .from('parent_verifications')
-        .select('id, parent_member_id, verified_at, stripe_payment_intent_id, revoked_at')
-        .eq('parent_member_id', member.id)
-        .is('revoked_at', null)
-        .maybeSingle()
-      if (error) throw error
-      return (data as ParentVerification | null) ?? null
+      return fetchParentVerification(member.id)
     },
     enabled: !!member?.id && member.role === 'primary_parent',
   })

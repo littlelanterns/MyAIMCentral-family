@@ -26,6 +26,7 @@ import {
   fetchActiveConsentTemplate,
   fetchParentVerification,
   fetchIsFoundingFamily,
+  fetchBetaCohortMode,
   commitConsentedMembers,
   type CommitMemberInput,
   type CoppaConsentTemplate,
@@ -57,7 +58,7 @@ interface ParsedMember {
 type CoppaGateState =
   | { kind: 'none' }
   | { kind: 'dormant'; batch: ParsedMember[]; under13Names: string[] }
-  | { kind: 'consent_flow'; batch: ParsedMember[]; under13Names: string[]; template: CoppaConsentTemplate }
+  | { kind: 'consent_flow'; batch: ParsedMember[]; under13Names: string[]; template: CoppaConsentTemplate; betaInterimEligible: boolean }
   | {
       kind: 'acknowledge'
       batch: ParsedMember[]
@@ -493,8 +494,12 @@ Return ONLY a JSON array. Example:
           // Screen 7: lightweight per-child acknowledgment, no new charge.
           setCoppaGate({ kind: 'acknowledge', batch: validMembers, under13Names, index: 0, template, verification })
         } else {
-          // Screens 1–5: full consent flow + $1 verification.
-          setCoppaGate({ kind: 'consent_flow', batch: validMembers, under13Names, template })
+          // Screens 1–5: full consent flow, real $1 verification OR (BETA-
+          // COHORT, PRD-40 §9) a no-charge interim ack for a founding family
+          // while the beta-cohort switch is on. Resolved imperatively, same
+          // discipline as template/founding above.
+          const betaCohortMode = await fetchBetaCohortMode()
+          setCoppaGate({ kind: 'consent_flow', batch: validMembers, under13Names, template, betaInterimEligible: founding && betaCohortMode })
         }
       } catch (err) {
         setError(`Couldn't check consent status: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -737,6 +742,7 @@ Return ONLY a JSON array. Example:
           isOpen
           template={coppaGate.template}
           childNames={coppaGate.under13Names}
+          betaInterimEligible={coppaGate.betaInterimEligible}
           onCancel={() => setCoppaGate({ kind: 'none' })}
           onVerified={async (verificationId, ackSections) => {
             await commitViaConsentRpc(coppaGate.batch, coppaGate.template, verificationId, ackSections)
@@ -750,7 +756,11 @@ Return ONLY a JSON array. Example:
       )}
 
       {coppaGate.kind === 'acknowledge' && (
+        // See BatchConsentModal.tsx's identical `key` for why: without it,
+        // the acked/expanded reset races a post-paint useEffect instead of
+        // happening synchronously at mount.
         <CoppaAcknowledgeModal
+          key={coppaGate.index}
           isOpen
           childName={coppaGate.under13Names[coppaGate.index]}
           verifiedAtLabel={formatVerifiedDate(coppaGate.verification.verified_at)}

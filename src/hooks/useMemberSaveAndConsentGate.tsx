@@ -11,6 +11,7 @@ import {
   fetchActiveConsentTemplate,
   fetchParentVerification,
   fetchIsFoundingFamily,
+  fetchBetaCohortMode,
   commitConsentedMembers,
   type CoppaConsentTemplate,
   type ParentVerification,
@@ -33,7 +34,7 @@ type CoppaEditGateState =
   | { kind: 'none' }
   | { kind: 'dormant'; memberName: string }
   | { kind: 'acknowledge'; memberId: string; memberName: string; pendingUpdates: Record<string, unknown>; template: CoppaConsentTemplate; verification: ParentVerification }
-  | { kind: 'consent_flow'; memberId: string; memberName: string; pendingUpdates: Record<string, unknown>; template: CoppaConsentTemplate }
+  | { kind: 'consent_flow'; memberId: string; memberName: string; pendingUpdates: Record<string, unknown>; template: CoppaConsentTemplate; betaInterimEligible: boolean }
 
 export interface UseMemberSaveAndConsentGateOptions {
   /** The signed-in mom's own family_members.id (used for a cold parent-verification lookup). */
@@ -101,7 +102,17 @@ export function useMemberSaveAndConsentGate({ momId, isFoundingFamily, onSaved }
       if (verification) {
         setCoppaGate({ kind: 'acknowledge', memberId: targetMemberId, memberName: targetMemberName, pendingUpdates: updates, template, verification })
       } else {
-        setCoppaGate({ kind: 'consent_flow', memberId: targetMemberId, memberName: targetMemberName, pendingUpdates: updates, template })
+        // BETA-COHORT (PRD-40 §9): resolved imperatively, same discipline as
+        // template/founding above — never from possibly-still-loading state.
+        const betaCohortMode = await fetchBetaCohortMode()
+        setCoppaGate({
+          kind: 'consent_flow',
+          memberId: targetMemberId,
+          memberName: targetMemberName,
+          pendingUpdates: updates,
+          template,
+          betaInterimEligible: founding && betaCohortMode,
+        })
       }
     } catch (err) {
       console.error('COPPA gate check failed:', err)
@@ -124,6 +135,7 @@ export function useMemberSaveAndConsentGate({ momId, isFoundingFamily, onSaved }
           isOpen
           template={coppaGate.template}
           childNames={[coppaGate.memberName]}
+          betaInterimEligible={coppaGate.betaInterimEligible}
           onCancel={() => setCoppaGate({ kind: 'none' })}
           onVerified={async (verificationId, ackSections) => {
             await applyConsentedEdit(coppaGate.memberId, coppaGate.pendingUpdates, coppaGate.template, verificationId, ackSections)

@@ -469,6 +469,18 @@ function FamilyManagementSection({ familyId, loginName, mom, family }: { familyI
 
   return (
     <div className="space-y-3">
+      {/* BETA-COHORT (PRD-31 2026-09-12 addendum): display-only badge, no
+          picker/gating — the beta plan picker itself is Slice 5 scope. */}
+      {family?.is_founding_family && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-text-secondary)' }}
+        >
+          <ShieldCheck size={14} style={{ color: 'var(--color-success, #3d9a5c)' }} />
+          You&rsquo;re a founding beta family
+        </div>
+      )}
+
       {/* Quick member overview */}
       <div className="space-y-1.5">
         {members.map((m) => {

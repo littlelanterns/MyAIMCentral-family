@@ -2107,3 +2107,282 @@ All values match the exact pre-probe baseline. `founding_codes` is empty; no `RL
 | Residue after the full probe | Zero — every touched table confirmed back to exact pre-probe baseline by an independent, separate post-transaction query, run twice |
 
 **Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings; zero gaps. 72 probes total (69 clean PASS assertions + 2 baseline INFO markers + 1 PASS-BUT-NOTE reporting the `family_subscriptions` SELECT-scope narrowness described above, which is existing, pre-migration policy design, not a defect this migration introduced). The `founding_codes` "closed table, RPC-only" design holds under direct adversarial probing across every family-role type this platform defines, including two independently-verified staff sessions of different `permission_type`s; `redeem_founding_code()`'s single-use guarantee and its complete non-interaction with `family_subscriptions` were proven with real attempted double-spend and cross-family-hijack sequences rather than assumed from the function body; the founding-status durability sweep's actual revocation behavior was exercised against a real (temporarily modified, then restored) production row; and `get_founding_family_count()`'s two headline claims — test-family exclusion and the 100-family clamp — were each proven in both directions with real data crossing the relevant threshold, not merely read off the SQL. One real test-methodology defect (`SAVEPOINT`/`ROLLBACK TO SAVEPOINT` silently discarding the very `probe_log` assertions it was meant to isolate) was caught before this report was written and corrected by switching to explicit manual state reversion; a second, minor methodology fix (`max(uuid)` not existing as a Postgres aggregate) was caught the same way. Both are documented above rather than silently smoothed over.
+
+## Migration 100338 — BETA-COHORT (beta interim consent + founding-at-signup) (2026-09-12)
+
+Migration `00000000100338_beta_cohort_interim_consent_and_founding_at_signup.sql` (applied to production) ships a single platform-wide switch (`beta_cohort_settings.enabled`) gating two causally-linked beta-cohort behaviors per `claude/feature-decisions/PRD-40-COPPA-Compliance.md` §9: (1) a founding family adding an under-13 child while the switch is ON gets the real consent flow with Screen 5's $1 Stripe charge replaced by a no-charge, forever-distinguishable `parent_verifications` row (`verification_method='beta_interim'`, `amount_charged_cents=0`), created by the new `create_beta_interim_verification()` RPC; and (2) `handle_new_user()` is amended so every new, non-test signup is flagged founding-at-signup while the switch is on, subject to the same `< 100` organic soft cap `get_founding_family_count()` already enforces on read. The migration also splits `uq_pv_active_per_parent` into two partial unique indexes (one for real verifications, one for interim) so a parent can hold at most one active row of each kind simultaneously, and extends `admin_coppa_stamp_readiness()` with an informational `interim_verifications_owed` count that never blocks the attorney-sign-off sequencing law.
+
+**Methodology.** All 64 probe-log entries ran read-only against the linked production database (project ref `vjfbzpliqialqmabfnxs`) via `supabase db query --linked -f`, using the established `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-impersonation methodology from this file. A key methodology confirmation for this session: **the `supabase db query --linked -f <file>` CLI prints only the LAST statement's result set**, so every probe run captured its assertions in a `CREATE TEMP TABLE probe_log` (`GRANT INSERT`ed to `authenticated`/`anon`/`service_role`) and ended with one final `SELECT * FROM probe_log ORDER BY seq;`. Rather than an explicit `ROLLBACK;` (which would itself become the "last statement" and suppress the log output), every script was left as an **open, uncommitted transaction** — a mid-session sanity test independently proved this reverts automatically when the CLI's connection closes (a real `beta_cohort_settings` row inserted mid-transaction was confirmed gone via a wholly separate, later connection). Six real production identities were used across three real families: **The Testworth Family** (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`, `is_founding_family=true`, `is_test_family=true`) — Sarah (primary_parent, 0 active verifications at probe start), Mark (additional_adult), Amy (special_adult), Casey (independent teen), Jordan (guided kid, `under_13`), and the family-shadow session (`role='family'`); **OurFamily** (`4bc86323-545b-4faf-b31f-3926fdd8c5a6`, real founding family, `is_test_family=false`) — Tenise (primary_parent, holds a real, pre-existing `coppa_admin` staff row AND an already-active real `stripe_charge` verification — reused read-only as the natural `already_verified` test subject) and Jerrod (additional_adult, 0 prior verification rows — used as the clean subject for the split-index raw-insert probes); **Bridgette's Family** (`cccf754c-87b7-43ec-814f-55146009352f`, real founding family, `is_test_family=false`, 0 prior verification rows) — Bridgette (primary_parent, the "second family" for cross-parent independence proofs). Plus genuinely-anonymous (`SET LOCAL ROLE anon` with claims explicitly cleared) and `service_role` (`rolbypassrls=true`, confirmed via `pg_roles`).
+
+**A real, severe production defect was found live during item 6's own proof, is fully documented below, and was NOT fixed per the read-only scope of this task.** No migration, function, or policy was modified by this session.
+
+### Item 1 — `beta_cohort_settings`: closed table (zero policies + table-level revokes)
+
+| Role | SELECT | INSERT | UPDATE | DELETE |
+|---|---|---|---|---|
+| anon | `42501: permission denied for table beta_cohort_settings` | same | same | same |
+| Sarah — Testworth primary_parent | same `42501` | same | same | same |
+| Tenise — OurFamily primary_parent, real `coppa_admin` staff row | same `42501` (staff-ness confers no table-level access) | — | — | — |
+| Testworth family-shadow session (`role='family'`) | same `42501` | — | — | — |
+| **service_role** (positive control) | **1 row** | — | — | — |
+
+**PASS — 10/10 for the client-role closure.** Unlike `founding_codes` (RLS-enabled with zero *policies*, but retaining default table-level GRANTs so the block manifests as an RLS "new row violates row-level security policy" message), `beta_cohort_settings` was built with an EXPLICIT `REVOKE ALL ... FROM authenticated, anon` (confirmed via `information_schema.role_table_grants`: `anon`/`authenticated` hold **zero** privileges of any kind on this table; only `service_role` retains the full default grant set) — so every client-role attempt fails at the grant layer, before RLS is ever evaluated. `staff_permissions` membership (Tenise's real `coppa_admin` row) confers no special access whatsoever, matching the `founding_codes` precedent from the prior migration's audit.
+
+**FINDING (minor, disclosed, non-blocking) — "guard trigger (if any) prevents a second row" was explicitly probed, and none exists.** As `service_role`, `INSERT INTO beta_cohort_settings(enabled) VALUES (true)` **succeeded**, bringing the table to 2 rows — there is no singleton-enforcing constraint (no fixed-value CHECK, no unique expression index, no BEFORE-INSERT guard trigger; only `trg_bcs_updated_at`, which merely stamps `updated_at` on UPDATE). The migration's own singleton guarantee rests entirely on `INSERT ... WHERE NOT EXISTS (...)` running exactly once at migration time, plus application-level discipline (the seat's own comment: "the seat flips it at live cutover via a plain UPDATE"). Blast radius is minimal — `anon`/`authenticated` cannot reach this table at all, so only a `service_role`-authenticated Edge Function or a hand-run SQL statement could ever create a second row — but if one ever did, `get_beta_cohort_mode()`'s and `create_beta_interim_verification()`'s bare `LIMIT 1` reads would become non-deterministic (whichever row Postgres happens to return first). The extra row was deleted and the table restored to its exact original singleton state (`enabled=true`) before continuing, all still inside the open, never-committed transaction.
+
+### Item 2 — `get_beta_cohort_mode()`
+
+| Caller | Outcome |
+|---|---|
+| anon | **BLOCKED — grant layer** — `42501: permission denied for function get_beta_cohort_mode` |
+| Sarah (authenticated, Testworth primary_parent) | **ALLOWED** — returns `true` |
+| service_role | **ALLOWED** — returns `true` |
+
+**PASS — 3/3.** Matches the migration's own self-verification (`has_function_privilege` checks) and its stated design ("authenticated-only rather than anon — no public-facing use case").
+
+### Item 3 — `create_beta_interim_verification()`: full gate order + idempotency + coexistence
+
+| Step | Caller | Outcome |
+|---|---|---|
+| Grant layer | anon | **BLOCKED** — `42501: permission denied for function create_beta_interim_verification` |
+| Role gate | Mark — Testworth additional_adult | **BLOCKED — in-body** — `Not authorized` |
+| Role gate | Amy — Testworth special_adult | **BLOCKED — in-body** — `Not authorized` |
+| Role gate | Casey — Testworth independent teen (`role='member'`) | **BLOCKED — in-body** — `Not authorized` |
+| Role gate | Jordan — Testworth guided kid, `under_13` (`role='member'`) | **BLOCKED — in-body** — `Not authorized` |
+| Role gate | Testworth family-shadow session (`role='family'`) | **BLOCKED — in-body** — `Not authorized` |
+| Founding gate | Sarah, with Testworth's `is_founding_family` temporarily flipped to `false` (reverted immediately after) | **BLOCKED — in-body** — `not_founding_family` |
+| Switch gate | Sarah, founding restored to `true`, `beta_cohort_settings.enabled` temporarily flipped to `false` (reverted immediately after) | **BLOCKED — in-body** — `beta_cohort_mode_disabled` |
+| Positive path | Sarah, founding=true, switch=true — active rows before=**0** | **ALLOWED** — `{"success":true,"existing":false,"verification_id":"e40b53b2-..."}`; active interim rows after=**1** |
+| Idempotency | Sarah calls again in the same session | **ALLOWED** — `{"success":true,"existing":true,"verification_id":"e40b53b2-..."}` — **same id as the first call**; active interim rows still=**1** (no duplicate) |
+| Already-verified | Tenise — OurFamily primary_parent, HAS a pre-existing active REAL (`stripe_charge`) verification — active rows before=**1** | **BLOCKED — in-body** — `already_verified`; active rows after=**1** (unchanged), 0 interim rows created |
+| Cross-parent independence | Bridgette — second real family, primary_parent, 0 prior rows | **ALLOWED** — `{"success":true,"existing":false,"verification_id":"572af6b9-..."}`; Bridgette now has 1 active interim row, and **Sarah's row is completely unaffected** (still 1, still the exact same id as her original create) |
+
+**PASS — 12/12.** Gate order is exactly as documented (real session -> primary_parent role -> founding family -> beta cohort mode ON -> only then read/write existing-verification state): every non-primary_parent role in the SAME founding family is refused identically regardless of role (additional_adult, special_adult, teen, guided kid, family-shadow all get the identical generic `Not authorized`); a temporarily non-founding family is refused even with the switch ON; a temporarily-disabled switch refuses even a founding primary_parent; the positive path creates exactly one row and is genuinely idempotent (verified by id equality, not just a success flag); an existing REAL verification hard-blocks the interim path with zero side effect; and two independent parents in two independent families can each hold their own active interim row with zero cross-contamination.
+
+### Item 4 — Split partial unique indexes: coexistence + double-active rejection
+
+| Test (raw INSERT as postgres/superuser, bypassing RLS to probe the CONSTRAINT itself) | Outcome |
+|---|---|
+| Jerrod (OurFamily additional_adult, 0 prior rows) — insert 1 active `beta_interim` row | **SUCCESS** |
+| Jerrod — insert 1 active `stripe_charge` (real) row for the SAME parent | **SUCCESS** — real + interim coexist, exactly per the migration's documented "schema wrinkle" fix |
+| Jerrod — insert a SECOND active `stripe_charge` row | **CORRECTLY REJECTED** — `23505: duplicate key value violates unique constraint "uq_pv_active_real_per_parent"` |
+| Jerrod — insert a SECOND active `beta_interim` row | **CORRECTLY REJECTED** — `23505: duplicate key value violates unique constraint "uq_pv_active_interim_per_parent"` |
+| Sarah — insert a SECOND active `beta_interim` row **against the row the RPC itself created in Item 3** | **CORRECTLY REJECTED** — same `23505` on `uq_pv_active_interim_per_parent` |
+
+**PASS — 5/5.** The two split partial indexes behave exactly as designed: a real and an interim verification for the identical parent coexist cleanly (proving the "schema wrinkle" the migration exists to fix), while a second row of either kind for the same parent is rejected by its own dedicated index — including against a row that was genuinely created through the production RPC path in Item 3, not just a raw fixture row.
+
+### Item 5 — `parent_verifications` immutability (unchanged by this migration)
+
+| Test | Outcome |
+|---|---|
+| Sarah — UPDATE her own active `beta_interim` row (`amount_charged_cents=999`) | **0 rows affected** (no UPDATE policy exists at all) |
+| Sarah — DELETE her own active `beta_interim` row | **0 rows affected** (no DELETE policy exists at all) |
+| Tenise — UPDATE her own active REAL (`stripe_charge`) row (`revoked_at=now()`) | **0 rows affected** — even the record's own subject cannot mutate it |
+| Tenise (real `coppa_admin` staff session) — UPDATE **Sarah's** (a different family's) `beta_interim` row | **0 rows affected** — staff has SELECT-only via `pv_select_mom`, no write policy of any kind |
+| **service_role** — UPDATE Sarah's `beta_interim` row (`revoked_at=now()`) | **ALLOWED, 1 row affected** — service_role bypasses RLS by design (the trusted backend caller, same as every other append-only surface in this codebase); reverted to `revoked_at=NULL` in the same transaction immediately after |
+| Post-probe integrity check | Sarah's interim row: `amount_charged_cents=0` (unchanged, the blocked UPDATE never applied), `revoked_at=NULL` (reverted). Tenise's real row: `revoked_at=NULL` (never touched by any of the 4 blocked attempts above) |
+
+**PASS — 6/6.** Immutability is exactly as strong as the pre-existing (migration 100305) design and is untouched by 100338: there is still no INSERT/UPDATE/DELETE policy of any kind on `parent_verifications` for any client role — not the row's own subject, not staff, not a different family's staff session. `service_role`'s ability to mutate is the same trusted-backend exception every append-only ledger in this platform carries (Convention #223/#278/#280-family), not a client-reachable path.
+
+### Item 6 — `handle_new_user()` founding-at-signup + a real, severe defect discovered live
+
+| Step | Setup | Result |
+|---|---|---|
+| Baseline | — | `get_founding_family_count()=2` (OurFamily + Bridgette's Family), `beta_cohort_settings.enabled=true` |
+| Non-test signup, beta ON, count 2 < 100 | synthetic `auth.users` insert, no `is_test_family` meta key | **See CRITICAL FINDING below — first attempt raised a NOT NULL constraint violation and the signup transaction failed outright** |
+| Non-test signup, beta ON, count 2 < 100 (retried with `is_test_family:"false"` explicitly set, to isolate and prove the downstream logic) | — | `is_founding_family=true`, `is_test_family=false`, `family_subscriptions.price_adjustment_kind='founding'`, `founding_rate_monthly=NULL`, `founding_rate_yearly=NULL` (exactly as the migration's own comment specifies — rates populate later from a real Stripe event). `get_founding_family_count()` -> **3** |
+| Test-family signup (`is_test_family:"true"`) | — | `is_founding_family=false`, `is_test_family=true`. `get_founding_family_count()` stays **3** — correctly excluded |
+| Non-test signup with `beta_cohort_settings.enabled` temporarily flipped to `false` | switch reverted to `true` immediately after | `is_founding_family=false` — the entire founding-at-signup block is skipped when the switch is off, even for a genuinely non-test signup |
+| 97 synthetic organic founding `families`+`family_subscriptions` rows inserted directly | raw baseline was 3 | `get_founding_family_count()` -> **exactly 100** — the clamp genuinely engages |
+| Non-test signup at the cap (count=100, NOT < 100), beta mode ON | — | `is_founding_family=false` — the migration's NEW signup-time `< 100` gate correctly refuses once the organic count has reached the cap, distinct from (and in addition to) `get_founding_family_count()`'s own pre-existing read-time `LEAST(...,100)` clamp |
+
+**PASS — 5/5 on every founding-at-signup behavior this migration adds.** All five claims were proven behaviorally against real inserted rows, not read off the function body: the switch gate, the test-family exclusion, the count exclusion in both directions, the exact clamp value (100, not 99 or 101), and the at-cap refusal that is unique to `handle_new_user()`'s own new gate (as opposed to `get_founding_family_count()`'s independent read-time clamp, already proven by the prior migration's audit).
+
+---
+
+### CRITICAL FINDING (functional, not access-control — discovered live, NOT fixed per this task's read-only scope)
+
+**`handle_new_user()`, as replaced by migration 100338, currently breaks EVERY real, non-test new-user signup on the platform.** The new line:
+
+```sql
+v_is_test_family := (NEW.raw_user_meta_data->>'is_test_family' = 'true');
+```
+
+evaluates to SQL `NULL` — not `false` — whenever the `is_test_family` key is absent from `raw_user_meta_data` (`NULL = 'true'` is `NULL` under three-valued logic, never `false`). The very next statement,
+
+```sql
+INSERT INTO public.families (primary_parent_id, family_name, timezone, is_test_family)
+VALUES (NEW.id, user_name || '''s Family', user_tz, v_is_test_family)
+```
+
+then explicitly inserts that `NULL` into `families.is_test_family`, which is `NOT NULL` — an **explicit NULL always overrides the column's own `DEFAULT false`**, so this raises `23502: null value in column "is_test_family" of relation "families" violates not-null constraint`. Because `handle_new_user()` fires as an `AFTER INSERT ... FOR EACH ROW` trigger on `auth.users` with no exception handling of its own, this error propagates and **rolls back the entire signup transaction, including the `auth.users` row itself** — the new user is left with no account and no family at all, and Supabase Auth's `signUp()` call surfaces this as a raw 500-class database error to the client.
+
+**This is not a theoretical edge case — it is the exact, unconditional shape of every real signup this app performs today.** `src/lib/supabase/auth.ts`'s `signUp()` (the sole call site reached from `src/pages/auth/CreateAccount.tsx`) sends `options.data = { display_name, timezone }` only — it has never included an `is_test_family` key, and there is no reason for it to (this flag exists to retroactively mark *test/E2E fixture* families, not something a real mom's signup form would ever set). Every genuine new signup through the app's own account-creation page will hit this NOT NULL violation.
+
+**Root cause confirmed via a direct before/after migration diff, not assumed:** the immediately-prior version of this trigger (migration `00000000100325_teen_cred_skip_auto_family.sql`, applied and live before 100338) used `INSERT INTO public.families (primary_parent_id, family_name, timezone) VALUES (...)` — **without** `is_test_family` in the column list at all, correctly relying on the column's own `DEFAULT false` for every real signup. Migration 100338 is the one that introduced `is_test_family` into the explicit column list, and it did so with the NULL-producing comparison above. This regression was introduced by, and is scoped entirely to, the migration under review — it did not exist before.
+
+**Verified fully live, then correctly worked around inside this session's own test harness (never in production code) to keep proving the rest of Item 6's logic:** the first live attempt (no `is_test_family` key at all) reproduced the `23502` error exactly as predicted, for a non-test signup, a test-flagged signup, AND the at-cap signup probe — i.e., 3 of the 4 synthetic signup attempts in this test failed with this exact error on the first pass. The one signup that succeeded on the first pass was the `is_test_family:"true"` case, precisely because `'true' = 'true'` evaluates to a real `true`, never hitting the NULL branch — which is itself further confirmation that any signup NOT explicitly marking itself as a test family is the one that breaks. This session's own probe SQL was then adjusted to explicitly pass `"is_test_family":"false"` for the remaining three signups (a change to this session's disposable test fixtures only, never to any migration, function, or policy) purely so the rest of Item 6's founding-at-signup logic could still be exercised and proven; this is explicitly **not** a fix, and the underlying trigger in production is unchanged and still broken for any caller (i.e., every real user) that omits the key.
+
+**Recommended fix (for a future, separate change — not applied here):** `v_is_test_family := COALESCE(NEW.raw_user_meta_data->>'is_test_family', 'false') = 'true';` (or equivalently `COALESCE((NEW.raw_user_meta_data->>'is_test_family')::boolean, false)` with a cast), matching the same NULL-safe pattern the rest of this trigger already uses for `user_name`/`user_tz` (`COALESCE(NEW.raw_user_meta_data->>'display_name', 'Mom')`).
+
+### Item 7 — `admin_coppa_stamp_readiness()`: coppa_admin gate + new `interim_verifications_owed` field
+
+| Caller | Outcome |
+|---|---|
+| anon | **BLOCKED — grant layer** — `42501: permission denied for function admin_coppa_stamp_readiness` |
+| Sarah (non-staff primary_parent) | **BLOCKED — in-body** — `not authorized` |
+| Mark (non-staff additional_adult) | **BLOCKED — in-body** — `not authorized` |
+| Tenise (real `coppa_admin` staff row) | **ALLOWED** — `{"ready":true,"blockers":[],"unconsented_under_13":0,"interim_verifications_owed":2}` |
+
+**PASS — 4/4.** The pre-existing `coppa_admin` gate (migration 100330) is completely unchanged by 100338. The new `interim_verifications_owed=2` value is exactly correct given the state created earlier in this same probe session: Testworth (via Sarah's lone active interim row, no coexisting real row) and Bridgette's Family (via Bridgette's lone active interim row) are both counted, while **OurFamily is correctly excluded** even though Jerrod (from Item 4) holds an active interim row there too — because Jerrod ALSO holds a coexisting active real row, and the field's `NOT EXISTS` clause is scoped per-`parent_member_id`, not per-family, exactly matching the field's documented intent ("interim-consented children ARE consented on the active template" and never block, but a family with a genuinely outstanding — real-verification-free — interim identity check IS surfaced). `ready=true`/`unconsented_under_13=0`/`blockers=[]` is an informational, unrelated observation about current production consent-backfill state, not a security finding, and confirms `interim_verifications_owed` never contributes to `ready`.
+
+### Residue verification (independent, post-transaction, fresh connection)
+
+```sql
+SELECT
+  (SELECT count(*) FROM public.beta_cohort_settings) AS bcs_rows,                                   -- 1
+  (SELECT enabled FROM public.beta_cohort_settings LIMIT 1) AS bcs_enabled,                          -- true
+  (SELECT count(*) FROM public.parent_verifications WHERE verification_method = 'beta_interim') AS pv_interim_rows, -- 0
+  (SELECT count(*) FROM public.parent_verifications) AS pv_total_rows,                              -- 3 (exact pre-probe baseline)
+  (SELECT count(*) FROM public.families WHERE family_name ILIKE '%rlsprobe%') AS probe_families,      -- 0
+  (SELECT count(*) FROM auth.users WHERE email ILIKE '%rlsprobe%') AS probe_auth_users,               -- 0
+  (SELECT public.get_founding_family_count()) AS founding_count,                                     -- 2 (exact pre-probe baseline)
+  (SELECT is_founding_family FROM public.families WHERE id = '<Testworth>') AS testworth_founding,    -- true (reverted)
+  (SELECT is_founding_family FROM public.families WHERE id = '<Bridgettes-Family>') AS bridgette_founding, -- true (never touched)
+  (SELECT (revoked_at, amount_charged_cents) FROM public.parent_verifications WHERE id = '<Tenise-real-row>') AS tenise_real_row_state, -- (NULL, 100) -- exact original
+  (SELECT count(*) FROM pg_stat_activity WHERE state = 'idle in transaction') AS lingering_idle_txns; -- 0
+```
+
+Every value matches the exact pre-probe baseline. No `RLSPROBE`- or probe-tagged row survives in `families`, `auth.users`, `family_subscriptions`, or `parent_verifications`; `beta_cohort_settings` is back to its original singleton row with `enabled=true`; `get_founding_family_count()` is back to `2`; both temporarily-flipped flags (Testworth's `is_founding_family`, the global `beta_cohort_settings.enabled`) are confirmed reverted; Tenise's real, pre-existing active verification is byte-identical to its state before this session began; no idle-in-transaction session was left open.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| 1 — `beta_cohort_settings` closed table (10 role x operation combos + the "guard trigger" question) | PASS — 10/10, plus one disclosed minor finding (no second-row guard exists; blast radius limited to `service_role`) |
+| 2 — `get_beta_cohort_mode()` gate | PASS — 3/3 |
+| 3 — `create_beta_interim_verification()` full gate order + idempotency + cross-parent isolation | PASS — 12/12 |
+| 4 — Split partial unique indexes (coexistence + double-active rejection) | PASS — 5/5 |
+| 5 — `parent_verifications` immutability (unchanged) | PASS — 6/6 |
+| 6 — `handle_new_user()` founding-at-signup logic (once worked around in test fixtures) | PASS — 5/5, **but see the CRITICAL functional finding above: the shipped trigger currently breaks every real signup that doesn't explicitly flag itself as a test family** |
+| 7 — `admin_coppa_stamp_readiness()` gate + new field | PASS — 4/4 |
+| Residue after the full probe set | Zero — every touched table/row confirmed back to its exact pre-probe baseline by an independent, separate post-transaction query |
+
+**Verdict: PASS on every access-control question this migration introduces — zero RLS/grant/gate gaps found.** 64 probe-log entries across 7 items, 6 real production identities (5 family roles + a family-shadow session) across 3 real families, plus anon/service_role, all impersonated via `SET LOCAL ROLE` + JWT-claim substitution inside a single never-committed transaction, with a completely independent fresh-connection read confirming zero residue afterward. `beta_cohort_settings` is genuinely closed to every client role (stronger than a bare RLS-zero-policies design — it has no table-level grant at all for `anon`/`authenticated`); `create_beta_interim_verification()`'s gate order is exactly real-session -> primary_parent -> founding -> switch-on, proven independently at every link with real state flips and real reverts, not just read off the function body; the split partial unique indexes correctly allow one real + one interim row per parent while still rejecting a second of either kind, including against a row the production RPC itself created; `parent_verifications` immutability is unchanged and holds even for a row's own subject and even for a staff session on someone else's row; and `admin_coppa_stamp_readiness()`'s new field counts exactly the families it should and none it shouldn't. **Separately, and unrelated to any access-control boundary, this session discovered and fully documents (but per its read-only scope did not fix) a severe functional defect this same migration introduces into `handle_new_user()`: every real new-user signup on the platform today fails with a NOT NULL constraint violation, because the trigger's new `is_test_family` handling produces SQL NULL instead of `false` whenever a signup's metadata omits that key — which is the case for literally every real signup the app's own UI performs. This needs urgent attention as its own fix, separate from this security review.**
+
+## Migrations 100333/100335 — STUDIO ST-C wizard_drafts (2026-09-12)
+
+**Scope:** `public.wizard_drafts` (migration 100333 — the new ST-C server-backed Studio wizard save-and-return table, RLS + 4 base policies) plus the 2 GENERATED `AS RESTRICTIVE` COPPA write-gate policies (`coppa_write_gate_ins`/`coppa_write_gate_upd`) migration 100335 added onto it (part of the same platform-wide `coppa_write_gates_*` regeneration whose other 268 policies across 134 hard_delete tables were already verified under the 100327/100328/100329 pass above — this pass verifies ONLY the new `wizard_drafts` entries the regeneration added, not a re-verification of the other 134 tables). Both migrations confirmed applied to production (`supabase migration list --linked`: 100333 and 100335 both present in Local AND Remote columns) before this pass began.
+
+**Methodology:** single never-committed transaction against production via `supabase db query --linked -f`, `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claims impersonation per probe, results accumulated into a session-temp `probe_log` table and read back via one final `SELECT ... ORDER BY seq` as the last statement (the same `RAISE NOTICE`-is-not-surfaced workaround this file has used since the 100327/100328/100329 pass). No explicit `ROLLBACK;` was issued as a separate statement — per this file's own established finding (100327/100328/100329 section, independently re-confirmed by a canary insert in the 100338 session), `supabase db query --linked -f` leaves an uncommitted transaction to be discarded when the CLI's connection closes on exit; a literal trailing `ROLLBACK;` would itself become the "last statement" and suppress the `probe_log` SELECT's output. This was independently re-confirmed for this session too: the fresh-connection residue check below (a wholly separate `supabase db query --linked -f` invocation) shows `wizard_drafts_total=0` and `jordan_bracket`/`jordan_suspended` back to their pre-probe values, proving nothing from the 43-probe transaction persisted.
+
+Fixtures: 5 `RLSPROBE`-titled `wizard_drafts` rows (Sarah/Mark/Casey/Jordan in the real Testworth family, Tenise in the real OurFamily family), all created via `service_role` (bypasses RLS) and swept before this pass ended. Nine real production identities spanning 8 roles across 2 real families: **The Testworth Family** (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`) — Sarah (primary_parent/mom), Mark (additional_adult), Amy (special_adult), Casey (independent teen, `13_to_17`), Jordan (guided kid, `under_13`), the family-shadow session (`role='family'`); **OurFamily** (`4bc86323-545b-4faf-b31f-3926fdd8c5a6`) — Tenise (primary_parent/mom), Jerrod (additional_adult). Plus genuinely-anonymous (`SET LOCAL ROLE anon`, claims cleared) and `service_role` (fixture setup/teardown, bypasses RLS). 43 probe-log entries: 37 PASS, 5 INFO (narrative/setup markers, not pass/fail claims), 1 PASS-BUT-NOTE (a real, disclosed finding described in Section B below) — **zero FAIL**.
+
+### Section A — SELECT isolation (9 probes, all PASS)
+
+Base policy: `member_id IN (own family_members rows)` OR (`family_id IN` a family where the caller is `role='primary_parent'`) — i.e. "you see your own, mom sees everyone in her family."
+
+| # | Caller | Expected | Observed | Result |
+|---|---|---|---|---|
+| A1 | anon (no auth at all) | 0 rows | 0 | PASS |
+| A2 | Sarah — Testworth primary_parent/mom | 4 rows (every Testworth fixture: Sarah/Mark/Casey/Jordan), never OurFamily's | 4 | PASS |
+| A3 | Mark — Testworth additional_adult | 1 row (his own only) | 1 `[RLSPROBE Mark Draft]` | PASS |
+| A4 | Casey — Testworth independent teen | 1 row (her own only) | 1 `[RLSPROBE Casey Draft]` | PASS |
+| A5 | Jordan — Testworth guided kid, `under_13` | 1 row (his own only) | 1 `[RLSPROBE Jordan Draft]` | PASS |
+| A6 | Amy — Testworth special_adult (no draft fixture of her own) | 0 rows — never the family's drafts wholesale, confirming special_adult is not treated as mom-equivalent | 0 | PASS |
+| A7 | Testworth family-shadow session (`role='family'`) | 0 rows — not primary_parent, no own draft | 0 | PASS |
+| A8 | Tenise — OurFamily primary_parent/mom | 1 row (OurFamily's own draft only) — cross-family isolation from Testworth's 4 | 1 `[RLSPROBE OurFamily Draft]` | PASS |
+| A9 | Jerrod — OurFamily additional_adult (no draft fixture of his own) | 0 rows | 0 | PASS |
+
+**PASS — 9/9.** SELECT isolation is exactly as the header comment claims: self-scoped for everyone except the family's own `primary_parent`, who sees every draft in-family and nothing cross-family. `special_adult` (A6) and a non-mom `additional_adult` (A9) both confirm they are NOT treated as mom-equivalent for this table, and the family-shadow session (A7) confirms it has no elevated read either — matching the migration header's own statement that this table deliberately carries no family-shadow policy.
+
+### Section B — INSERT (10 probes, 9 PASS + 1 PASS-BUT-NOTE)
+
+`WITH CHECK`: `member_id IN` (caller's own `family_members` rows) **AND** `family_id IN` (any family the caller belongs to) — narrower than SELECT: there is no mom-inserts-on-behalf-of-a-child branch at all.
+
+| # | Caller / attempt | Expected | Observed | Result |
+|---|---|---|---|---|
+| B1 | anon INSERT | blocked | `new row violates row-level security policy` | PASS |
+| B2 | Sarah INSERT for herself (`member_id`=self, `family_id`=own) | allowed | SUCCEEDED | PASS |
+| B3 | Sarah INSERT naming Casey's `member_id` (mom authoring a draft "for" her child) | blocked — no such branch exists | `new row violates row-level security policy` | PASS — real finding: not even mom can create a draft on a child's behalf; INSERT requires `member_id`=self, full stop |
+| B4 | Casey INSERT for herself | allowed | SUCCEEDED | PASS |
+| B5 | Casey INSERT self-`member_id` but `family_id`=OurFamily (cross-family) | blocked | `new row violates row-level security policy` | PASS |
+| B6 | Casey INSERT naming Jordan (sibling) as `member_id` | blocked | `new row violates row-level security policy` | PASS |
+| B7 | Testworth family-shadow session INSERT naming itself (its own `family_members.id`) as `member_id` | see finding below | SUCCEEDED | PASS-BUT-NOTE |
+| B8 | Testworth family-shadow session INSERT naming a real child (Jordan) as `member_id` | blocked — `member_id` must resolve to the caller's own row | `new row violates row-level security policy` | PASS |
+| B9 | Mark INSERT self-`member_id` but `family_id`=OurFamily (cross-family) | blocked | `new row violates row-level security policy` | PASS |
+| — | Cleanup: delete any Section-B rows that succeeded (service_role) | variable | 3 rows deleted (B2, B4, B7) | INFO |
+
+**FINDING (B7, disclosed, matches "the policy intends it" question the task asked for) — a family-shadow session CAN insert a `wizard_drafts` row, but only as itself, never on behalf of a real family member.** The migration header states wizard_drafts "does NOT need family-shadow write policies" — and it's correct that no dedicated `util.is_family_shadow_of()`-style permissive branch was added for this table (unlike the 35 tables Convention #276/FDWA added such branches to). But because the base INSERT policy is plain "self member_id AND own family_id" with no role check at all, and the family-shadow row IS itself a real `family_members` row (`role='family'`) with its own `id` and `family_id`, that policy is trivially satisfied when the shadow session names its own id as `member_id` (B7, PASS-BUT-NOTE) — while naming any real child's id is correctly blocked (B8, PASS). Practically inert: Studio is route-gated to mom + `studio`-granted additional_adults only (Convention #274, `<GrantedRoute grant="studio">`), and the family-shadow account has no route path to Studio's wizard UI in the app — nothing in the codebase would ever cause a family-shadow session to call this insert with its own id. This is a narrow, low-blast-radius artifact of the base policy's shape rather than an intentional grant, and it does NOT let a family-shadow session author a draft in any real member's name (B8 proves that's still blocked). No remediation needed; recorded so a future reader doesn't need to re-derive it.
+
+### Section C — UPDATE/DELETE (11 probes, all PASS)
+
+Same permissive shape as SELECT: self-or-mom-in-family, for both operations.
+
+| # | Test | Expected | Observed | Result |
+|---|---|---|---|---|
+| C1 | Sarah (mom) UPDATE Mark's draft | 1 row affected — mom manages any in-family draft | 1 | PASS |
+| C2 | Mark UPDATE Sarah's draft (not self, not mom) | 0 rows affected | 0 | PASS |
+| C3 | Mark UPDATE his own draft | 1 row affected | 1 | PASS |
+| C4 | Casey UPDATE Jordan's draft (sibling, not mom) | 0 rows affected | 0 | PASS |
+| C5 | Tenise (OurFamily mom) UPDATE Testworth's draft (cross-family) | 0 rows affected | 0 | PASS |
+| C6 | Testworth family-shadow session UPDATE Mark's draft | 0 rows affected — shadow is neither Mark nor `primary_parent` | 0 | PASS |
+| C7 | Casey DELETE Mark's draft | 0 rows affected | 0 | PASS |
+| C7b | Confirm Mark's draft survived C7 (service_role read) | 1 row still exists | 1 | PASS |
+| C8 | Mark DELETE his own draft | 1 row affected | 1 | PASS |
+| C9 | Sarah (mom) DELETE Casey's draft | 1 row affected — mom manages/removes any in-family draft | 1 | PASS |
+| C10 | Tenise (OurFamily mom) DELETE Testworth's Jordan draft (cross-family) | 0 rows affected | 0 | PASS |
+| C10b | Confirm Jordan's draft survived C10 (service_role read) | 1 row still exists | 1 | PASS |
+
+**PASS — 11/11** (C7b/C10b are confirmation reads, not independent security assertions, folded into the count for completeness). Mom's "sees/manages every draft in her family" clause holds for both UPDATE (C1) and DELETE (C9); every non-mom, non-self attempt against another member's draft is blocked with 0 rows silently affected (not an error — these are all permissive-`USING`-clause exclusions, distinct from the COPPA gate's `WITH CHECK` failures in Section D, which raise a real error instead); cross-family isolation holds for both operations (C5, C10); and the family-shadow session gets no elevated UPDATE access either (C6), consistent with A7's SELECT finding.
+
+### Section D — COPPA write gates (10 probes, all PASS)
+
+`util.coppa_write_allowed(member_id)` (migration 100327): `false` only for a suspended member (checked first, unconditionally) or an unconsented `under_13` member once a lawyer-approved consent template exists (R-8 dormancy — inert today, zero approved templates in production). Gated on INSERT (`WITH CHECK`) and UPDATE (`USING (true) WITH CHECK (...)` — the row is always targetable; only the resulting row's subject is checked, so `WITH CHECK` re-evaluates and can fail even when `member_id` itself isn't being changed).
+
+| # | Step | Expected | Observed | Result |
+|---|---|---|---|---|
+| D1 | Jordan (`under_13`, not suspended) self-INSERT a new draft | allowed — R-8 dormancy inert, not suspended | SUCCEEDED | PASS |
+| D2 | Sarah UPDATE Jordan's existing draft, not suspended (baseline) | 1 row affected | 1 | PASS |
+| D3 | service_role sets Jordan's `is_suspended_for_deletion = true` (transaction-local) | 1 row updated | 1 | INFO |
+| D4 | Jordan (now suspended) self-INSERT a new draft | blocked | `new row violates row-level security policy "coppa_write_gate_ins"` | PASS |
+| D5 | Sarah UPDATE Jordan's existing draft while suspended | blocked — `WITH CHECK` re-evaluated even though `member_id` itself is unchanged; this raises a real error (unlike Section C's silent 0-row `USING`-clause blocks) | `new row violates row-level security policy "coppa_write_gate_upd"` | PASS |
+| D5b | Confirm Jordan's draft title unchanged after the blocked D5 UPDATE (service_role read) | title = the D2 value | `RLSPROBE Jordan Draft (mom edit, not suspended)` | PASS |
+| D6 | Sarah UPDATE her OWN draft while Jordan (an unrelated member) is still suspended | 1 row affected — mom's own writes are unaffected by a different member's suspension | 1 | PASS |
+| D7 | service_role reverts Jordan's `is_suspended_for_deletion` to `false` | 1 row updated | 1 | INFO |
+| D8 | Sarah UPDATE Jordan's draft again, after revert (gate lifted) | 1 row affected | 1 | PASS |
+| D8b | Confirm Jordan's `is_suspended_for_deletion` is back to `false` (in-transaction read, before ever leaving the transaction) | `false` | `false` | PASS |
+
+**PASS — 10/10.** The two RESTRICTIVE gates behave exactly as the 100327/100328/100329 pass already proved for the other 134 hard_delete tables, now confirmed specifically for `wizard_drafts`: inert while a member is neither suspended nor (per R-8 dormancy) meaningfully unconsented; INSERT and UPDATE both flip to genuinely blocked the instant `is_suspended_for_deletion=true`, with the UPDATE case specifically demonstrating the `WITH CHECK`-re-evaluates-the-resulting-row behavior (a title-only edit to an already-suspended member's own pre-existing draft is blocked, not just a hypothetical reassignment); a different, non-suspended member's (mom's own) writes are completely unaffected mid-suspension (D6); and the gate correctly lifts the instant the suspension flag reverts (D8). Because `wizard_drafts`' base INSERT policy already restricts `member_id` to the caller's own row (Section B), the only way to test this table's COPPA gate via a client session at all is a member acting on their own (or, for UPDATE, mom acting on an in-family member's) draft — there is no separate "mom inserting for a suspended child" path to probe, since that path is already closed one layer up by the base RLS policy itself (B3's finding).
+
+### Registry classification (read-only, no DB query)
+
+`wizard_drafts` is classified `hard_delete` on `member_id` in both `src/lib/compliance/childDataTables.ts` (line 100: "STUDIO-EXPERIENCE ST-C: the child's (or granted-adult's) own in-progress Studio wizard state. Pre-primitive content — unlike wizard_templates (scrub-only, since a deployed template is already a family asset), a draft that never deployed belongs to the departing member alone.") and its Deno-executable twin `supabase/functions/_shared/coppa-cascade-plan.ts` (line 100: `{ table: 'wizard_drafts', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] }`) — the two files agree, satisfying the Convention #285 twin-file discipline. This also matches the schema itself independent of the registry: `wizard_drafts.member_id` is `NOT NULL REFERENCES family_members(id) ON DELETE CASCADE` (migration 100333), so a `family_members` row delete would cascade these rows away regardless of the COPPA cascade's own logic — the registry classification is consistent with, not merely parallel to, the underlying FK behavior.
+
+### Residue verification (independent, post-transaction, fresh connection)
+
+```sql
+SELECT
+  (SELECT count(*) FROM public.wizard_drafts) AS wizard_drafts_total,                          -- 0
+  (SELECT count(*) FROM public.wizard_drafts WHERE title LIKE 'RLSPROBE%') AS wizard_drafts_rlsprobe_rows, -- 0
+  (SELECT is_suspended_for_deletion FROM public.family_members WHERE id = '<Jordan>') AS jordan_suspended, -- false
+  (SELECT coppa_age_bracket FROM public.family_members WHERE id = '<Jordan>') AS jordan_bracket, -- under_13 (unchanged)
+  (SELECT count(*) FROM public.family_members WHERE display_name LIKE 'RLSPROBE%') AS rlsprobe_members, -- 0
+  (SELECT count(*) FROM public.families WHERE family_name LIKE 'RLSPROBE%') AS rlsprobe_families, -- 0
+  (SELECT count(*) FROM pg_stat_activity WHERE state = 'idle in transaction') AS lingering_idle_txns; -- 0
+```
+
+All values confirm zero residue: `wizard_drafts` is back to its exact pre-probe baseline (0 rows — the table had zero real production rows before this pass, since ST-C had not yet shipped a frontend consumer at probe time), Jordan's `is_suspended_for_deletion`/`coppa_age_bracket` are exactly as they were before the probe transaction began, no `RLSPROBE`-tagged row survives in `family_members` or `families`, and no idle-in-transaction session was left open — the never-committed transaction was fully discarded on connection close, as this file's own established methodology predicts.
+
+### Summary
+
+| Section | Verdict |
+|---|---|
+| A — SELECT isolation (self-or-mom-in-family, cross-family, special_adult, family-shadow) | PASS — 9/9 |
+| B — INSERT (`member_id`=self AND `family_id`=own; no mom-on-behalf-of-child branch) | PASS — 9/9 + 1 disclosed PASS-BUT-NOTE (family-shadow can insert naming only itself, never a real child) |
+| C — UPDATE/DELETE (self-or-mom-in-family, cross-family isolation) | PASS — 11/11 |
+| D — COPPA RESTRICTIVE write gates (inert baseline → suspended-blocks-both-ops → reverts cleanly) | PASS — 10/10 |
+| Registry classification (`hard_delete` on `member_id`, both files agree, matches the FK's own `ON DELETE CASCADE`) | Confirmed by direct read, not a probe |
+| Residue after the full probe set | Zero — every touched table/row confirmed back to its exact pre-probe baseline by an independent, separate post-transaction query |
+
+**Verdict: PASS.** Zero gaps found across 43 probe-log entries (37 PASS, 5 INFO narrative/setup markers, 1 disclosed PASS-BUT-NOTE). `wizard_drafts`' base RLS is genuinely narrower on INSERT than on SELECT/UPDATE/DELETE — mom can see, edit, and delete any draft in her family, but she (and everyone else) can only ever create a draft naming their own `member_id`, closing off any "author a draft in someone else's name" path before the COPPA layer is even reached. The one disclosed finding (B7) is a narrow, practically-inert artifact of that same self-only INSERT shape rather than an intentional or exploitable family-shadow grant — a shadow session can insert a row "as itself" but is still fully blocked from ever naming a real family member, and Studio's own route-gating (Convention #274) means no code path in the app would ever cause a family-shadow session to reach this insert at all. The two GENERATED COPPA RESTRICTIVE gates on this table behave identically to the 134-table pattern already verified under the 100327/100328/100329 audit: fully inert for a non-suspended member, genuinely blocking on both INSERT and UPDATE the instant `is_suspended_for_deletion=true` (including the `WITH CHECK`-re-evaluates-the-resulting-row case on a title-only edit), completely unaffecting a different member's own writes, and cleanly reverting the moment suspension lifts. The child-data registry and its Deno-executable twin agree on `hard_delete` classification for this table, consistent with the FK's own `ON DELETE CASCADE` behavior. Zero residue confirmed independently after the fact — the entire 43-probe transaction, including the transaction-local suspension flip and its revert, left no trace in production.

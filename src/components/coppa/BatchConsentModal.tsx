@@ -43,6 +43,7 @@ import {
   fetchActiveConsentTemplate,
   fetchParentVerification,
   fetchIsFoundingFamily,
+  fetchBetaCohortMode,
   commitConsentedMembers,
   type CoppaConsentTemplate,
   type ParentVerification,
@@ -64,7 +65,7 @@ interface BatchCandidate {
 type BatchGateState =
   | { kind: 'select' }
   | { kind: 'dormant'; names: string[] }
-  | { kind: 'consent_flow'; selected: BatchCandidate[]; template: CoppaConsentTemplate }
+  | { kind: 'consent_flow'; selected: BatchCandidate[]; template: CoppaConsentTemplate; betaInterimEligible: boolean }
   | {
       kind: 'acknowledge'
       selected: BatchCandidate[]
@@ -188,7 +189,10 @@ export function BatchConsentModal({ isOpen, onClose, allMembers, onCommitted }: 
       if (verification) {
         setGate({ kind: 'acknowledge', selected, index: 0, template, verification })
       } else {
-        setGate({ kind: 'consent_flow', selected, template })
+        // BETA-COHORT (PRD-40 §9): resolved imperatively, same discipline as
+        // template/founding above.
+        const betaCohortMode = await fetchBetaCohortMode()
+        setGate({ kind: 'consent_flow', selected, template, betaInterimEligible: founding && betaCohortMode })
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong — please try again.')
@@ -311,6 +315,7 @@ export function BatchConsentModal({ isOpen, onClose, allMembers, onCommitted }: 
           isOpen
           template={gate.template}
           childNames={gate.selected.map((m) => m.display_name)}
+          betaInterimEligible={gate.betaInterimEligible}
           onCancel={() => setGate({ kind: 'select' })}
           onVerified={async (verificationId, ackSections) => {
             await commitBatch(gate.selected, gate.template, verificationId, ackSections)
@@ -323,7 +328,13 @@ export function BatchConsentModal({ isOpen, onClose, allMembers, onCommitted }: 
       )}
 
       {gate.kind === 'acknowledge' && (
+        // `key` forces a fresh mount per child — otherwise React reuses the
+        // same instance across the sequence and the acked/expanded reset
+        // only happens in a useEffect AFTER paint, leaving a real window
+        // where the checkbox visibly carries over the previous child's
+        // checked state before it snaps back to unchecked.
         <CoppaAcknowledgeModal
+          key={gate.selected[gate.index].id}
           isOpen
           childName={gate.selected[gate.index].display_name}
           verifiedAtLabel={formatVerifiedDate(gate.verification.verified_at)}

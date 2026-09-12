@@ -149,7 +149,19 @@ let tt2StripeCustomerId: string | null = null
 let tt2MintedFoundingCode: string | null = null
 
 async function createTt2Fixture() {
-  const { data: created, error } = await sr.auth.admin.createUser({ email: TT2_EMAIL, password: TT2_PASSWORD, email_confirm: true })
+  // BETA-COHORT (migration 100338): is_test_family=true keeps handle_new_user's
+  // founding-at-signup logic from pre-populating family_subscriptions with
+  // is_founding_family=true/price_adjustment_kind='founding' at creation —
+  // this fixture's own force-non-founding UPDATE below only corrects
+  // `families`, and every test in this file that grants founding status
+  // (redeem_founding_code, checkout, direct UPDATEs) needs to start from a
+  // genuinely clean, non-founding family_subscriptions row.
+  const { data: created, error } = await sr.auth.admin.createUser({
+    email: TT2_EMAIL,
+    password: TT2_PASSWORD,
+    email_confirm: true,
+    user_metadata: { is_test_family: true },
+  })
   if (error || !created.user) throw new Error(`createUser TIERTEST2 failed: ${error?.message}`)
   tt2AuthUserId = created.user.id
 

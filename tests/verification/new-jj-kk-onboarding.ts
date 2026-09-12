@@ -79,6 +79,11 @@ async function run() {
       user_metadata: {
         display_name: 'Probe',
         timezone: 'America/Chicago',
+        // BETA-COHORT (migration 100338): this probe deliberately exercises
+        // the real handle_new_user family-creation path — without this
+        // flag it would now also get flagged founding at signup, consuming
+        // a real founding slot every time this script runs.
+        is_test_family: true,
       },
     })
 

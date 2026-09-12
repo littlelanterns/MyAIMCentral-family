@@ -98,8 +98,19 @@ async function createOrGetAuthUser(email: string): Promise<string> {
   const existing = existingUsers?.users?.find(u => u.email === email)
   if (existing) return existing.id
 
+  // BETA-COHORT (migration 100338) real finding: this seed does NOT bypass
+  // handle_new_user — each of the 8 Testworth members gets their own
+  // auth.users row here, which fires the trigger just like a real signup,
+  // spawning a phantom "[Name]'s Family" with its own family_members/
+  // family_subscriptions rows (the real Testworth family/members are
+  // created separately, below, ignoring the trigger's phantom row). Without
+  // is_test_family, those phantoms would now also get flagged founding at
+  // signup, silently consuming real founding slots on every fresh-project
+  // seed run. This only fires once per email (existing users are reused
+  // above), but the flag is the correct fix at the source either way.
   const { data, error } = await supabase.auth.admin.createUser({
     email, password: PASSWORD, email_confirm: true,
+    user_metadata: { is_test_family: true },
   })
   if (error) throw new Error(`Failed to create user ${email}: ${error.message}`)
   return data.user.id

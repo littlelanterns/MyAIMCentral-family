@@ -77,11 +77,19 @@ Deno.serve(async (req) => {
     const familyId = parentMember.family_id as string
 
     // ── Idempotent short-circuit: already actively verified ──
+    // BETA-COHORT (PRD-40 §9.3, migration 100338): a beta_interim active row
+    // does NOT short-circuit this real charge — that's exactly the "finish
+    // verifying" scenario (a founding mom who consented during beta now
+    // completing the real $1 identity check post-cutover). Only an existing
+    // REAL active verification skips creating a new intent. The split
+    // partial indexes (uq_pv_active_real_per_parent / _interim_) let both
+    // rows coexist once this real one lands.
     const { data: activeVerification, error: activeError } = await supabase
       .from('parent_verifications')
       .select('id, verified_at')
       .eq('parent_member_id', parentMemberId)
       .is('revoked_at', null)
+      .neq('verification_method', 'beta_interim')
       .maybeSingle()
     if (activeError) throw new Error(activeError.message)
     if (activeVerification) {

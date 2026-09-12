@@ -5,7 +5,9 @@
  * ≥1 under-13 member and has NO active parent verification. Five
  * scroll-enforced, individually-acknowledged disclosure sections (court-
  * defensible scrolled-past-content pattern per the PRD's decision
- * rationale), then the $1 Stripe verification charge, then success.
+ * rationale), then Screen 5 (the $1 Stripe verification charge, OR — for a
+ * founding family while BETA-COHORT mode is on, PRD-40 §9 — a no-charge
+ * "verify later" acknowledgment), then success.
  *
  * Section text comes from the versioned `coppa_consent_templates` row —
  * NEVER hardcoded (the template is the legal audit artifact; edge case
@@ -15,7 +17,10 @@
  * The verification result is NEVER client-asserted (ruling R-13): after
  * `stripe.confirmPayment` succeeds, we poll `parent_verifications` for the
  * webhook-written row, and only then does the parent commit the held
- * members via `commit_consented_members`.
+ * members via `commit_consented_members`. The Stripe mechanics (create
+ * intent -> mount element -> confirm -> poll) live in the shared
+ * `useStripeVerificationPayment` hook, reused by the "finish verifying"
+ * flow on Settings -> Privacy & Consent post-cutover.
  *
  * R-10: mom's real session only. This component renders nothing inside a
  * View-As scope, and the surfaces that mount it (FamilySetup,
@@ -23,24 +28,14 @@
  */
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { ShieldCheck, Check, Loader, AlertTriangle, ChevronDown } from 'lucide-react'
-import { loadStripe, type Stripe as StripeJs, type StripeElements } from '@stripe/stripe-js'
+import { ShieldCheck, Check, Loader, AlertTriangle, ChevronDown, Clock } from 'lucide-react'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { supabase } from '@/lib/supabase/client'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { ConsentSectionBody, joinNames } from '@/lib/coppa/consentText'
 import { CONSENT_SECTION_KEYS } from '@/lib/coppa/brackets'
 import type { CoppaConsentTemplate } from '@/lib/coppa/useCoppaGate'
-import { pollForVerification } from '@/lib/coppa/useCoppaGate'
-
-const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY as string | undefined
-
-let stripePromise: Promise<StripeJs | null> | null = null
-function getStripe(): Promise<StripeJs | null> {
-  if (!STRIPE_PUBLISHABLE_KEY) return Promise.resolve(null)
-  if (!stripePromise) stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY)
-  return stripePromise
-}
+import { createBetaInterimVerification } from '@/lib/coppa/useCoppaGate'
+import { useStripeVerificationPayment } from '@/lib/coppa/useStripeVerificationPayment'
 
 export interface CoppaConsentFlowProps {
   isOpen: boolean
@@ -51,6 +46,15 @@ export interface CoppaConsentFlowProps {
   /** Display names of the under-13 members in the pending batch. */
   childNames: string[]
   /**
+   * BETA-COHORT (PRD-40 §9): true when this family is founding AND the
+   * platform-wide beta-cohort switch is on, resolved imperatively by the
+   * caller at gate-fire time (mirrors how `template`/founding status are
+   * already resolved) — never from possibly-still-loading hook state. When
+   * true, Screen 5 offers the no-charge "verify later" acknowledgment
+   * instead of the Stripe Payment Element.
+   */
+  betaInterimEligible: boolean
+  /**
    * Called once the webhook-written verification row is observed. The
    * parent runs `commit_consented_members` + resumes the PIN pipeline.
    * Throws on failure (the RPC is atomic — nothing written on throw, so
@@ -60,16 +64,6 @@ export interface CoppaConsentFlowProps {
   /** Continue to Family Setup from the success screen. */
   onDone: () => void
 }
-
-type PaymentPhase =
-  | { kind: 'idle' }
-  | { kind: 'creating_intent' }
-  | { kind: 'ready' }
-  | { kind: 'confirming' }
-  | { kind: 'polling' }
-  | { kind: 'committing' }
-  | { kind: 'webhook_lag' }
-  | { kind: 'error'; message: string }
 
 const SECTION_TITLES: Record<string, string> = {
   what_we_collect: 'What We Collect',
@@ -83,6 +77,7 @@ export function CoppaConsentFlow({
   onCancel,
   template,
   childNames,
+  betaInterimEligible,
   onVerified,
   onDone,
 }: CoppaConsentFlowProps) {
@@ -92,7 +87,11 @@ export function CoppaConsentFlow({
   const [step, setStep] = useState(0)
   const [acked, setAcked] = useState<boolean[]>([false, false, false, false])
   const [affirmed, setAffirmed] = useState(false)
-  const [payment, setPayment] = useState<PaymentPhase>({ kind: 'idle' })
+  // Owned by VerificationStep (real: useStripeVerificationPayment; interim:
+  // its own local RPC-in-flight state) and reported up here so the modal's
+  // close button can still refuse to abandon mid-charge/mid-commit
+  // regardless of which path is active.
+  const [busy, setBusy] = useState(false)
 
   const names = joinNames(childNames)
 
@@ -112,31 +111,24 @@ export function CoppaConsentFlow({
       setStep(0)
       setAcked([false, false, false, false])
       setAffirmed(false)
-      setPayment({ kind: 'idle' })
+      setBusy(false)
     }
   }, [isOpen])
-
-  const busy =
-    payment.kind === 'confirming' || payment.kind === 'polling' || payment.kind === 'committing'
 
   const handleClose = useCallback(() => {
     if (busy) return // never abandon mid-charge/mid-commit
     onCancel()
   }, [busy, onCancel])
 
+  // Shared tail for BOTH paths (real Stripe charge, beta-interim ack): call
+  // the parent's commit logic, advance to the success screen on success.
+  // Errors propagate back to whichever panel is calling this (its own
+  // catch shows the "we verified you, but saving hit a snag" message) —
+  // nothing here swallows a failure.
   const handleVerificationResolved = useCallback(
     async (verificationId: string) => {
-      setPayment({ kind: 'committing' })
-      try {
-        await onVerified(verificationId, [...CONSENT_SECTION_KEYS])
-        setStep(5)
-        setPayment({ kind: 'idle' })
-      } catch (err) {
-        setPayment({
-          kind: 'error',
-          message: `We verified you, but saving your family hit a snag: ${err instanceof Error ? err.message : 'Unknown error'}. Nothing was saved — you can try again.`,
-        })
-      }
+      await onVerified(verificationId, [...CONSENT_SECTION_KEYS])
+      setStep(5)
     },
     [onVerified],
   )
@@ -207,11 +199,10 @@ export function CoppaConsentFlow({
             childNames={childNames}
             affirmed={affirmed}
             onAffirm={setAffirmed}
-            payment={payment}
-            setPayment={setPayment}
+            betaInterimEligible={betaInterimEligible}
             onBack={() => setStep(3)}
             onVerificationResolved={handleVerificationResolved}
-            busy={busy}
+            onBusyChange={setBusy}
           />
         )}
 
@@ -377,135 +368,62 @@ function StepFooter({
   )
 }
 
-/* ── Screen 5: affirmation + $1 verification charge ──────────────────────── */
+/* ── Screen 5: affirmation + verification (real $1 charge, or the
+   BETA-COHORT interim ack) ─────────────────────────────────────────────── */
 
 function VerificationStep({
   template,
   childNames,
   affirmed,
   onAffirm,
-  payment,
-  setPayment,
+  betaInterimEligible,
   onBack,
   onVerificationResolved,
-  busy,
+  onBusyChange,
 }: {
   template: CoppaConsentTemplate
   childNames: string[]
   affirmed: boolean
   onAffirm: (v: boolean) => void
-  payment: PaymentPhase
-  setPayment: (p: PaymentPhase) => void
+  betaInterimEligible: boolean
   onBack: () => void
   onVerificationResolved: (verificationId: string) => Promise<void>
-  busy: boolean
+  onBusyChange: (busy: boolean) => void
 }) {
-  const elementsRef = useRef<StripeElements | null>(null)
-  const stripeRef = useRef<StripeJs | null>(null)
-  const paymentIntentIdRef = useRef<string | null>(null)
-  const mountNodeRef = useRef<HTMLDivElement>(null)
-  const setupStartedRef = useRef(false)
-  const [retryNonce, setRetryNonce] = useState(0)
+  // Always called (rules of hooks) — its internal effect only ever fires
+  // when armed, i.e. on the real-charge path with the affirmation checked.
+  // While betaInterimEligible is true, `armed` is always false and this
+  // hook stays fully inert.
+  const stripe = useStripeVerificationPayment({
+    armed: affirmed && !betaInterimEligible,
+    onVerificationResolved,
+  })
 
-  const keyMissing = !STRIPE_PUBLISHABLE_KEY
+  const [interimPhase, setInterimPhase] = useState<'idle' | 'submitting' | 'error'>('idle')
+  const [interimError, setInterimError] = useState<string | null>(null)
 
-  // Create the PaymentIntent + mount the Payment Element once the
-  // affirmation is checked (charge is the LAST commitment step — the
-  // intent itself charges nothing until confirmed).
-  useEffect(() => {
-    if (!affirmed || keyMissing || setupStartedRef.current) return
-    setupStartedRef.current = true
-    let cancelled = false
-
-    async function setup() {
-      setPayment({ kind: 'creating_intent' })
-      try {
-        const { data, error } = await supabase.functions.invoke('create-coppa-verification-intent', {
-          body: {},
-        })
-        if (cancelled) return
-        if (error) throw new Error(error.message ?? 'Could not start verification')
-        if (data?.error) {
-          throw new Error(data.message ?? data.error)
-        }
-        if (data?.already_verified && data?.verification_id) {
-          // Verified in a previous session — no new charge. Proceed
-          // straight to the commit.
-          await onVerificationResolved(data.verification_id as string)
-          return
-        }
-        const clientSecret = data?.client_secret as string | undefined
-        const paymentIntentId = data?.payment_intent_id as string | undefined
-        if (!clientSecret || !paymentIntentId) throw new Error('Verification service returned an unexpected response')
-        paymentIntentIdRef.current = paymentIntentId
-
-        const stripe = await getStripe()
-        if (cancelled) return
-        if (!stripe) throw new Error('Payment form could not load')
-        stripeRef.current = stripe
-
-        const rootStyle = getComputedStyle(document.documentElement)
-        const elements = stripe.elements({
-          clientSecret,
-          appearance: {
-            theme: 'stripe',
-            variables: {
-              colorPrimary: rootStyle.getPropertyValue('--color-btn-primary-bg').trim() || undefined,
-            },
-          },
-        })
-        elementsRef.current = elements
-        const paymentElement = elements.create('payment')
-        if (mountNodeRef.current) {
-          paymentElement.mount(mountNodeRef.current)
-          setPayment({ kind: 'ready' })
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setupStartedRef.current = false
-          setPayment({ kind: 'error', message: err instanceof Error ? err.message : 'Could not start verification' })
-        }
-      }
+  async function handleInterimContinue() {
+    setInterimPhase('submitting')
+    setInterimError(null)
+    try {
+      const result = await createBetaInterimVerification()
+      await onVerificationResolved(result.verification_id)
+      setInterimPhase('idle')
+    } catch (err) {
+      setInterimPhase('error')
+      setInterimError(
+        `We recorded your interim verification, but saving hit a snag: ${err instanceof Error ? err.message : 'Unknown error'}. Nothing was saved — you can try again.`,
+      )
     }
-    void setup()
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [affirmed, keyMissing, retryNonce])
-
-  async function handleVerify() {
-    const stripe = stripeRef.current
-    const elements = elementsRef.current
-    const paymentIntentId = paymentIntentIdRef.current
-    if (!stripe || !elements || !paymentIntentId) return
-
-    setPayment({ kind: 'confirming' })
-    const { error } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-    })
-    if (error) {
-      setPayment({
-        kind: 'error',
-        message:
-          'We couldn’t process that verification charge. Please check your card details and try again, or use a different card.',
-      })
-      // Re-arm: keep the mounted element so mom can fix the card and retry.
-      setTimeout(() => setPayment({ kind: 'ready' }), 4000)
-      return
-    }
-
-    // Charge succeeded — now wait for the WEBHOOK-written verification row
-    // (R-13: the client never asserts verification; it observes it).
-    setPayment({ kind: 'polling' })
-    const verification = await pollForVerification(paymentIntentId)
-    if (!verification) {
-      setPayment({ kind: 'webhook_lag' })
-      return
-    }
-    await onVerificationResolved(verification.id)
   }
+
+  const busy = betaInterimEligible
+    ? interimPhase === 'submitting'
+    : stripe.payment.kind === 'confirming' || stripe.payment.kind === 'polling' || stripe.payment.kind === 'committing'
+
+  useEffect(() => {
+    onBusyChange(busy)
+  }, [busy, onBusyChange])
 
   return (
     <div className="space-y-4">
@@ -540,6 +458,37 @@ function VerificationStep({
         </span>
       </label>
 
+      {betaInterimEligible ? (
+        <BetaInterimPanel
+          affirmed={affirmed}
+          phase={interimPhase}
+          error={interimError}
+          onContinue={handleInterimContinue}
+          onBack={onBack}
+        />
+      ) : (
+        <RealStripeVerificationPanel affirmed={affirmed} stripe={stripe} onBack={onBack} />
+      )}
+    </div>
+  )
+}
+
+/* ── Screen 5, real-charge branch ─────────────────────────────────────────── */
+
+function RealStripeVerificationPanel({
+  affirmed,
+  stripe,
+  onBack,
+}: {
+  affirmed: boolean
+  stripe: ReturnType<typeof useStripeVerificationPayment>
+  onBack: () => void
+}) {
+  const { payment, keyMissing, mountNodeRef, handleVerify, retry } = stripe
+  const busy = payment.kind === 'confirming' || payment.kind === 'polling' || payment.kind === 'committing'
+
+  return (
+    <>
       {keyMissing ? (
         <div
           className="rounded-xl p-4 flex items-start gap-3"
@@ -576,16 +525,14 @@ function VerificationStep({
           style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-error, var(--color-text-primary))' }}
         >
           <p>{payment.message}</p>
-          {!elementsRef.current && (
-            <button
-              type="button"
-              onClick={() => setRetryNonce((n) => n + 1)}
-              className="underline text-sm font-medium"
-              style={{ color: 'var(--color-btn-primary-bg)' }}
-            >
-              Try again
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={retry}
+            className="underline text-sm font-medium"
+            style={{ color: 'var(--color-btn-primary-bg)' }}
+          >
+            Try again
+          </button>
         </div>
       )}
 
@@ -639,7 +586,83 @@ function VerificationStep({
           Verify &amp; Continue &rarr;
         </button>
       </div>
-    </div>
+    </>
+  )
+}
+
+/* ── Screen 5, BETA-COHORT interim branch (PRD-40 §9) ────────────────────── */
+
+function BetaInterimPanel({
+  affirmed,
+  phase,
+  error,
+  onContinue,
+  onBack,
+}: {
+  affirmed: boolean
+  phase: 'idle' | 'submitting' | 'error'
+  error: string | null
+  onContinue: () => void
+  onBack: () => void
+}) {
+  const busy = phase === 'submitting'
+
+  return (
+    <>
+      <div
+        className="rounded-xl p-4 flex items-start gap-3"
+        style={{ backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
+      >
+        <Clock size={18} style={{ color: 'var(--color-text-secondary)', flexShrink: 0, marginTop: 2 }} />
+        <p className="text-sm leading-relaxed" style={{ color: 'var(--color-text-primary)' }}>
+          You&rsquo;re one of our founding beta families, so there&rsquo;s no card charge right
+          now. We&rsquo;ll ask you to verify your identity with a quick $1.00 card check once we
+          go fully live — until then, this acknowledgment is what confirms your consent.
+        </p>
+      </div>
+
+      {phase === 'error' && error && (
+        <p
+          className="text-sm p-3 rounded-lg"
+          role="alert"
+          style={{ backgroundColor: 'var(--color-bg-secondary)', color: 'var(--color-error, var(--color-text-primary))' }}
+        >
+          {error}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <button
+          type="button"
+          onClick={onBack}
+          disabled={busy}
+          className="px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+          style={{
+            backgroundColor: 'var(--color-bg-card)',
+            border: '1px solid var(--color-border)',
+            color: 'var(--color-text-secondary)',
+            minHeight: 'var(--touch-target-min, 44px)',
+          }}
+        >
+          &larr; Back
+        </button>
+        <button
+          type="button"
+          data-testid="coppa-interim-continue"
+          onClick={onContinue}
+          disabled={!affirmed || busy}
+          className="px-5 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+          style={{
+            background: 'var(--surface-primary)',
+            color: 'var(--color-text-on-primary)',
+            minHeight: 'var(--touch-target-min, 44px)',
+          }}
+        >
+          {busy && <Loader size={16} className="animate-spin" />}
+          Continue &rarr;
+        </button>
+      </div>
+    </>
   )
 }
 

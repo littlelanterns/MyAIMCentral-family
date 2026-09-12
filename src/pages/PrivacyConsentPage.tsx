@@ -10,23 +10,29 @@
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ShieldCheck, Clock, Download, RotateCcw, AlertTriangle, Loader, ChevronDown } from 'lucide-react'
 import { useViewAs } from '@/lib/permissions/ViewAsProvider'
 import { useRoutingToast } from '@/components/shared/RoutingToastProvider'
 import {
   useParentVerification, useCoppaConsentRecords, useUndoCoppaRevocation,
+  useBetaCohortMode, needsFinishVerifying,
   requestChildDataExport, type CoppaConsentRecord,
 } from '@/lib/coppa/useCoppaGate'
 import { BRACKET_LABELS } from '@/lib/coppa/brackets'
 import { CoppaRevocationModal } from '@/components/coppa/CoppaRevocationModal'
 import { ConsentReplayModal } from '@/components/coppa/ConsentReplayModal'
+import { FinishVerifyingModal } from '@/components/coppa/FinishVerifyingModal'
 import { FeatureGuide } from '@/components/shared/FeatureGuide'
 
 export function PrivacyConsentPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { isViewingAs } = useViewAs()
   const { data: verification } = useParentVerification()
+  const { data: betaCohortMode } = useBetaCohortMode()
   const { data: records = [], isLoading } = useCoppaConsentRecords()
+  const [finishVerifyingOpen, setFinishVerifyingOpen] = useState(false)
   // Revocation modal lives at PAGE level, not nested inside ActiveRow — found
   // live during the Convention #277 eyes-on tour (2026-08-24): the moment
   // revoke_coppa_consent succeeds, the query invalidates and the record
@@ -82,7 +88,34 @@ export function PrivacyConsentPage() {
         ) : (
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>No verification on file yet.</p>
         )}
+        {/* BETA-COHORT (PRD-40 §9.3): appears only once mom's ONLY active
+            verification is beta_interim AND the switch has flipped off. */}
+        {needsFinishVerifying(verification, betaCohortMode) && (
+          <div className="mt-3 pt-3 flex items-center justify-between gap-3 flex-wrap" style={{ borderTop: '1px solid var(--color-border)' }}>
+            <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+              Your beta verification is on file — finish with a quick $1.00 card check whenever
+              you&rsquo;re ready.
+            </p>
+            <button
+              type="button"
+              data-testid="coppa-finish-verifying-open"
+              onClick={() => setFinishVerifyingOpen(true)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium shrink-0"
+              style={{ background: 'var(--surface-primary)', color: 'var(--color-text-on-primary)', border: 'none' }}
+            >
+              Finish verifying
+            </button>
+          </div>
+        )}
       </div>
+
+      <FinishVerifyingModal
+        isOpen={finishVerifyingOpen}
+        onClose={() => setFinishVerifyingOpen(false)}
+        onVerified={() => {
+          queryClient.invalidateQueries({ queryKey: ['coppa-parent-verification'] })
+        }}
+      />
 
       {isLoading && (
         <div className="flex items-center justify-center py-8">
