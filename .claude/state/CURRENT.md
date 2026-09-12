@@ -1,4 +1,30 @@
-# Current State — 2026-09-11 (STUDIO ST-B CLOSED; seat handoff to Fable 5.1 complete; next: PRD-31 Slice 2)
+# Current State — 2026-09-12 (PRD-31 SLICE 2 CLOSED `5fbaa28`; ST-C in proof; next: ST-C commit → ST-C.2 → PRD-31 Slice 3)
+
+## 2026-09-12 — PRD-31 SLICE 2 (Stripe subscriptions) CLOSED — commit `5fbaa28`, pushed
+
+Two lanes ran in parallel (Slice 2 + STUDIO ST-C), zero file overlap, serialized by the seat.
+Slice 2: TEST-mode products/prices from the live seeds, checkout with SOFT founding cap +
+founder-minted codes, five subscription events in the ONE webhook handler, upgrade/downgrade/
+portal, 14-day founding-grace sweep, `price_adjustment_kind` scholarship-ready. Migrations
+100334/100336/100337 applied. Proof 27/27 + 9/9 (worker + seat pin), rls-verifier 72/72 zero
+gaps, residue 0. **Infra fix:** the TEST webhook endpoint's signing secret had drifted since
+2026-07-10 (real secret was never written to `.env.local`); seat rolled the endpoint
+(`we_1UEcgP1sr0dYTFXI2QnuLQiF`, 7 events), synced Supabase secret + `.env.local` on founder
+word (digests match). **Permissions:** founder asked for fewer prompts — user-level
+`defaultMode: auto` set; VS Code windows need the mode indicator set to Auto once each; two
+allow-list entries embedding the service-role key in plain text were REMOVED from
+`~/.claude/settings.json` — **rotating that key is an open founder decision** (touches every
+deployed function). **Observation for Slice 5:** `family_subscriptions` reads are
+primary-parent-only (pre-existing policy).
+
+**ST-C (Studio Drafts v2) status:** code complete; migrations 100333 (wizard_drafts) + 100335
+(write-gates regen, 270 gates) APPLIED; founder ACCEPTED the two disclosed gaps
+(SequentialCreatorModal + TaskCreationModal routine drafts) as a follow-up **ST-C.2**; suite
+slot relayed, awaiting proof (6 draft tests + shelf-truth 16 + tour). Then referee → commit.
+
+**Queue after ST-C:** ST-C.2 (routine-modal drafts) · PRD-31 Slice 3 (credits + metering) ·
+STUDIO ST-D. Founder-owned: attorney package, virtual mailbox, kid-tablet PECON feel-pass,
+voice-UX trio, **service-role key rotation decision**.
 
 ## 2026-09-11 — STUDIO ST-B (NLC v2) CLOSED — commit `820c40b`, pushed
 

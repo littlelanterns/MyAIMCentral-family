@@ -1,7 +1,24 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-09-11 (STUDIO ST-B NLC v2).
+> Updated each build session. Last updated: 2026-09-12 (PRD-31 Slice 2 Stripe subscriptions).
+
+## PRD-31 Slice 2 — Stripe Subscriptions + Founding Program (2026-09-12, commit `5fbaa28`)
+
+The money pipeline, end to end in Stripe TEST mode. Full record: `.claude/rules/current-builds/PRD-31-subscriptions.md` → 2026-09-11 progress-log entries. Live keys remain a launch gate.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Stripe Products/Prices from the live tier seeds | `scripts/stripe-setup-subscription-products.ts` (idempotent, TEST mode); ids persisted on `subscription_tiers` | **Wired** | 3 products, 6 prices; Creator (inactive) skipped |
+| Checkout (mom-only) with soft founding cap + founding codes | `create-subscription-checkout`: founding price if organic count < 100 OR a valid code at session-creation time; webhook honors the session's price unconditionally | **Wired** | Ruling 2026-09-11 §1–2 |
+| Five subscription events in the ONE webhook handler | `stripe-webhook-handler` registry (`checkout.session.completed`, `customer.subscription.updated/deleted`, `invoice.paid`, `invoice.payment_failed`, purpose `subscription`); `family_subscriptions` written by the webhook only | **Wired** | 27/27 + 9/9 COPPA regression on the shared handler |
+| Upgrade now / downgrade at period end / Customer Portal | `create-subscription-change` (prorations + Subscription Schedule), `create-subscription-portal-session` | **Wired** | |
+| Founding codes (mint/list staff-gated, redeem service-role-only, single-use) | `founding_codes` (zero client policies), `mint_founding_code`/`list_founding_codes`/`redeem_founding_code` | **Wired** | Minting UI = Slice 6; seat mints on founder's word until then |
+| Public founding counter | `get_founding_family_count()` excludes `is_test_family` + code-granted families, clamps at 100 | **Wired** | Testworth flagged `is_test_family=true` |
+| 14-day founding-grace loss | `subscription-founding-grace-sweep` cron + `public.sweep_expired_founding_grace()` wrapper | **Wired** | rls-verifier proved a real revocation, rolled back |
+| Scholarship forward-design | `family_subscriptions.price_adjustment_kind` (founding / founding_code / scholarship) | **Wired (schema only)** | Amounts TBD from real cost data (ruling §3) |
+| Billing rows readable by co-parents/kids | `family_subscriptions` SELECT is `primary_parent_id = auth.uid()` only (pre-existing) | **Observation** | rls-verifier 2026-09-12; Slice 5 screens must plan for mom-only reads |
+| Screens (plan comparison, credit packs, cancellation), gating switch, live keys | — | Stub (Slices 4–5 + launch gate) | Building ≠ activating (Convention #10) |
 
 ## STUDIO-EXPERIENCE ST-B — Natural Language Composition v2 (2026-09-11, commit `820c40b`)
 

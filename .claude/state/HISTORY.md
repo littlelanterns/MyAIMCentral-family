@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-09-12 — PRD-31 Slice 2 (Stripe Subscriptions + Founding Program) CLOSED
+
+**Type:** Feature slice (billing plumbing) + founder rulings 2026-09-11 encoded
+**Scope:** Stripe TEST-mode products/prices from live seeds; mom-only checkout with soft founding cap + one-time founding codes; five subscription events in the existing purpose-routed webhook handler; upgrade-now/downgrade-at-period-end + Customer Portal; 14-day founding-grace sweep; `price_adjustment_kind` scholarship-ready. Migrations 100334/100336/100337.
+**Commit:** `5fbaa28` (13 files, seat-staged, ST-C files excluded).
+**Proof:** subscription-tiers 27/27 · coppa-stripe-foundation 9/9 (worker + seat) · rls-verifier 72/72 zero gaps · residue 0 (time-window + name-matched; 4 accepted-class webhook rows swept by provenance).
+**Found and fixed during proof:** minted_by NOT NULL vs service-role minting (100336); util-schema RPC unreachable from PostgREST (100337 wrapper); Subscription Schedule phase drift (product); 4 test-file defects; TEST webhook secret drift since 2026-07-10 (endpoint rolled, both sides synced).
+**Parallel lane:** STUDIO ST-C built alongside with zero overlap; its two disclosed gaps accepted as ST-C.2.
+**Next:** ST-C proof + commit → ST-C.2 → PRD-31 Slice 3.
+
 ## 2026-09-11 — STUDIO-EXPERIENCE ST-B (NLC v2) CLOSED
 
 **Type:** Feature slice (Convention #253 front door) + proof-driven defect sweep
