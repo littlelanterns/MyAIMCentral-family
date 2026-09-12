@@ -12,13 +12,13 @@
  * PRD-24B sequential/gradual/random strategies are roadmap — see SCOPE-2.F62.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import {
   Star, Palette, Trophy,
   Plus, Trash2,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
-import { useWizardDraft } from './useWizardDraft'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { isChildMember } from '@/lib/members/isChildMember'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useCreateWidget } from '@/hooks/useWidgets'
@@ -170,14 +170,19 @@ export function RepeatedActionChartWizard({
   const [state, setState] = useState<WizardState>({ ...INITIAL_STATE, ...initialState })
   const [deployed, setDeployed] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
-  const stateRef = useRef(state)
-  stateRef.current = state
 
-  const { draft, saveDraft, clearDraft } = useWizardDraft<WizardState>(
-    'repeated_action_chart',
+  const draftChrome = useWizardDraftChrome<WizardState>({
+    wizardType: 'repeated_action_chart',
     familyId,
-  )
-  const draftRestored = useRef(false)
+    memberId,
+    isOpen,
+    state,
+    setState,
+    getTitle: () => state.chartName || 'Untitled Progress Chart',
+    hasContent: () => !!(state.chartName || state.actionTaskName),
+    skipReopenPrompt: !!initialState,
+    onRealClose: onClose,
+  })
 
   const createWidget = useCreateWidget()
   const createColoringReveal = useCreateColoringReveal()
@@ -192,31 +197,17 @@ export function RepeatedActionChartWizard({
   // not adults and Special Adults (2026-07-04 visual-pass finding).
   const childMembers = familyMembers.filter(isChildMember)
 
-  // Restore draft on mount
-  useEffect(() => {
-    if (draft && !draftRestored.current && !initialState) {
-      setState(draft)
-      draftRestored.current = true
-    }
-  }, [draft, initialState])
-
-  // Auto-save draft on step change and on meaningful content change
-  const draftTitle = state.chartName || 'Untitled Progress Chart'
-  useEffect(() => {
-    if (deployed || !isOpen) return
-    if (state.chartName || state.actionTaskName) {
-      saveDraft(state, draftTitle)
-    }
-  }, [step, state.chartName, state.actionTaskName]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset on close
+  // Reset on close (defensive — Studio.tsx fully unmounts this component on
+  // close today, so this rarely fires, but keeps the wizard correct for any
+  // caller that keeps it mounted while toggling isOpen).
   useEffect(() => {
     if (!isOpen) {
       setState({ ...INITIAL_STATE, ...initialState })
       setStep(initialStepIdx)
       setDeployed(false)
-      draftRestored.current = false
+      draftChrome.resetForNextOpen()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialState, initialStepIdx])
 
   // ── Handlers ──────────────────────────────────────────────────
@@ -458,7 +449,7 @@ export function RepeatedActionChartWizard({
         }
       }
 
-      clearDraft()
+      draftChrome.onDeploySuccess()
       setDeployed(true)
       qc.invalidateQueries({ queryKey: ['contracts'] })
     } catch (err) {
@@ -469,21 +460,16 @@ export function RepeatedActionChartWizard({
   }, [
     state, familyId, memberId, familyMembers,
     createWidget, createColoringReveal, coloringLibrary,
-    clearDraft, qc,
+    draftChrome, qc,
   ])
 
   // ── Close handling ────────────────────────────────────────────
+  // Deployed success has nothing left to draft — the Done button below
+  // calls onClose directly. Any other close (X, backdrop, Escape, Cancel)
+  // routes through the chrome's requestClose, which shows the save/discard
+  // prompt when there's anything worth asking about.
 
-  const handleClose = useCallback(() => {
-    if (deployed) {
-      onClose()
-      return
-    }
-    const cur = stateRef.current
-    const title = cur.chartName || 'Untitled Progress Chart'
-    saveDraft(cur, title)
-    onClose()
-  }, [deployed, saveDraft, onClose])
+  const handleClose = draftChrome.requestClose
 
   // ── Step validation ───────────────────────────────────────────
 
@@ -990,6 +976,7 @@ export function RepeatedActionChartWizard({
       canFinish={canFinish}
       isFinishing={isDeploying}
       hideNav={deployed}
+      draftChrome={deployed ? undefined : draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

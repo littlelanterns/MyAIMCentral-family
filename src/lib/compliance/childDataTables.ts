@@ -97,6 +97,7 @@ export const CHILD_DATA_TABLES: ChildDataTableEntry[] = [
   { table: 'journal_visibility_settings', memberColumns: ['child_member_id', 'parent_member_id'], classification: 'hard_delete',
     notes: 'Keyed on child_member_id — visibility config specific to this child-parent pair.' },
   { table: 'notepad_tabs', memberColumns: ['member_id'], classification: 'hard_delete', notes: 'The child’s own Smart Notepad tabs.' },
+  { table: 'wizard_drafts', memberColumns: ['member_id'], classification: 'hard_delete', notes: 'STUDIO-EXPERIENCE ST-C: the child’s (or granted-adult’s) own in-progress Studio wizard state. Pre-primitive content — unlike wizard_templates (scrub-only, since a deployed template is already a family asset), a draft that never deployed belongs to the departing member alone.' },
   { table: 'notepad_routing_stats', memberColumns: ['member_id'], classification: 'hard_delete', notes: 'Per-member routing frequency stats.' },
   { table: 'reflection_prompts', memberColumns: ['member_id'], classification: 'hard_delete', notes: 'The child’s own reflection prompt set.' },
   { table: 'reflection_responses', memberColumns: ['member_id'], classification: 'hard_delete', notes: 'The child’s own reflection answers.' },

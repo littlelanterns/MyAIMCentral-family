@@ -235,7 +235,12 @@ export function ListsPage() {
           .eq('id', templateParam)
           .single()
           .then(({ data: tpl }) => {
-            if (tpl?.title) setCreateTitle(tpl.title as string)
+            // Non-destructive prefill (STUDIO-EXPERIENCE ST-C, seat ruling
+            // 2026-09-12): this fetch is unawaited and resolves after the
+            // "Creating from template" banner is already visible, so a
+            // title mom (or a fast test) already typed must never be
+            // clobbered by the async default arriving late.
+            if (tpl?.title) setCreateTitle(prev => (prev && prev.trim() ? prev : (tpl.title as string)))
           })
       }
       setSearchParams({}, { replace: true })

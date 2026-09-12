@@ -8,7 +8,9 @@
 
 import { type ReactNode } from 'react'
 import { ModalV2 } from '@/components/shared/ModalV2'
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Save } from 'lucide-react'
+import { WizardDraftReopenPrompt, WizardDraftClosePrompt } from './WizardDraftPrompts'
+import type { WizardDraftChromeProps } from './useWizardDraftChrome'
 
 export interface WizardStep {
   key: string
@@ -33,6 +35,14 @@ interface SetupWizardProps {
   canFinish?: boolean
   isFinishing?: boolean
   hideNav?: boolean
+  /**
+   * STUDIO-EXPERIENCE ST-C — the full save-and-return chrome (reopen
+   * prompt, close-confirm prompt, "Save & Come Back" footer button). Pass
+   * the `chromeProps` from `useWizardDraftChrome()` and pass that hook's
+   * `requestClose` as this component's `onClose` — SetupWizard renders
+   * everything else. Omit for wizards that don't opt into drafts yet.
+   */
+  draftChrome?: WizardDraftChromeProps
 }
 
 export function SetupWizard({
@@ -52,12 +62,14 @@ export function SetupWizard({
   canFinish = true,
   isFinishing = false,
   hideNav = false,
+  draftChrome,
 }: SetupWizardProps) {
   const isFirst = currentStep === 0
   const isLast = currentStep === steps.length - 1
   const step = steps[currentStep]
 
   return (
+    <>
     <ModalV2
       id={id}
       isOpen={isOpen}
@@ -86,6 +98,22 @@ export function SetupWizard({
                 </>
               )}
             </button>
+
+            {draftChrome && (
+              <button
+                onClick={draftChrome.onSaveAndComeBack}
+                disabled={draftChrome.isSavingDraft}
+                data-testid="wizard-save-and-come-back"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                style={{ color: 'var(--color-text-muted)' }}
+                title="Save & Come Back"
+              >
+                <Save size={14} />
+                <span className="hidden sm:inline">
+                  {draftChrome.isSavingDraft ? 'Saving…' : 'Save & Come Back'}
+                </span>
+              </button>
+            )}
 
             {isLast ? (
               <button
@@ -187,5 +215,24 @@ export function SetupWizard({
         {children}
       </div>
     </ModalV2>
+
+    {draftChrome && (
+      <>
+        <WizardDraftReopenPrompt
+          isOpen={draftChrome.showReopenPrompt}
+          drafts={draftChrome.pendingDrafts}
+          onContinue={draftChrome.onContinueDraft}
+          onStartFresh={draftChrome.onStartFresh}
+        />
+        <WizardDraftClosePrompt
+          isOpen={draftChrome.showClosePrompt}
+          isSaving={draftChrome.isSavingDraft}
+          onSaveAndClose={draftChrome.onConfirmSaveAndClose}
+          onDiscardAndClose={draftChrome.onConfirmDiscardAndClose}
+          onKeepWorking={draftChrome.onCancelClosePrompt}
+        />
+      </>
+    )}
+    </>
   )
 }

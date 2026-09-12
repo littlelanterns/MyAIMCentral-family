@@ -946,6 +946,13 @@ BEGIN
     EXECUTE 'DROP POLICY IF EXISTS coppa_write_gate_upd ON public.widget_templates';
   END IF;
 END $do$;
+DO $do$
+BEGIN
+  IF to_regclass('public.wizard_drafts') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS coppa_write_gate_ins ON public.wizard_drafts';
+    EXECUTE 'DROP POLICY IF EXISTS coppa_write_gate_upd ON public.wizard_drafts';
+  END IF;
+END $do$;
 
 DO $verify$
 DECLARE v_left INTEGER;

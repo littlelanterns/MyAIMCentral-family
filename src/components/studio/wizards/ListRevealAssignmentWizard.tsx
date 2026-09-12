@@ -20,7 +20,7 @@ import {
   Users, Zap, Gift, ClipboardList, Film,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
-import { useWizardDraft } from './useWizardDraft'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import type { RevealAttachmentConfig } from '@/components/reward-reveals/AttachRevealSection'
 import { useRevealAnimations, useCreateRewardReveal, useAttachReveal } from '@/hooks/useRewardReveals'
@@ -412,8 +412,6 @@ export function ListRevealAssignmentWizard({
   const [deployed, setDeployed] = useState(false)
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployError, setDeployError] = useState('')
-  const stateRef = useRef(state)
-  stateRef.current = state
 
   // AI suggestions
   const [aiSuggestions, setAiSuggestions] = useState<ListItemDraft[]>([])
@@ -426,13 +424,20 @@ export function ListRevealAssignmentWizard({
   const [isBulkParsing, setIsBulkParsing] = useState(false)
   const [showBulkInput, setShowBulkInput] = useState(false)
 
-  // Draft persistence
-  const { draft, saveDraft, clearDraft } = useWizardDraft<WizardState>(
-    'list_reveal_assignment',
-    familyId,
-  )
-  const draftRestored = useRef(false)
+  // Draft persistence (STUDIO-EXPERIENCE ST-C — server-backed)
   const preFillApplied = useRef(false)
+  const draftChrome = useWizardDraftChrome<WizardState>({
+    wizardType: 'list_reveal_assignment',
+    familyId,
+    memberId,
+    isOpen,
+    state,
+    setState,
+    getTitle: () => state.listName || 'Untitled List',
+    hasContent: () => !!(state.listName || state.items.length > 0),
+    skipReopenPrompt: !!preFill,
+    onRealClose: onClose,
+  })
 
   // Reveal animations for draw picker
   const { data: revealAnimations = [] } = useRevealAnimations()
@@ -460,7 +465,10 @@ export function ListRevealAssignmentWizard({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   )
 
-  // Restore draft on mount (lower priority than preFill)
+  // Apply preFill on mount (takes priority over any restored draft — an
+  // explicit caller intent, e.g. NLC or "Use as-is", should never be
+  // interrupted by a stale draft; useWizardDraftChrome's skipReopenPrompt
+  // above already prevents the reopen-prompt from firing in that case).
   useEffect(() => {
     if (preFill && !preFillApplied.current) {
       setState({
@@ -483,23 +491,8 @@ export function ListRevealAssignmentWizard({
         ? flavorSteps.findIndex((s) => s.key === startAtStepKey)
         : -1
       setStep(targetIdx > 0 ? targetIdx : 1)
-      return
     }
-    if (draft && !draftRestored.current && !preFill) {
-      setState(draft)
-      draftRestored.current = true
-    }
-  }, [draft, preFill, startAtStepKey])
-
-  // Auto-save draft on step change and on meaningful content change
-  const draftTitle = state.listName || 'Untitled List'
-  const itemCount = state.items.length
-  useEffect(() => {
-    if (deployed || !isOpen) return
-    if (state.listName || itemCount > 0) {
-      saveDraft(state, draftTitle)
-    }
-  }, [step, state.listName, itemCount]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [preFill, startAtStepKey])
 
   // ── Item handlers ────────────────────────────────────────────
 
@@ -982,7 +975,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
       queryClient.invalidateQueries({ queryKey: ['lists', familyId] })
       queryClient.invalidateQueries({ queryKey: ['reward-reveal-attachments', 'list', listId] })
 
-      clearDraft()
+      draftChrome.onDeploySuccess()
       setDeployed(true)
     } catch (err) {
       console.error('Wizard deploy failed:', err)
@@ -990,20 +983,13 @@ Return ONLY a JSON array. No markdown, no preamble.`
     } finally {
       setIsDeploying(false)
     }
-  }, [state, familyId, memberId, childMembers, createRewardReveal, attachReveal, shareList, clearDraft, queryClient])
+  }, [state, familyId, memberId, childMembers, createRewardReveal, attachReveal, shareList, draftChrome, queryClient])
 
   // ── Close handling ───────────────────────────────────────────
+  // Deployed has nothing left to draft — the Done button calls onClose
+  // directly. Any other close routes through the chrome's requestClose.
 
-  const handleClose = useCallback(() => {
-    if (deployed) {
-      onClose()
-      return
-    }
-    const cur = stateRef.current
-    const title = cur.listName || 'Untitled List'
-    saveDraft(cur, title)
-    onClose()
-  }, [deployed, saveDraft, onClose])
+  const handleClose = draftChrome.requestClose
 
   // Reset on close
   useEffect(() => {
@@ -1015,9 +1001,10 @@ Return ONLY a JSON array. No markdown, no preamble.`
       setAiSuggestions([])
       setAiSelectedIds(new Set())
       setAiError('')
-      draftRestored.current = false
       preFillApplied.current = false
+      draftChrome.resetForNextOpen()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   // ── Validation ───────────────────────────────────────────────
@@ -2073,6 +2060,7 @@ Return ONLY a JSON array. No markdown, no preamble.`
       canFinish={canFinish}
       isFinishing={isDeploying}
       hideNav={deployed}
+      draftChrome={deployed ? undefined : draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

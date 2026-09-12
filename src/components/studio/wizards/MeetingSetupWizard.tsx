@@ -19,6 +19,7 @@ import {
   UsersRound, Heart, Check, CheckCircle2,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { useUpsertMeetingSchedule } from '@/hooks/useMeetings'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase/client'
@@ -166,6 +167,45 @@ export function MeetingSetupWizard({
   const qc = useQueryClient()
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployed, setDeployed] = useState(false)
+
+  // STUDIO-EXPERIENCE ST-C — bundle the wizard's 15 scattered fields into
+  // one draft value. `hasContent` uses `step > 0` as its main signal: if
+  // mom never leaves the intro screen, closing needs no prompt.
+  const draftState = {
+    wantFamilyCouncil, councilDay, councilKidsCanAdd,
+    childRows, oneOnOneFrequency, timingMode, sameDayValue,
+    ordinalWeek, ordinalDayOfWeek, parentMode, globalLabel, customLabelText,
+    wantCouple, coupleDay, coupleFrequency,
+  }
+  const applyDraftState = useCallback((next: typeof draftState) => {
+    setWantFamilyCouncil(next.wantFamilyCouncil)
+    setCouncilDay(next.councilDay)
+    setCouncilKidsCanAdd(next.councilKidsCanAdd)
+    setChildRows(next.childRows)
+    setOneOnOneFrequency(next.oneOnOneFrequency)
+    setTimingMode(next.timingMode)
+    setSameDayValue(next.sameDayValue)
+    setOrdinalWeek(next.ordinalWeek)
+    setOrdinalDayOfWeek(next.ordinalDayOfWeek)
+    setParentMode(next.parentMode)
+    setGlobalLabel(next.globalLabel)
+    setCustomLabelText(next.customLabelText)
+    setWantCouple(next.wantCouple)
+    setCoupleDay(next.coupleDay)
+    setCoupleFrequency(next.coupleFrequency)
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<typeof draftState>({
+    wizardType: 'meeting_setup',
+    familyId,
+    memberId,
+    isOpen,
+    state: draftState,
+    setState: applyDraftState,
+    getTitle: () => 'Family Meetings Setup',
+    hasContent: () => step > 0 || wantFamilyCouncil || wantCouple,
+    onRealClose: onClose,
+  })
 
   // ── Helpers ──
 
@@ -489,6 +529,7 @@ export function MeetingSetupWizard({
       await Promise.all(schedulePromises)
       qc.invalidateQueries({ queryKey: ['meeting-schedules', familyId] })
       qc.invalidateQueries({ queryKey: ['calendar-events'] })
+      draftChrome.onDeploySuccess()
       setDeployed(true)
     } catch (err) {
       console.error('[MeetingSetupWizard] Deploy failed:', err)
@@ -604,7 +645,7 @@ export function MeetingSetupWizard({
     <SetupWizard
       id="meeting-setup-wizard"
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={deployed ? onClose : draftChrome.requestClose}
       title="Set Up Family Meetings"
       subtitle="Let's build your rhythm of connection"
       steps={steps}
@@ -617,6 +658,7 @@ export function MeetingSetupWizard({
       canFinish={!isDeploying}
       isFinishing={isDeploying}
       hideNav={deployed}
+      draftChrome={deployed ? undefined : draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

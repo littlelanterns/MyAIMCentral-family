@@ -10,6 +10,7 @@
 import { useState, useCallback } from 'react'
 import { Star, Sparkles } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { AttachRevealSection, type RevealAttachmentConfig } from '@/components/reward-reveals/AttachRevealSection'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useCreateWidget } from '@/hooks/useWidgets'
@@ -78,6 +79,33 @@ export function StarChartWizard({
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployed, setDeployed] = useState(false)
 
+  // STUDIO-EXPERIENCE ST-C — this wizard's step state is spread across
+  // individual useState calls rather than one object; the chrome hook
+  // needs a single serializable value, so `draftState` bundles them and
+  // `applyDraftState` unpacks a restored draft back into the individual
+  // setters.
+  const draftState = { chartName, assignedTo, visual, targetCount, revealConfig }
+  const applyDraftState = useCallback((next: typeof draftState) => {
+    setChartName(next.chartName)
+    setAssignedTo(next.assignedTo)
+    setVisual(next.visual)
+    setTargetCount(next.targetCount)
+    setRevealConfig(next.revealConfig)
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<typeof draftState>({
+    wizardType: 'star_chart',
+    familyId,
+    memberId,
+    isOpen,
+    state: draftState,
+    setState: applyDraftState,
+    getTitle: () => chartName || 'Untitled Star Chart',
+    hasContent: () => !!(chartName.trim() || assignedTo.length > 0),
+    skipReopenPrompt: !!(initialChartName || initialMemberIds?.length),
+    onRealClose: onClose,
+  })
+
   const reset = useCallback(() => {
     setStep(0)
     setChartName('')
@@ -87,9 +115,14 @@ export function StarChartWizard({
     setRevealConfig(null)
     setDeployed(false)
     setIsDeploying(false)
-  }, [])
+    draftChrome.resetForNextOpen()
+  }, [draftChrome])
 
-  const handleClose = useCallback(() => {
+  // Deployed has nothing left to draft — the deployed-success screen's Done
+  // button (below) resets and closes directly, bypassing the save/discard
+  // prompt. Any other close (X, backdrop, Escape, Cancel) goes through
+  // draftChrome.requestClose, wired directly on the main SetupWizard render.
+  const handleDeployedDone = useCallback(() => {
     reset()
     onClose()
   }, [reset, onClose])
@@ -127,13 +160,14 @@ export function StarChartWizard({
 
         await createWidget.mutateAsync(widget)
       }
+      draftChrome.onDeploySuccess()
       setDeployed(true)
     } catch (err) {
       console.error('[StarChartWizard] Deploy failed:', err)
     } finally {
       setIsDeploying(false)
     }
-  }, [isDeploying, assignedTo, chartName, familyMembers, familyId, visual, targetCount, revealConfig, memberId, createWidget])
+  }, [isDeploying, assignedTo, chartName, familyMembers, familyId, visual, targetCount, revealConfig, memberId, createWidget, draftChrome])
 
   const activeMembers = familyMembers.filter(m => m.is_active !== false)
 
@@ -143,13 +177,13 @@ export function StarChartWizard({
       <SetupWizard
         id="star-chart-wizard"
         isOpen={isOpen}
-        onClose={handleClose}
+        onClose={handleDeployedDone}
         title="Star Chart"
         steps={STEPS}
         currentStep={STEPS.length - 1}
         onBack={() => {}}
         onNext={() => {}}
-        onFinish={handleClose}
+        onFinish={handleDeployedDone}
         finishLabel="Done"
         hideNav
       >
@@ -173,7 +207,7 @@ export function StarChartWizard({
             }
           </p>
           <button
-            onClick={handleClose}
+            onClick={handleDeployedDone}
             className="px-6 py-2 rounded-lg text-sm font-semibold"
             style={{
               backgroundColor: 'var(--color-btn-primary-bg)',
@@ -191,7 +225,7 @@ export function StarChartWizard({
     <SetupWizard
       id="star-chart-wizard"
       isOpen={isOpen}
-      onClose={handleClose}
+      onClose={draftChrome.requestClose}
       title="Star Chart Setup"
       subtitle="Create a visual progress tracker"
       steps={STEPS}
@@ -203,6 +237,7 @@ export function StarChartWizard({
       canFinish={canAdvance}
       isFinishing={isDeploying}
       finishLabel="Deploy to Dashboard"
+      draftChrome={draftChrome.chromeProps}
     >
       {/* Step 1: Name */}
       {step === 0 && (

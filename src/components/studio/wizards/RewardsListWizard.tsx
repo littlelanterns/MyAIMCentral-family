@@ -9,7 +9,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { Gift, Sparkles, Plus, Trash2, GripVertical, CheckCircle2, ClipboardList } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
-import { useWizardDraft } from './useWizardDraft'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { BulkAddWithAI, type ParsedBulkItem } from '@/components/shared/BulkAddWithAI'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useCreateList, useShareList } from '@/hooks/useLists'
@@ -259,30 +259,26 @@ export function RewardsListWizard({
   const [aiLoading, setAiLoading] = useState(false)
   const [aiError, setAiError] = useState('')
 
-  // Draft persistence
-  const { draft, saveDraft, clearDraft } = useWizardDraft<WizardState>(
-    'rewards_list',
+  // Draft persistence (STUDIO-EXPERIENCE ST-C — server-backed, explicit
+  // save points only: Save & Come Back button + the close prompt).
+  const getDraftTitle = useCallback(() => {
+    const cur = { ...stateRef.current }
+    const domInput = document.querySelector('[data-wizard-name="rewards_list"]') as HTMLInputElement | null
+    if (domInput?.value) cur.listName = domInput.value
+    return cur.listName || 'Untitled Rewards List'
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<WizardState>({
+    wizardType: 'rewards_list',
     familyId,
-  )
-  const draftRestored = useRef(false)
-
-  // Restore draft on mount
-  useEffect(() => {
-    if (draft && !draftRestored.current) {
-      setState(draft)
-      draftRestored.current = true
-    }
-  }, [draft])
-
-  // Auto-save draft on step change and on meaningful content change
-  const draftTitle = state.listName || 'Untitled Rewards List'
-  const itemCount = state.items.length
-  useEffect(() => {
-    if (deployed || !isOpen) return
-    if (state.listName || itemCount > 0) {
-      saveDraft(state, draftTitle)
-    }
-  }, [step, state.listName, itemCount]) // eslint-disable-line react-hooks/exhaustive-deps
+    memberId,
+    isOpen,
+    state,
+    setState,
+    getTitle: getDraftTitle,
+    hasContent: () => !!(state.listName || state.items.length > 0),
+    onRealClose: onClose,
+  })
 
   const createList = useCreateList()
   const shareList = useShareList()
@@ -447,29 +443,21 @@ export function RewardsListWizard({
         }
       }
 
-      clearDraft()
+      draftChrome.onDeploySuccess()
       setDeployed(true)
     } catch (err) {
       console.error('Rewards list deploy failed:', err)
     } finally {
       setIsDeploying(false)
     }
-  }, [state, familyId, memberId, childMembers, createList, shareList, clearDraft])
+  }, [state, familyId, memberId, childMembers, createList, shareList, draftChrome])
 
-  // ── Close handling (save-as-draft prompt) ─────────────────────
+  // ── Close handling ─────────────────────────────────────────────
+  // Deployed has nothing left to draft — the Done button calls onClose
+  // directly. Any other close routes through the chrome's requestClose,
+  // which shows the save/discard prompt when there's anything to ask about.
 
-  const handleClose = useCallback(() => {
-    if (deployed) {
-      onClose()
-      return
-    }
-    const cur = { ...stateRef.current }
-    const domInput = document.querySelector('[data-wizard-name="rewards_list"]') as HTMLInputElement | null
-    if (domInput?.value) cur.listName = domInput.value
-    const title = cur.listName || 'Untitled Rewards List'
-    saveDraft(cur, title)
-    onClose()
-  }, [deployed, saveDraft, onClose])
+  const handleClose = draftChrome.requestClose
 
   // ── Reset on close ────────────────────────────────────────────
 
@@ -481,8 +469,9 @@ export function RewardsListWizard({
       setAiSuggestions([])
       setAiSelectedIds(new Set())
       setAiError('')
-      draftRestored.current = false
+      draftChrome.resetForNextOpen()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   // ── Step validation ───────────────────────────────────────────
@@ -973,6 +962,7 @@ export function RewardsListWizard({
       canFinish={canFinish}
       isFinishing={isDeploying}
       hideNav={deployed}
+      draftChrome={deployed ? undefined : draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

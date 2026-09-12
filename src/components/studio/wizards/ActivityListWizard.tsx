@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
-import { useWizardProgress } from './useWizardProgress'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { RoutinePicker } from './RoutinePicker'
 import { SegmentPicker } from './SegmentPicker'
 import { useFamily } from '@/hooks/useFamily'
@@ -144,12 +144,25 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
     }
   }, [prefill])
 
-  const {
-    state, setState, currentStep, setCurrentStep, clearProgress,
-  } = useWizardProgress<ActivityWizardState>({
-    wizardId: 'activity_list',
-    familyId: family?.id ?? '',
-    initialState,
+  const [state, setState] = useState<ActivityWizardState>(initialState)
+  const [currentStep, setCurrentStep] = useState(0)
+
+  // STUDIO-EXPERIENCE ST-C — this wizard previously persisted via the
+  // separate, localStorage-only `useWizardProgress` hook, which the shared
+  // Studio Drafts tab never read from (the "phantom" entry in its wizard-
+  // type map). It now uses the same server-backed chrome as every other
+  // Setup Wizard.
+  const draftChrome = useWizardDraftChrome<ActivityWizardState>({
+    wizardType: 'activity_list',
+    familyId: family?.id,
+    memberId: member?.id,
+    isOpen,
+    state,
+    setState,
+    getTitle: () => state.subjectName || 'Untitled Subject Activities',
+    hasContent: () => !!(state.subjectName.trim() || state.items.length > 0),
+    skipReopenPrompt: !!prefill,
+    onRealClose: onClose,
   })
 
   // RR-DEPLOY-SCOPING: deploy creates tasks per member — limit targets to who
@@ -375,14 +388,14 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
       queryClient.invalidateQueries({ queryKey: ['dashboard-widgets'] })
       queryClient.invalidateQueries({ queryKey: ['icon-launcher-widgets'] })
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      clearProgress()
+      draftChrome.onDeploySuccess()
       onClose()
     } catch (err) {
       console.error('[ActivityListWizard] Deploy failed:', err)
     } finally {
       setIsDeploying(false)
     }
-  }, [family?.id, member?.id, state, queryClient, clearProgress, onClose])
+  }, [family?.id, member?.id, state, queryClient, draftChrome, onClose])
 
   // ── Icon search ────────────────────────────────────────────
 
@@ -1154,7 +1167,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
     <SetupWizard
       id="activity-list-wizard"
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={draftChrome.requestClose}
       title="Set Up Subject Activities"
       subtitle={state.subjectName || undefined}
       steps={STEPS}
@@ -1166,6 +1179,7 @@ export function ActivityListWizard({ isOpen, onClose, prefill }: ActivityListWiz
       canAdvance={canAdvance}
       canFinish={canFinish}
       isFinishing={isDeploying}
+      draftChrome={draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

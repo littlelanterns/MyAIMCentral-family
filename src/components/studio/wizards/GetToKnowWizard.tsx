@@ -12,6 +12,7 @@
 import { useState, useCallback } from 'react'
 import { Heart, Users, Plus, X, ChevronRight } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import {
   SELF_KNOWLEDGE_CATEGORIES,
   CONNECTION_STARTER_PROMPTS,
@@ -72,6 +73,34 @@ export function GetToKnowWizard({
   const createEntry = useCreateSelfKnowledge()
   const [isSaving, setIsSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // STUDIO-EXPERIENCE ST-C — bundle scattered state into one draft value.
+  // `currentInput` (an uncommitted textbox) is deliberately excluded — a
+  // resumed draft restores committed entries, not mid-keystroke text.
+  const draftState = { selectedMemberId, entries, promptIndex }
+  const applyDraftState = useCallback((next: typeof draftState) => {
+    setSelectedMemberId(next.selectedMemberId)
+    setEntries(next.entries)
+    setPromptIndex(next.promptIndex)
+  }, [])
+
+  const totalDraftEntries = Object.values(entries).reduce((sum, arr) => sum + arr.length, 0)
+
+  const draftChrome = useWizardDraftChrome<typeof draftState>({
+    wizardType: 'get_to_know',
+    familyId,
+    memberId,
+    isOpen,
+    state: draftState,
+    setState: applyDraftState,
+    getTitle: () => {
+      const name = familyMembers.find(m => m.id === selectedMemberId)?.display_name
+      return name ? `Get to Know ${name}` : 'Untitled Get to Know'
+    },
+    hasContent: () => !!selectedMemberId || totalDraftEntries > 0,
+    skipReopenPrompt: !!initialMemberId,
+    onRealClose: onClose,
+  })
 
   const selectedMember = familyMembers.find(m => m.id === selectedMemberId)
   const isGuided = selectedMember?.dashboard_mode === 'guided' || selectedMember?.dashboard_mode === 'play'
@@ -140,9 +169,12 @@ export function GetToKnowWizard({
     setPromptIndex({})
     setSaved(false)
     setIsSaving(false)
-  }, [])
+    draftChrome.resetForNextOpen()
+  }, [draftChrome])
 
-  const handleClose = useCallback(() => {
+  // Saved has nothing left to draft — the saved-success screen resets and
+  // closes directly. Any other close goes through draftChrome.requestClose.
+  const handleDeployedDone = useCallback(() => {
     reset()
     onClose()
   }, [reset, onClose])
@@ -169,13 +201,14 @@ export function GetToKnowWizard({
           })
         }
       }
+      draftChrome.onDeploySuccess()
       setSaved(true)
     } catch (err) {
       console.error('[GetToKnowWizard] Save failed:', err)
     } finally {
       setIsSaving(false)
     }
-  }, [isSaving, selectedMemberId, entries, familyId, createEntry])
+  }, [isSaving, selectedMemberId, entries, familyId, createEntry, draftChrome])
 
   const handleNext = useCallback(() => {
     // If there's unsaved input in the text field, add it before advancing
@@ -197,13 +230,13 @@ export function GetToKnowWizard({
       <SetupWizard
         id="get-to-know-wizard"
         isOpen={isOpen}
-        onClose={handleClose}
+        onClose={handleDeployedDone}
         title="Get to Know Your Family"
         steps={steps}
         currentStep={steps.length - 1}
         onBack={() => {}}
         onNext={() => {}}
-        onFinish={handleClose}
+        onFinish={handleDeployedDone}
         hideNav
       >
         <div className="text-center py-8">
@@ -224,7 +257,7 @@ export function GetToKnowWizard({
             gift ideas, communication style, and family interactions.
           </p>
           <button
-            onClick={handleClose}
+            onClick={handleDeployedDone}
             className="px-6 py-2 rounded-lg text-sm font-semibold"
             style={{
               backgroundColor: 'var(--color-btn-primary-bg)',
@@ -242,7 +275,7 @@ export function GetToKnowWizard({
     <SetupWizard
       id="get-to-know-wizard"
       isOpen={isOpen}
-      onClose={handleClose}
+      onClose={draftChrome.requestClose}
       title={`Get to Know ${selectedMember?.display_name ?? 'Your Family'}`}
       subtitle={selectedMember ? `Building context for ${selectedMember.display_name}` : undefined}
       steps={steps}
@@ -254,6 +287,7 @@ export function GetToKnowWizard({
       canFinish={totalEntries > 0}
       isFinishing={isSaving}
       finishLabel={`Save ${totalEntries} Entries`}
+      draftChrome={draftChrome.chromeProps}
     >
       {/* Step 0: Member picker */}
       {step === 0 && (

@@ -97,6 +97,7 @@ export const CASCADE_PLAN: CascadeTableSpec[] = [
   { table: 'journal_entries', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },
   { table: 'journal_visibility_settings', hardDeleteColumns: ['child_member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },
   { table: 'notepad_tabs', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },
+  { table: 'wizard_drafts', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },
   { table: 'notepad_routing_stats', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },
   { table: 'reflection_prompts', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },
   { table: 'reflection_responses', hardDeleteColumns: ['member_id'], scrubScalarColumns: [], scrubArrayColumns: [] },

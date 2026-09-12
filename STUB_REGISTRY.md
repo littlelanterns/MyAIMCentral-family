@@ -839,13 +839,28 @@ These surfaces re-derive "what counts for a member on a given date" inline inste
 
 ---
 
+## STUDIO ST-C — Drafts v2 (2026-09-11/12)
+
+ST-C wired server-backed save-and-return (`wizard_drafts` table + the shared
+`useWizardDraftChrome` UX) into all 10 SetupWizard-based Setup Wizards. Two
+surfaces the dispatch named were explicitly NOT attempted this slice — both
+registered here per founder ruling (2026-09-12), not silently dropped.
+A separate ST-C.2 slice owns them.
+
+| Stub | Created By | Wired By | Status | Notes |
+|------|-----------|----------|--------|-------|
+| `SequentialCreatorModal` save-and-return | ST-C (not attempted) | ST-C.2 | ⏳ Unwired (MVP) | `SequentialCreatorModal` is not built on the `SetupWizard` chrome, and its actual editable state (title, items, advancement defaults) lives entirely inside the child `SequentialCreator` component (591 lines) — the modal wrapper itself only holds the assignee pick. Wiring drafts here means either lifting `SequentialCreator`'s internal state up to a controlled prop (a real architecture change to the platform's single source of truth for sequential creation — Convention #150, used from Studio, Tasks, AND Lists) or giving `SequentialCreator` its own hand-rolled prompt UI with none of the "wire the hook, get the chrome for free" leverage the other 10 wizards had. |
+| `TaskCreationModal` full-mode routine-building save-and-return | ST-C (not attempted) | ST-C.2 | ⏳ Unwired (MVP) | `TaskCreationModal` is 3,363 lines and the highest-traffic modal in the app (task creation, editing, routine building, opportunities, sequential, guided forms all route through it). A rushed draft-support change here risked a platform-wide regression with no room left in the ST-C session to prove it safe. This is the surface the dispatch itself flagged as losing the most work today ("routine building loses the most work today") — ST-C.2 should prioritize it. |
+
+---
+
 ## Summary
 
 | Status | Count |
 |--------|-------|
 | ✅ Wired | ~85 |
 | 🔗 Partially Wired | ~7 |
-| ⏳ Unwired (MVP) | ~45 |
+| ⏳ Unwired (MVP) | ~47 |
 | 📌 Post-MVP | ~79 |
 | ❌ Superseded | ~3 |
-| **Total** | ~219 |
+| **Total** | ~221 |

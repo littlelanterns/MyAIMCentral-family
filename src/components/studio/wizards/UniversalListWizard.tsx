@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
-import { useWizardProgress } from './useWizardProgress'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { WizardTagPicker } from './WizardTagPicker'
 import { ConnectionOffersPanel } from './ConnectionOffersPanel'
 import { useFamily } from '@/hooks/useFamily'
@@ -158,20 +158,32 @@ export function UniversalListWizard({
 
   const familyId = family?.id ?? ''
 
-  const {
+  const [state, setState] = useState<ListWizardState>({
+    ...INITIAL_STATE,
+    selectedPresetKey: initialPreset ?? null,
+  })
+  const [currentStep, setCurrentStep] = useState(0)
+
+  // STUDIO-EXPERIENCE ST-C — this wizard previously persisted via the
+  // separate, localStorage-only `useWizardProgress` hook (the same "phantom"
+  // issue as ActivityListWizard: invisible to the shared Studio Drafts tab).
+  // It now uses the same server-backed chrome as every other Setup Wizard.
+  // The old in-page "Resumed from where you left off / Start over" banner
+  // (driven by useWizardProgress's hasRestoredDraft) is retired — the
+  // reopen-prompt modal now handles that choice BEFORE the wizard's step
+  // content ever shows, so an in-page duplicate of the same decision would
+  // be redundant.
+  const draftChrome = useWizardDraftChrome<ListWizardState>({
+    wizardType: 'universal_list',
+    familyId,
+    memberId: currentMember?.id,
+    isOpen,
     state,
     setState,
-    currentStep,
-    setCurrentStep,
-    clearProgress,
-    hasRestoredDraft,
-  } = useWizardProgress<ListWizardState>({
-    wizardId: 'universal-list',
-    familyId,
-    initialState: {
-      ...INITIAL_STATE,
-      selectedPresetKey: initialPreset ?? null,
-    },
+    getTitle: () => state.listTitle || 'Untitled List',
+    hasContent: () => !!(state.listTitle.trim() || state.selectedPresetKey || state.detectedListType || state.items.length > 0),
+    skipReopenPrompt: !!(initialPreset || initialListType || initialItems?.length || initialTitle),
+    onRealClose: onClose,
   })
 
   const [isDeploying, setIsDeploying] = useState(false)
@@ -558,7 +570,7 @@ export function UniversalListWizard({
       deployedListIdRef.current = null
       itemsInsertedRef.current = false
       sharedIdsRef.current = new Set()
-      clearProgress()
+      draftChrome.onDeploySuccess()
       onClose()
     } catch (err) {
       console.error('List wizard deploy failed:', err)
@@ -577,7 +589,7 @@ export function UniversalListWizard({
     resolvedListType,
     createList,
     shareList,
-    clearProgress,
+    draftChrome,
     onClose,
     queryClient,
   ])
@@ -672,25 +684,6 @@ export function UniversalListWizard({
 
   const renderPurposeStep = () => (
     <div className="space-y-4">
-      {hasRestoredDraft && (
-        <div
-          className="flex items-center justify-between px-3 py-2 rounded-lg text-sm"
-          style={{
-            backgroundColor: 'var(--color-bg-tertiary)',
-            color: 'var(--color-text-secondary)',
-          }}
-        >
-          <span>Resumed from where you left off.</span>
-          <button
-            onClick={clearProgress}
-            className="text-xs underline"
-            style={{ color: 'var(--color-text-muted)' }}
-          >
-            Start over
-          </button>
-        </div>
-      )}
-
       <p
         className="text-sm"
         style={{ color: 'var(--color-text-secondary)' }}
@@ -1339,7 +1332,7 @@ export function UniversalListWizard({
     <SetupWizard
       id="universal-list-wizard"
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={draftChrome.requestClose}
       title={activePreset?.wizardTitle ?? 'Create a List'}
       subtitle={activePreset?.wizardTitle ? undefined : activePreset?.label}
       steps={STEPS}
@@ -1351,6 +1344,7 @@ export function UniversalListWizard({
       canFinish={state.items.length > 0 && state.listTitle.trim().length > 0}
       isFinishing={isDeploying}
       finishLabel="Create List"
+      draftChrome={draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

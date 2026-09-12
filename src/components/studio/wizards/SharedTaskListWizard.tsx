@@ -21,7 +21,7 @@ import {
   Info,
 } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
-import { useWizardDraft } from './useWizardDraft'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { ItemRecurrenceConfig, type ItemRecurrenceValue } from '@/components/lists/ItemRecurrenceConfig'
 import MemberPillSelector from '@/components/shared/MemberPillSelector'
 import { useCreateList, useShareList } from '@/hooks/useLists'
@@ -204,13 +204,7 @@ export function SharedTaskListWizard({
   const createList = useCreateList()
   const shareList = useShareList()
 
-  const { draft, saveDraft, clearDraft } = useWizardDraft<WizardState>(
-    'shared_task_list',
-    familyId,
-  )
-
   const [state, setStateRaw] = useState<WizardState>(() => {
-    if (draft) return draft
     if (initialItems?.length) {
       return {
         ...INITIAL_STATE,
@@ -237,13 +231,25 @@ export function SharedTaskListWizard({
   const [bulkInput, setBulkInput] = useState('')
   const [isParsing, setIsParsing] = useState(false)
 
+  // STUDIO-EXPERIENCE ST-C: plain setter — draft persistence is now an
+  // explicit action (Save & Come Back / the close prompt), not a silent
+  // write on every keystroke.
   const setState = useCallback((updater: WizardState | ((prev: WizardState) => WizardState)) => {
-    setStateRaw((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater
-      saveDraft(next, next.listName || 'Shared To-Do')
-      return next
-    })
-  }, [saveDraft])
+    setStateRaw((prev) => (typeof updater === 'function' ? updater(prev) : updater))
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<WizardState>({
+    wizardType: 'shared_task_list',
+    familyId,
+    memberId,
+    isOpen,
+    state,
+    setState: setStateRaw,
+    getTitle: () => state.listName || 'Shared To-Do',
+    hasContent: () => !!(state.listName.trim() || state.items.some((i) => i.text.trim())),
+    skipReopenPrompt: !!initialItems?.length,
+    onRealClose: onClose,
+  })
 
   // DnD sensors
   const sensors = useSensors(
@@ -425,7 +431,7 @@ export function SharedTaskListWizard({
         console.warn('wizard_templates record failed (non-critical):', err)
       }
 
-      clearDraft()
+      draftChrome.onDeploySuccess()
       setDeployed(true)
     } catch (err) {
       console.error('[SharedTaskListWizard] deploy failed:', err)
@@ -433,7 +439,7 @@ export function SharedTaskListWizard({
     } finally {
       setIsDeploying(false)
     }
-  }, [familyId, memberId, state, createList, shareList, clearDraft])
+  }, [familyId, memberId, state, createList, shareList, draftChrome])
 
   // ─── Navigation ───
 
@@ -799,7 +805,7 @@ export function SharedTaskListWizard({
     <SetupWizard
       id="shared-task-list-wizard"
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={deployed ? onClose : draftChrome.requestClose}
       title="Create a Shared To-Do"
       subtitle="A shared list where family members claim and complete items"
       steps={STEPS}
@@ -812,6 +818,7 @@ export function SharedTaskListWizard({
       canFinish={canFinish}
       isFinishing={isDeploying}
       hideNav={deployed}
+      draftChrome={deployed ? undefined : draftChrome.chromeProps}
     >
       {renderStep()}
     </SetupWizard>

@@ -10,6 +10,7 @@
 import { useState, useCallback } from 'react'
 import { ListChecks, Sparkles, Loader, Dices } from 'lucide-react'
 import { SetupWizard, type WizardStep } from './SetupWizard'
+import { useWizardDraftChrome } from './useWizardDraftChrome'
 import { sendAIMessage, extractJSON } from '@/lib/ai/send-ai-message'
 import { useCreateList } from '@/hooks/useLists'
 import { supabase } from '@/lib/supabase/client'
@@ -138,6 +139,29 @@ export function RoutineBuilderWizard({
   const [acceptError, setAcceptError] = useState<string | null>(null)
   const createList = useCreateList()
 
+  // STUDIO-EXPERIENCE ST-C — the draftable state is the description +
+  // parsed review, not the transient parsing/accepting flags.
+  const draftState = { routineName, inputText, parsedSections }
+  const applyDraftState = useCallback((next: typeof draftState) => {
+    setRoutineName(next.routineName)
+    setInputText(next.inputText)
+    setParsedSections(next.parsedSections)
+    setStep(next.parsedSections.length > 0 ? 1 : 0)
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<typeof draftState>({
+    wizardType: 'routine_builder',
+    familyId,
+    memberId: ownerId,
+    isOpen,
+    state: draftState,
+    setState: applyDraftState,
+    getTitle: () => routineName || 'Untitled Routine',
+    hasContent: () => !!(routineName.trim() || inputText.trim() || parsedSections.length > 0),
+    skipReopenPrompt: !!(initialDescription || initialRoutineName),
+    onRealClose: onClose,
+  })
+
   const reset = useCallback(() => {
     setStep(0)
     setRoutineName('')
@@ -147,9 +171,12 @@ export function RoutineBuilderWizard({
     setParseError(null)
     setIsAccepting(false)
     setAcceptError(null)
-  }, [])
+    draftChrome.resetForNextOpen()
+  }, [draftChrome])
 
-  const handleClose = useCallback(() => {
+  // Used ONLY once handleAccept has already handed the routine off to
+  // TaskCreationModal (via onAccept) — nothing left to draft at that point.
+  const handleRawClose = useCallback(() => {
     reset()
     onClose()
   }, [reset, onClose])
@@ -253,15 +280,16 @@ export function RoutineBuilderWizard({
       }
 
       const name = routineName.trim() || 'My Routine'
+      draftChrome.onDeploySuccess()
       onAccept(name, routineSections)
-      handleClose()
+      handleRawClose()
     } catch (err) {
       console.error('[RoutineBuilderWizard] Accept failed:', err)
       setAcceptError('Something went wrong setting up a surprise-pick list. Try again, or remove the surprise-pick step.')
     } finally {
       setIsAccepting(false)
     }
-  }, [isAccepting, parsedSections, routineName, familyId, ownerId, createList, onAccept, handleClose])
+  }, [isAccepting, parsedSections, routineName, familyId, ownerId, createList, onAccept, handleRawClose, draftChrome])
 
   const removeSection = useCallback((index: number) => {
     setParsedSections(prev => prev.filter((_, i) => i !== index))
@@ -281,7 +309,7 @@ export function RoutineBuilderWizard({
     <SetupWizard
       id="routine-builder-wizard"
       isOpen={isOpen}
-      onClose={handleClose}
+      onClose={draftChrome.requestClose}
       title="Routine Builder"
       subtitle="Describe it once, we'll organize it"
       steps={STEPS}
@@ -293,6 +321,7 @@ export function RoutineBuilderWizard({
       canFinish={parsedSections.length > 0 && totalSteps > 0}
       finishLabel="Use This Routine"
       isFinishing={isAccepting}
+      draftChrome={draftChrome.chromeProps}
     >
       {/* Step 1: Describe */}
       {step === 0 && (

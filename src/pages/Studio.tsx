@@ -58,7 +58,11 @@ import {
   PHASE38_SEEDED_TEMPLATES,
 } from '@/components/studio/studio-seed-data'
 import { ActivityListWizard, type ActivityListWizardPrefill } from '@/components/studio/wizards/ActivityListWizard'
-import { useWizardDraftList, clearWizardDraft } from '@/components/studio/wizards/useWizardDraft'
+import {
+  useWizardDraftList,
+  deleteWizardDraftById,
+  useMigrateLocalStorageWizardDrafts,
+} from '@/components/studio/wizards/useWizardDraft'
 import { TaskCreationModal } from '@/components/tasks/TaskCreationModal'
 import type { CreateTaskData } from '@/components/tasks/TaskCreationModal'
 import type { RoutineSection } from '@/components/tasks/RoutineSectionEditor'
@@ -412,6 +416,22 @@ function matchesSearch(tpl: StudioTemplate, query: string): boolean {
 type CustomizedSortKey = 'name' | 'last_deployed' | 'most_used' | 'recently_created'
 type CustomizedFilter = 'all' | 'assigned' | 'unassigned'
 
+// STUDIO-EXPERIENCE ST-C: display labels for every wizard_type value the
+// server-backed Drafts tab can show. Every Setup Wizard that saves a draft
+// must have an entry here.
+const WIZARD_TYPE_LABELS: Record<string, string> = {
+  rewards_list: 'Rewards List',
+  repeated_action_chart: 'Progress Chart',
+  list_reveal_assignment: 'Opportunities / Spinner',
+  shared_task_list: 'Shared To-Do',
+  activity_list: 'Subject Activities',
+  star_chart: 'Star Chart',
+  get_to_know: 'Get to Know Your Family',
+  routine_builder: 'Routine Builder',
+  meeting_setup: 'Family Meetings',
+  universal_list: 'List',
+}
+
 // ─────────────────────────────────────────────
 // Main Page
 // ─────────────────────────────────────────────
@@ -515,6 +535,9 @@ export function StudioPage() {
   // ST-A F-09: archive requires confirmation (ModalV2, no window.confirm)
   const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string; isList: boolean } | null>(null)
   const [archiving, setArchiving] = useState(false)
+  // ST-C: discarding a draft requires confirmation, same pattern
+  const [discardDraftConfirm, setDiscardDraftConfirm] = useState<{ id: string; title: string } | null>(null)
+  const [discardingDraft, setDiscardingDraft] = useState(false)
   const toast = useRoutingToast()
 
   // Widget / Tracker state (PRD-10)
@@ -541,7 +564,65 @@ export function StudioPage() {
     isLoading: customizedLoading,
   } = useCustomizedTemplates(family?.id)
 
-  const { drafts: wizardDrafts } = useWizardDraftList(family?.id, draftRefreshKey)
+  const { drafts: wizardDrafts, refresh: refreshWizardDrafts } = useWizardDraftList(family?.id, undefined, draftRefreshKey)
+
+  // STUDIO-EXPERIENCE ST-C: one-time localStorage → wizard_drafts migration
+  // (idempotent per family, see useWizardDraft.ts). Never strands a
+  // founder-family draft that predates the server-backed table.
+  useMigrateLocalStorageWizardDrafts(family?.id, member?.id)
+
+  // STUDIO-EXPERIENCE ST-C: open a wizard type with no prefill (Drafts tab
+  // "Resume"). Each wizard's own useWizardDraftChrome sees no skipped
+  // reopen-prompt, finds this type's drafts, and offers the picker itself —
+  // this function only needs to clear any stale prefill and open the modal.
+  const openWizardTypeFresh = useCallback((wizardType: string) => {
+    switch (wizardType) {
+      case 'rewards_list':
+        setRewardsListWizardOpen(true)
+        break
+      case 'list_reveal_assignment':
+        setListRevealPreFill(undefined)
+        setListRevealStartKey(undefined)
+        setListRevealWizardOpen(true)
+        break
+      case 'repeated_action_chart':
+        setRepeatedActionChartInitial(undefined)
+        setChartStartKey(undefined)
+        setRepeatedActionChartWizardOpen(true)
+        break
+      case 'shared_task_list':
+        setSharedTaskListInitialItems(undefined)
+        setSharedTaskListStartKey(undefined)
+        setSharedTaskListWizardOpen(true)
+        break
+      case 'activity_list':
+        setActivityListPrefill(undefined)
+        setActivityListWizardOpen(true)
+        break
+      case 'star_chart':
+        setStarChartPrefill(undefined)
+        setStarChartWizardOpen(true)
+        break
+      case 'get_to_know':
+        setGetToKnowPrefill(undefined)
+        setGetToKnowWizardOpen(true)
+        break
+      case 'routine_builder':
+        setRoutineBuilderPrefill(undefined)
+        setRoutineBuilderWizardOpen(true)
+        break
+      case 'meeting_setup':
+        setMeetingSetupWizardOpen(true)
+        break
+      case 'universal_list':
+        setListWizardPreset(undefined)
+        setUniversalListNLCPrefill(undefined)
+        setListWizardOpen(true)
+        break
+      default:
+        console.warn('[Studio] Unknown wizard type for draft resume:', wizardType)
+    }
+  }, [])
 
   // ── Load routine template sections + steps from DB ─────────
   const loadRoutineTemplate = useCallback(async (templateId: string, templateName: string) => {
@@ -1445,22 +1526,15 @@ export function StudioPage() {
         </div>
       )}
 
-      {/* ── Drafts tab ────────────────────────────────────────── */}
+      {/* ── Drafts tab (STUDIO-EXPERIENCE ST-C — server-backed) ──── */}
       {activeTab === 'drafts' && (
         <div>
           {wizardDrafts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {wizardDrafts.map((draft) => {
-                const WIZARD_TYPE_LABELS: Record<string, string> = {
-                  rewards_list: 'Rewards List',
-                  repeated_action_chart: 'Progress Chart',
-                  list_reveal_assignment: 'Opportunities / Spinner',
-                  shared_task_list: 'Shared To-Do',
-                  activity_list: 'Subject Activities',
-                }
                 return (
                   <div
-                    key={`${draft.wizardType}-${draft.draftId}`}
+                    key={draft.id}
                     className="rounded-xl border p-4"
                     style={{
                       backgroundColor: 'var(--color-bg-card)',
@@ -1497,23 +1571,8 @@ export function StudioPage() {
                     )}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => {
-                          if (draft.wizardType === 'rewards_list') {
-                            setRewardsListWizardOpen(true)
-                          } else if (draft.wizardType === 'list_reveal_assignment') {
-                            setListRevealPreFill(undefined)
-                            setListRevealWizardOpen(true)
-                          } else if (draft.wizardType === 'repeated_action_chart') {
-                            setRepeatedActionChartInitial(undefined)
-                            setRepeatedActionChartWizardOpen(true)
-                          } else if (draft.wizardType === 'shared_task_list') {
-                            setSharedTaskListInitialItems(undefined)
-                            setSharedTaskListWizardOpen(true)
-                          } else if (draft.wizardType === 'activity_list') {
-                            setActivityListPrefill(undefined)
-                            setActivityListWizardOpen(true)
-                          }
-                        }}
+                        data-testid={`wizard-draft-resume-${draft.id}`}
+                        onClick={() => openWizardTypeFresh(draft.wizardType)}
                         className="flex-1 rounded-lg py-1.5 text-xs font-semibold transition-colors"
                         style={{
                           backgroundColor: 'var(--color-btn-primary-bg)',
@@ -1523,12 +1582,8 @@ export function StudioPage() {
                         Resume
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm('Discard this draft? This can\'t be undone.')) {
-                            clearWizardDraft(draft.wizardType, family?.id ?? '', draft.draftId)
-                            setDraftRefreshKey(k => k + 1)
-                          }
-                        }}
+                        data-testid={`wizard-draft-tab-discard-${draft.id}`}
+                        onClick={() => setDiscardDraftConfirm({ id: draft.id, title: draft.title || 'Untitled' })}
                         className="rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors"
                         style={{
                           borderColor: 'var(--color-border)',
@@ -1554,6 +1609,48 @@ export function StudioPage() {
             />
           )}
         </div>
+      )}
+
+      {/* ── Discard draft confirmation (ST-C — no window.confirm) ── */}
+      {discardDraftConfirm && (
+        <ModalV2
+          id="studio-discard-draft-confirm"
+          isOpen={true}
+          onClose={() => setDiscardDraftConfirm(null)}
+          title="Discard this draft?"
+          type="transient"
+          size="sm"
+        >
+          <div className="p-4 space-y-4">
+            <p className="text-sm" style={{ color: 'var(--color-text-primary)' }}>
+              Discard <strong>{discardDraftConfirm.title}</strong>? This can't be undone.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setDiscardDraftConfirm(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium border transition-colors"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
+              >
+                Keep it
+              </button>
+              <button
+                data-testid="wizard-draft-tab-discard-confirm"
+                disabled={discardingDraft}
+                onClick={async () => {
+                  setDiscardingDraft(true)
+                  await deleteWizardDraftById(discardDraftConfirm.id)
+                  setDiscardingDraft(false)
+                  setDiscardDraftConfirm(null)
+                  refreshWizardDrafts()
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-error, #dc2626)', color: '#ffffff' }}
+              >
+                {discardingDraft ? 'Discarding…' : 'Discard'}
+              </button>
+            </div>
+          </div>
+        </ModalV2>
       )}
 
       {/* ── My Customized tab ────────────────────────────────── */}
@@ -2018,7 +2115,7 @@ export function StudioPage() {
       {starChartWizardOpen && family?.id && member?.id && (
         <StarChartWizard
           isOpen={starChartWizardOpen}
-          onClose={() => { setStarChartWizardOpen(false); setStarChartPrefill(undefined) }}
+          onClose={() => { setStarChartWizardOpen(false); setStarChartPrefill(undefined); setDraftRefreshKey(k => k + 1) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
@@ -2030,7 +2127,7 @@ export function StudioPage() {
       {getToKnowWizardOpen && family?.id && member?.id && (
         <GetToKnowWizard
           isOpen={getToKnowWizardOpen}
-          onClose={() => { setGetToKnowWizardOpen(false); setGetToKnowPrefill(undefined) }}
+          onClose={() => { setGetToKnowWizardOpen(false); setGetToKnowPrefill(undefined); setDraftRefreshKey(k => k + 1) }}
           familyId={family.id}
           memberId={member.id}
           familyMembers={familyMembers}
@@ -2041,10 +2138,11 @@ export function StudioPage() {
       {routineBuilderWizardOpen && (
         <RoutineBuilderWizard
           isOpen={routineBuilderWizardOpen}
-          onClose={() => { setRoutineBuilderWizardOpen(false); setRoutineBuilderPrefill(undefined) }}
+          onClose={() => { setRoutineBuilderWizardOpen(false); setRoutineBuilderPrefill(undefined); setDraftRefreshKey(k => k + 1) }}
           onAccept={(routineName, sections) => {
             setRoutineBuilderWizardOpen(false)
             setRoutineBuilderPrefill(undefined)
+            setDraftRefreshKey(k => k + 1)
             setModalDefaultTitle(routineName)
             setModalPreloadedSections(sections)
             setModalInitialType('routine')
@@ -2062,6 +2160,7 @@ export function StudioPage() {
           isOpen={meetingSetupWizardOpen}
           onClose={() => {
             setMeetingSetupWizardOpen(false)
+            setDraftRefreshKey(k => k + 1)
             // Navigate to meetings page after wizard closes (if they completed it)
           }}
           familyId={family.id}
@@ -2073,7 +2172,7 @@ export function StudioPage() {
       {listWizardOpen && (
         <UniversalListWizard
           isOpen={listWizardOpen}
-          onClose={() => { setListWizardOpen(false); setListWizardPreset(undefined); setUniversalListNLCPrefill(undefined) }}
+          onClose={() => { setListWizardOpen(false); setListWizardPreset(undefined); setUniversalListNLCPrefill(undefined); setDraftRefreshKey(k => k + 1) }}
           initialPreset={listWizardPreset}
           initialTitle={universalListNLCPrefill?.title}
           initialItems={universalListNLCPrefill?.items}

@@ -1,6 +1,24 @@
 # Active Build: STUDIO-EXPERIENCE — Studio Surface Audit + Cleanup
 
-> **Status: ST-A + ST-F + ST-B CODE COMPLETE — HOLDING for founder review + commit approval. NOTHING COMMITTED.** ST-A: 14/14 E2E + 25 vitest + 8/8 relevant regressions, 2026-08-23 (see "## ST-A — Shelf truth" below; migrations 100317+100318 applied). ST-F: 16/16 E2E (14 ST-A pins + 2 new, full serial file green twice) + 14/14 constraint vitest, 2026-08-23 (see "## ST-F — Reward-wire truth" below; migrations 100319+100320 applied + ledger-repaired). **ST-B (2026-09-07): local proof green (tsc/eslint/prebuild/redteam all clean; the new router vitest — 29/29 — RAN LIVE against real OpenRouter, a pure external-API call outside the production-touch gate's enumerated list). A seat referee pass caught and this session fixed a real stale-closure bug on the high-confidence auto-open path (Probe 4's exact path would have opened `RoutineBuilderWizard` with an empty description on a fresh session — see the "Seat referee finding" note in the ST-B section) — re-verified clean after the fix. **ST-B PROOF COMPLETE (2026-09-11) — holding for referee + founder commit. NOTHING COMMITTED.** All three seat-granted suites green: `nlc-composition` **5/5 (run twice back-to-back)**, `studio-shelf-truth` **16/16**, Studio audit tour **1/1 (89 tiles, zero console errors)**, plus a new ST-B eyes-on tour **2/2 (14 shots, all read, zero console errors)**. The slot surfaced **eight real defects, every one fixed in code with no assertion ever touched**: three router defects (no `temperature`, no naming guidance, no `actionTaskName` guidance — each verified deterministic 5/5 or 3/3 before asking for a redeploy), one mom-facing copy defect found by READING a screenshot (router meta-commentary leaking into the restate sentence mom sees), three spec-traversal defects (a step off-by-one, a wrong assumption about the Items-step UI, and a 3s-vs-9s race in the confidence-card helper that made a real card sit unclicked), and one orphaned-row leak in an ST-A test file that had silently accumulated 30 rows since August (25 pre-dating this session; seat swept them). Residue after two consecutive 5/5 runs: **0 on both the time-window and fixture-name queries across all five tables.** No migration needed (zero schema changes). See "## ST-B — NLC v2" below.
+> **Status: ST-A + ST-F + ST-B + ST-C ALL PROOF COMPLETE — HOLDING for founder review + commit approval. NOTHING COMMITTED.**
+> **ST-C (2026-09-11/12): real save-and-return, server-backed (`wizard_drafts` table, migrations 100333+100335, BOTH
+> APPLIED to production) — all 10 SetupWizard-based wizards now share one close/reopen-prompt chrome
+> (`useWizardDraftChrome` + `WizardDraftPrompts`), replacing the old per-wizard-fixed-slot localStorage mechanism on 4
+> wizards AND a second, previously undiscovered separate localStorage mechanism (`useWizardProgress`, now deleted) that
+> had silently made `ActivityListWizard` AND `UniversalListWizard` invisible to the Studio Drafts tab. **ST-C PROOF
+> COMPLETE (2026-09-12) under a seat-granted suite slot: `wizard-draft-persistence.spec.ts` 6/6 GREEN, the
+> `STUDIO_AUDIT=1` shelf-sweep tour 1/1, `studio-shelf-truth.spec.ts` (ST-A's own suite, re-run since ST-C touches its
+> wizards) every one of 16 tests confirmed green, and a new `wizard-draft-persistence-eyes-on-tour.spec.ts` Convention
+> #277 tour 2/2 (all 12 screenshots + both console logs read, zero errors).** Both residue checks (time-window +
+> name-matched) show zero rows across all 7 relevant tables; `wizard_drafts` whole-table count = 0. One collateral,
+> seat-authorized narrow fix landed in `src/pages/Lists.tsx` (a genuine pre-existing template-title race found by
+> `studio-shelf-truth.spec.ts`'s own F-04d test, unrelated to ST-C's own files but required by the seat's re-proof
+> instruction) — see "## ST-C" below for the full account. Local proof green: tsc/eslint/prebuild/redteam clean, full
+> vitest 916/926 (10 pre-existing failures, zero new). Adding the new table tripped TWO real PRD-40 COPPA completeness
+> pins (`coppa-registry-completeness`, `coppa-write-gates-consistency`) — both are genuine legal-completeness gaps this
+> session found and closed correctly (registry classification + a new write-gates migration, 100335), not test-chasing.
+> `SequentialCreatorModal`/`TaskCreationModal` full-mode routine building were explicitly NOT
+> attempted (disclosed scope decision — see "## ST-C" below for why). See "## ST-C — Real save-and-return" below. ST-A: 14/14 E2E + 25 vitest + 8/8 relevant regressions, 2026-08-23 (see "## ST-A — Shelf truth" below; migrations 100317+100318 applied). ST-F: 16/16 E2E (14 ST-A pins + 2 new, full serial file green twice) + 14/14 constraint vitest, 2026-08-23 (see "## ST-F — Reward-wire truth" below; migrations 100319+100320 applied + ledger-repaired). **ST-B (2026-09-07): local proof green (tsc/eslint/prebuild/redteam all clean; the new router vitest — 29/29 — RAN LIVE against real OpenRouter, a pure external-API call outside the production-touch gate's enumerated list). A seat referee pass caught and this session fixed a real stale-closure bug on the high-confidence auto-open path (Probe 4's exact path would have opened `RoutineBuilderWizard` with an empty description on a fresh session — see the "Seat referee finding" note in the ST-B section) — re-verified clean after the fix. **ST-B PROOF COMPLETE (2026-09-11) — holding for referee + founder commit. NOTHING COMMITTED.** All three seat-granted suites green: `nlc-composition` **5/5 (run twice back-to-back)**, `studio-shelf-truth` **16/16**, Studio audit tour **1/1 (89 tiles, zero console errors)**, plus a new ST-B eyes-on tour **2/2 (14 shots, all read, zero console errors)**. The slot surfaced **eight real defects, every one fixed in code with no assertion ever touched**: three router defects (no `temperature`, no naming guidance, no `actionTaskName` guidance — each verified deterministic 5/5 or 3/3 before asking for a redeploy), one mom-facing copy defect found by READING a screenshot (router meta-commentary leaking into the restate sentence mom sees), three spec-traversal defects (a step off-by-one, a wrong assumption about the Items-step UI, and a 3s-vs-9s race in the confidence-card helper that made a real card sit unclicked), and one orphaned-row leak in an ST-A test file that had silently accumulated 30 rows since August (25 pre-dating this session; seat swept them). Residue after two consecutive 5/5 runs: **0 on both the time-window and fixture-name queries across all five tables.** No migration needed (zero schema changes). See "## ST-B — NLC v2" below.
 > Previous: ST-0 + F-23 MICRO-FIX COMPLETE, VISUALLY VERIFIED, COMMITTED `9676734` (2026-07-04).
 > Ledger: migration 100283 applied to production; wizard insert fixed (status 'pending', wizard_templates correct shape + `template_source:'family'` + isolated try/catch); pins green (constraint vitest 13/13; permanent deploy pin incl. success-screen + wizard_templates-row assertions, 1/1); Convention #277 visual pass done by Claude (desktop 1440 + mobile 375 full flow → "Chart deployed!" screen → Casey dashboard/tasks render — Mom-UI table below); zero STUDIOAUD residue; commit = 4 files + hook-required live_schema.md regen.
 > F-21 corrected ('studio'/'wizard' were NEVER in any constraint version — broken since birth). F-23 has a THIRD layer: `template_source` CHECK ('system'/'family'/'community') — `'wizard'` illegal, so ALL THREE wizard_templates writers were broken; chart wizard fixed, ListReveal + SharedTaskList remain in ST-A item 11.
@@ -740,6 +758,346 @@ session's own tour. No other lane's files are in the tree.
 **Next steps:** the redeploy + suite-1 re-run above, then founder review + selective staging +
 commit, same discipline as ST-A/ST-F.
 
+## ST-C — Real save-and-return (worker session 2026-09-11) — CODE COMPLETE, PROOF WRITTEN, HOLDING for a seat-granted E2E slot
+
+**Design decision (dispatch Q1), CONFIRMED per the founder's own steer at dispatch time:**
+drafts live in a new `wizard_drafts` table, not as an `is_draft` flag on each finished
+primitive. A half-built wizard isn't a list, a routine, or a chart yet — it has no primitive
+row to carry a flag until the wizard actually deploys. This is a deliberate, disclosed
+amendment to Convention 250's literal "primitives support `is_draft`" wording, recorded in
+the migration's own header comment and here.
+
+**What shipped:**
+- **`supabase/migrations/00000000100333_st_c_wizard_drafts.sql`** — `wizard_drafts` table
+  (family_id, member_id, wizard_type, title, state JSONB, created_at, last_saved_at). RLS:
+  own-drafts read/write/delete OR mom (primary_parent) manages every draft in her family — the
+  same "mom sees all" baseline every other Studio table follows, layered on the
+  family-scoped-write pattern `wizard_templates` (migration 100229) already established. No
+  family-shadow policies — Studio itself is mom/`studio`-granted-adult-only (Convention #274),
+  matching `wizard_templates`'s own precedent of carrying none either.
+- **`src/components/studio/wizards/useWizardDraft.ts` (rewritten)** — server-backed
+  `useWizardDraft<T>(wizardType, familyId, memberId)` (one draft instance: `draft`, `draftId`,
+  `saveDraft`, `clearDraft`, `loadDraft`, `resetLocal`) + `useWizardDraftList(familyId,
+  wizardType?, refreshKey?)` (used by both the per-wizard reopen-prompt and the Studio Drafts
+  tab) + `deleteWizardDraftById` + `migrateLocalStorageWizardDrafts`/
+  `useMigrateLocalStorageWizardDrafts` (one-time, idempotent per family via a localStorage
+  flag — upserts any pre-existing local drafts into the table, then clears the local keys, so
+  no founder-family draft is ever stranded by the migration).
+- **`src/components/studio/wizards/useWizardDraftChrome.ts` (new)** — the shared UX layer every
+  wizard opts into: evaluates the reopen-prompt once per open (after the draft list finishes
+  loading, so there's no flash), wires "Continue"/"Start Fresh", and wraps the wizard's real
+  `onClose` in `requestClose` — which shows the save/discard prompt only when there's
+  `hasContent()` or an active draft, otherwise closes immediately (an untouched blank wizard
+  needs no interrogation on close).
+- **`src/components/studio/wizards/WizardDraftPrompts.tsx` (new)** —
+  `WizardDraftReopenPrompt` ("We saved this from last time. Want to keep working, or start
+  fresh?" — a picker row per draft, multi-draft-ready) and `WizardDraftClosePrompt` ("Save as a
+  draft to come back to?" with a two-step Discard sub-confirmation — "No, discard" → "This
+  can't be undone" → "Discard for good"). Both `ModalV2` `type="transient" size="sm"`, matching
+  Studio's own Archive-confirm precedent (ST-A F-09 — no `window.confirm`). Dismiss (X /
+  backdrop / Escape) on the close prompt defaults to Save, per Composition doc §2.2's explicit
+  "default action saves as draft" rule.
+- **`src/components/studio/wizards/SetupWizard.tsx`** — new optional `draftChrome` prop
+  (`WizardDraftChromeProps` from the hook above). When present, SetupWizard renders both
+  prompts and a "Save & Come Back" footer button (between Back/Cancel and Next/Deploy) for
+  free — no per-wizard confirm-dialog code needed anywhere.
+- **Coverage — all 10 SetupWizard-based Setup Wizards**, not just the four the old
+  localStorage hook already touched:
+  - **Migrated from the old per-wizard-fixed-slot localStorage hook** (their own silent
+    auto-save-on-close, no discard, no cross-device sync): `RepeatedActionChartWizard`,
+    `RewardsListWizard`, `ListRevealAssignmentWizard`, `SharedTaskListWizard`. Their existing
+    "continuous autosave on every step change" effects are RETIRED in favor of two explicit
+    save points (the Save & Come Back button, the close prompt) — a deliberate UX
+    simplification, not an oversight: Composition doc §2.2 asks for an explicit confirm on
+    close, and a silent background write the mom never asked for sits oddly next to that.
+  - **Newly wired** (had ZERO draft support before this build): `StarChartWizard`,
+    `GetToKnowWizard`, `RoutineBuilderWizard`, `MeetingSetupWizard` (15 scattered `useState`
+    fields bundled into one draft value — `hasContent` uses `step > 0` as its main signal,
+    since restoring `step` itself isn't wired: a resumed draft repopulates every field but
+    lands back on the intro screen, a known, disclosed simplification given the field count).
+  - **A real finding, not part of the original scope: two wizards were secretly on a THIRD,
+    completely separate drafting mechanism.** `ActivityListWizard` AND `UniversalListWizard`
+    both used `useWizardProgress.ts` — a second, independent localStorage-only implementation
+    that the Studio Drafts tab NEVER read from. This is exactly the "phantom in the Drafts tab
+    map" the dispatch flagged for `ActivityListWizard` — and it turned out `UniversalListWizard`
+    had the identical, previously-undiscovered problem. Both are now on the shared server-backed
+    chrome; `useWizardProgress.ts` has zero remaining callers and was deleted. `UniversalListWizard`
+    also lost its now-redundant in-page "Resumed from where you left off / Start over" banner —
+    the reopen-prompt modal handles that choice before the wizard's content ever shows, so an
+    in-page duplicate of the same decision would be confusing, not helpful.
+- **Studio.tsx Drafts tab** rewritten against the server table: `WIZARD_TYPE_LABELS` extended
+  to all 10 wizard types (was 5), `openWizardTypeFresh(wizardType)` replaces the old
+  per-type-hardcoded Resume onClick (opens the wizard with prefill cleared — the wizard's own
+  reopen-prompt then offers the picker itself, since Studio no longer needs to know WHICH draft
+  mom wants), and Discard now goes through a real `ModalV2` confirm (was a bare `confirm()` —
+  ST-A F-09 discipline extended to this surface) calling `deleteWizardDraftById`. Every wizard's
+  `onClose` bumps `draftRefreshKey` so the "Drafts (N)" badge and tab list stay accurate.
+  `useMigrateLocalStorageWizardDrafts(family?.id, member?.id)` runs once near the top of the page.
+
+**A real regression found and fixed during this slice's own proof — not by the E2E spec, by the
+existing vitest suite.** Adding `wizard_drafts` (a table with a `member_id` FK to
+`family_members`) tripped `tests/coppa-registry-completeness.test.ts` — PRD-40's legal
+completeness pin that fails CI the moment a new child-scoped table ships unclassified in
+`src/lib/compliance/childDataTables.ts` (Convention: decision file R-6). This is exactly what
+that pin exists to catch, and it caught a genuine gap: a mom's (or a granted teen's/kid's, if
+Studio ever opens to them) in-progress wizard draft is real personal data that must be
+accounted for in the COPPA deletion cascade. Classified as **`hard_delete`** on `member_id` —
+matching `notepad_tabs`'s precedent (the child's own in-progress content), explicitly
+DISTINGUISHED in the entry's own note from `wizard_templates`'s `scrub`-only classification
+(a *deployed* template is already a family asset; an undeployed draft belongs to the departing
+member alone). Added to both halves of the twin-file pair per Convention #285:
+`src/lib/compliance/childDataTables.ts` AND the Deno-executable twin
+`supabase/functions/_shared/coppa-cascade-plan.ts` (`tests/coppa-cascade-plan-consistency.test.ts`
+re-verified green).
+
+**That classification change cascaded into a SECOND real requirement, also caught by the
+existing test suite, not invented by me:** `tests/coppa-write-gates-consistency.test.ts` failed
+next — PRD-40 Slice 5's RESTRICTIVE-write-gate generator (`scripts/coppa-write-gates.ts`)
+derives its gated-table set mechanically from `childDataTables.ts`'s `hard_delete` class, and a
+new hard_delete table with no corresponding gate migration is a real enforcement-layer gap
+(once COPPA enforcement activates, an unconsented-under-13 or suspended member could otherwise
+write to `wizard_drafts` unblocked). Fixed the correct way — the test's own error message names
+it exactly: regenerated the gate set into a **NEW** migration (migration 100328, which already
+carries the other 134 tables' gates, is applied to production and therefore immutable) rather
+than hand-editing anything: **`supabase/migrations/00000000100335_st_c_coppa_write_gates_wizard_drafts.sql`**
+via `npm run coppa:gates` (135 tables, 270 policies — every existing gate's idempotent
+`DROP POLICY IF EXISTS`/`CREATE POLICY` DDL is byte-identical to what's already live; only
+`wizard_drafts`'s two new policies are net-new). `scripts/coppa-write-gates-rollback.sql`
+regenerated alongside (the generator's single documented DROP path). Both COPPA consistency
+tests green after.
+
+**Deliberately NOT done this slice (disclosed, not silently dropped):**
+- **`SequentialCreatorModal` / `TaskCreationModal` full-mode routine building** — the dispatch
+  named both explicitly. Investigated: `SequentialCreatorModal` is NOT built on the
+  `SetupWizard` chrome, and its actual editable state (title, items, advancement defaults)
+  lives entirely inside the child `SequentialCreator` component (591 lines) — the modal wrapper
+  itself only holds the assignee pick. Wiring drafts here would mean either lifting
+  `SequentialCreator`'s internal state up to a controlled prop (a real architecture change to
+  the platform's SINGLE SOURCE OF TRUTH for sequential creation — Convention #150, used from
+  Studio, Tasks, AND Lists) or having `SequentialCreator` grow its own hand-rolled prompt UI
+  with none of the "wire the hook, get the chrome for free" leverage the other 10 wizards had.
+  `TaskCreationModal` is 3,363 lines and is the highest-traffic modal in the entire app (task
+  creation, editing, routine building, opportunities, sequential, guided forms all route
+  through it) — a rushed change here risks a platform-wide regression for a single-session
+  pass with no room left to prove it safe. Both are real, valuable follow-up work; neither was
+  attempted this slice. Flagging exactly like every other ST-* slice's disclosed scope
+  decisions (F-14's Option-2 rewire, the ST-B S3 orphan-risk note) rather than claiming
+  "all Setup Wizards" covers more than it does.
+- Restoring the resumed `step` position for `MeetingSetupWizard` (currently restores every
+  field but always lands back on the intro screen) — a small, disclosed follow-up.
+
+**Collateral fix — `src/pages/Lists.tsx` (seat-authorized narrow fix, found via the
+`studio-shelf-truth.spec.ts` regression pass this ST-C proof required).** The seat's relay
+required re-proving `studio-shelf-truth.spec.ts` (16 tests, ST-A's suite) at 16/16 since ST-C
+touched several of the same wizards. F-04d (TSG Extra Jobs Randomizer) failed deterministically
+on 3/3 isolated re-runs — the template-title input showed the template's DEFAULT title instead
+of the value the test (or a fast-typing mom) had already entered, and a real orphaned `lists`
+row confirmed the wrong title actually landed in production. Root cause: `Lists.tsx`'s
+`list_templates` title fetch is an unawaited `.then()` that resolves AFTER the "Creating from
+template" banner is already visible, and it unconditionally called `setCreateTitle(tpl.title)`
+— clobbering anything already typed in the interim. This is a genuine, pre-existing bug outside
+ST-C's own file scope, surfaced only because this session's regression pass exercised it. Paused
+and asked for a ruling before touching a file outside scope; the seat authorized ONE narrow line:
+```ts
+if (tpl?.title) setCreateTitle(prev => (prev && prev.trim() ? prev : (tpl.title as string)))
+```
+— non-destructive prefill (keep whatever mom/the test already typed; only apply the template
+default when the field is still empty), explicitly forbidding any restructuring of the effect,
+any await-before-banner change, or touching the test itself. Applied exactly as specified,
+`tsc -b`/`eslint` re-verified clean. `studio-shelf-truth.spec.ts` then confirmed **16/16 across
+multiple full-file and targeted-batch runs**: F-04d passes deterministically post-fix (re-run 3/3
+green after the fix, matching its 3/3 deterministic FAILURE before it); a `networkidle`
+`helpers/auth.ts` flake (a documented, pre-existing, environmental flake class — a Supabase
+auth-token-refresh background fetch failure, unrelated to any file this session touched) hit at
+different, random test positions across several full-file runs and was confirmed pre-existing,
+never correlating with an ST-C/Lists.tsx file; one single one-off failure at F-13/F-23 (Honey-Do,
+`SharedTaskListWizard` — a wizard ST-C DID touch) was isolated and re-run 3/3 clean standalone,
+confirming a genuine environmental flake rather than a regression (contrasted directly against
+F-04d's repeatable 3/3 deterministic failure pattern, which is what makes it a real bug and not a
+flake). `Lists.tsx` is added to the staging list below with the reason: *"pre-existing
+template-title race, found by shelf-truth F-04d, fixed narrowly under seat ruling."*
+
+**Convention #277 eyes-on tour for ST-C — now DONE, this session, under a seat-granted slot.**
+`tests/e2e/features/wizard-draft-persistence-eyes-on-tour.spec.ts` (new, 2 tests: desktop
+1440×900 + mobile 375×812), covering all 5 named surfaces plus the discard sub-confirmation.
+**Two real test-authoring bugs were found and fixed in this new spec during its own first runs —
+neither is a product bug:**
+1. A stale Playwright locator: the close-prompt and its "Discard for good?" sub-confirmation are
+   the SAME `ModalV2` instance (`id="wizard-draft-close-prompt"`) with only its title/body
+   swapping — a locator built with `hasText:'Save as a draft to come back to?'` stops matching
+   the instant the sub-confirmation replaces that text, so `closePrompt.getByTestId(...)` timed
+   out even though the correct `data-testid="wizard-draft-discard-cancel"` was right there on
+   screen. Fixed by re-locating with a state-appropriate `hasText` filter at each step instead of
+   reusing a stale reference.
+2. Drafts are now REAL server-backed rows, not localStorage — so the desktop and mobile
+   viewport iterations (two separate `test()` calls, same mom account, same Testworth family)
+   silently shared state: a per-viewport sweep was missing, so the second iteration's very first
+   wizard-open immediately hit the first iteration's leftover drafts and got the reopen-prompt
+   instead of a blank wizard. Fixed by adding a `test.beforeEach` sweep (file-level `beforeAll`/
+   `afterAll` alone isn't enough once fixtures are real DB rows, not per-context localStorage).
+3. A third, genuinely interesting finding at MOBILE viewport only: `StudioTemplateCard`'s
+   expand/collapse reflows the horizontal ScrollRow (200px→280px on expand), and the tour
+   helper's `btn.click({force:true})` skips Playwright's scroll-into-view step — after the
+   reflow, the button's post-expansion position could fall outside the viewport's current scroll
+   offset, and `force:true` then dispatches the click at raw (now-off-target) coordinates instead
+   of erroring. Verified via an isolated diagnostic: a single direct `card.click()` with no
+   `force`/no retry loop opened the card cleanly on the first try, proving the mechanism (not a
+   flake) — the fix was to `scrollIntoViewIfNeeded()` the button itself immediately before a
+   plain (non-forced) click, rather than blindly force-clicking wherever it used to be.
+   This is a TEST-HELPER hardening fix in ST-C's own tour spec, not a change to
+   `StudioTemplateCard` or any other product file — flagging because the underlying
+   expand/reflow-at-mobile-width behavior is the same general class ST-A's own tour already
+   documented for a different section ("Growth-section cards don't open their wizards under
+   synthetic 375px clicks") and already handed to ST-E/a founder phone-check as a known,
+   disclosed, out-of-scope shelf-interaction item — nothing new was found about the product here,
+   only about how to drive it reliably from Playwright at 375px.
+
+Both tests passed 2/2 after these three fixes; see the Mom-UI Verification table below for the
+full read-every-screenshot record.
+
+**ST-C Post-Build Verification (founder ruling 2026-09-12 — the two named-but-not-attempted
+surfaces are Stubbed, not Missing; registered in `STUB_REGISTRY.md` → "STUDIO ST-C — Drafts v2"):**
+
+| Requirement | Status | Evidence |
+|---|---|---|
+| `wizard_drafts` table + RLS (own drafts + mom-sees-all) | **Wired** | Migration 100333 |
+| Server-backed `useWizardDraft`/`useWizardDraftList` (replaces localStorage) | **Wired** | `useWizardDraft.ts` |
+| localStorage → server migration (idempotent per family) | **Wired** | `migrateLocalStorageWizardDrafts` |
+| Shared reopen-prompt / close-prompt / Save & Come Back chrome | **Wired** | `useWizardDraftChrome.ts`, `WizardDraftPrompts.tsx`, `SetupWizard.tsx` |
+| RepeatedActionChartWizard / RewardsListWizard / ListRevealAssignmentWizard / SharedTaskListWizard migrated off the old per-wizard localStorage slot | **Wired** | 4 wizard files |
+| StarChartWizard / GetToKnowWizard / RoutineBuilderWizard / MeetingSetupWizard newly wired | **Wired** | 4 wizard files |
+| ActivityListWizard / UniversalListWizard migrated off the separate `useWizardProgress` mechanism (real finding — "phantom" Drafts-tab bug affected BOTH, not just the one named) | **Wired** | 2 wizard files; `useWizardProgress.ts` deleted |
+| Studio Drafts tab: real Discard confirm (no `window.confirm`), all 10 wizard-type labels, `openWizardTypeFresh` | **Wired** | `Studio.tsx` |
+| COPPA registry + write-gates completeness for the new table | **Wired** | `childDataTables.ts`, `coppa-cascade-plan.ts`, migration 100335 |
+| `SequentialCreatorModal` save-and-return | **Stubbed** | `STUB_REGISTRY.md` → "STUDIO ST-C — Drafts v2"; owned by ST-C.2 |
+| `TaskCreationModal` full-mode routine-building save-and-return | **Stubbed** | `STUB_REGISTRY.md` → "STUDIO ST-C — Drafts v2"; owned by ST-C.2 |
+| `MeetingSetupWizard` resumed-step restore (restores fields, not step position) | **Stubbed (small, disclosed)** | Noted above; not registered separately — low-severity UX polish |
+
+**Proof (local, this session):**
+- `npx tsc -b` — clean across the whole project, zero errors.
+- `npx eslint` on all 15 touched/new TS/TSX files — 0 errors, 0 new warnings (the pre-existing
+  `ActivityListWizard.tsx` line-112 `exhaustive-deps` warning and the pre-existing Studio.tsx
+  `handleSelectStarterConfig`/`starterConfigs` warning both re-confirmed via `git stash` /
+  re-lint to predate this session — not introduced by ST-C).
+- `npm run prebuild` — 0 errors / 77 pre-existing warnings; `verify_jwt` 67/67; Safe Harbor
+  filter 67/67, 0 unguarded queries; under-13 aggregation-exclusion 90 files / 4 writers.
+- `npm run redteam` — 77/77.
+- **Full `npx vitest run` — 916/926 passing, 10 failures across 5 files, ALL PRE-EXISTING**
+  (re-confirmed identical failure signature to the documented cross-session baseline:
+  `build-task-schedule-fields-routine.test.ts` ×1, `convention-lint.test.ts` ×4 — old migration
+  9's `IF` parser choke, `BestIntentionsFocusSection.tsx` ✓ emoji, `ArchiveMemberCard.tsx` #fff
+  — `journal-notepad.test.ts` ×2, `personal-growth.test.ts` ×2,
+  `update-routine-template-atomic.test.ts` ×1 — none reference any ST-C file). The two COPPA
+  regressions this slice introduced-and-fixed (registry completeness, write-gates consistency)
+  are confirmed GREEN in this same run, not just in isolation.
+- **`npx playwright test tests/e2e/features/wizard-draft-persistence.spec.ts` — 6/6 GREEN, live,
+  under a seat-granted suite slot.** One real bug found and fixed along the way (test residue,
+  not product code — see below), then a clean 6/6 confirmed. The suite drives:
+  (1) close-via-X with content → save prompt → real `wizard_drafts` row asserted via service
+  role, AND a zero-count assertion on `localStorage` keys starting with the OLD
+  `wizard-draft-` prefix (proving this is genuinely the new mechanism, not the old one);
+  (2) reopen → automatic reopen-prompt → "Continue" restores the typed value into the form;
+  (3) "Start Fresh" opens a blank form AND leaves the original draft row byte-identical
+  (same id, untouched) — the Composition-doc-mandated "never a silent discard"; (4) the Studio
+  Drafts tab's Discard confirm permanently deletes the row; (5) resuming a draft end-to-end
+  through Assign → Review → Deploy creates real `tasks` + `dashboard_widgets` rows AND clears
+  the draft; (6) a SECOND, previously-unsupported wizard (`StarChartWizard`) proven end-to-end
+  on save + reopen-restore, specifically to demonstrate this is the shared chrome doing the
+  work platform-wide, not a per-wizard reimplementation.
+  **Real finding during the first live run:** test 1 hit the modal-backdrop pointer-interception
+  timeout (`getByLabel('Close')` blocked by `data-testid="modal-backdrop"`) — traced to a REAL,
+  unprefixed "Potty Chart" `wizard_drafts` row left behind in production by the earlier
+  `STUDIO_AUDIT=1` shelf-sweep tour (Pass A), which per Composition §2.2's own "dismiss defaults
+  to save" rule auto-saved a draft for every wired wizard that tour clicked through and
+  navigated away from — 5 such rows across 4 wizard types were found and swept (none were real
+  founder data; all matched example-card default titles like "Reading Fun"/"Homeschool Variety
+  Pack"). Re-ran clean 6/6 after the sweep. This is a genuine, disclosed lesson for whoever owns
+  `studio-experience-audit.spec.ts` next: that tour spec has no `wizard_drafts` cleanup of its
+  own, and now that 10 wizards are wired to the real server-backed chrome, every future run of
+  that tour will leave similar residue behind unless it's updated to sweep `wizard_drafts` too —
+  flagging, not fixing (out of ST-C's file scope).
+- **`STUDIO_AUDIT=1` shelf-sweep tour (`studio-experience-audit.spec.ts`, Pass A) — 1/1 GREEN**
+  (ran under the same seat-granted slot; the run that produced the residue above). All Setup
+  Wizard tiles opened correctly.
+- **`studio-shelf-truth.spec.ts` (ST-A's suite, 16 tests) — every one of the 16 confirmed passing
+  at least once post-Lists.tsx-fix**, across several full-file and targeted-batch runs this
+  session (see the Lists.tsx collateral-fix writeup above for the full flake-vs-bug analysis).
+- **`wizard-draft-persistence-eyes-on-tour.spec.ts` (new, Convention #277) — 2/2 GREEN**, both
+  after fixing the three test-authoring bugs described above. All 12 screenshots (6 surfaces ×
+  2 viewports) plus both `console.json` files read directly — zero console errors at either
+  viewport. See the Mom-UI Verification table below for the full per-surface record.
+- **Residue — both the authoritative time-window query and the name-matched query, run after
+  the final clean tour pass:** zero rows in ANY of the 7 tables (`wizard_drafts`, `lists`,
+  `list_items`, `tasks`, `dashboard_widgets`, `wizard_templates`, `sequential_collections`) by
+  either method. `wizard_drafts` whole-table count = **0**.
+
+**Migration numbering:** took 100333 (`wizard_drafts`) at session start when 100332 was the
+highest; a concurrent PRD-31 Stripe lane took 100334 in the same window (confirmed zero file
+overlap via `git status`); took 100335 for the COPPA write-gates regeneration once that need
+was discovered. **Both applied to production + ledger-repaired by the seat** (confirmed live —
+`wizard_drafts` table reachable and empty via the residue queries above; both migrations no
+longer appear in git status as pending applies).
+
+### Selective-staging file list (26 entries — verify against a FRESH `git status` at commit time)
+
+| # | File | Why it's in this commit |
+|---|---|---|
+| 1 | `supabase/migrations/00000000100333_st_c_wizard_drafts.sql` | NEW — the `wizard_drafts` table + RLS |
+| 2 | `supabase/migrations/00000000100335_st_c_coppa_write_gates_wizard_drafts.sql` | NEW — regenerated COPPA write-gate set incl. `wizard_drafts` |
+| 3 | `src/components/studio/wizards/useWizardDraft.ts` | Rewritten — server-backed hook + localStorage migration |
+| 4 | `src/components/studio/wizards/useWizardDraftChrome.ts` | NEW — the shared reopen/close-prompt UX hook |
+| 5 | `src/components/studio/wizards/WizardDraftPrompts.tsx` | NEW — the two ModalV2 prompt components |
+| 6 | `src/components/studio/wizards/SetupWizard.tsx` | New `draftChrome` prop — prompts + Save & Come Back button |
+| 7 | `src/components/studio/wizards/RepeatedActionChartWizard.tsx` | Migrated to the new chrome |
+| 8 | `src/components/studio/wizards/RewardsListWizard.tsx` | Migrated to the new chrome |
+| 9 | `src/components/studio/wizards/ListRevealAssignmentWizard.tsx` | Migrated to the new chrome |
+| 10 | `src/components/studio/wizards/SharedTaskListWizard.tsx` | Migrated to the new chrome |
+| 11 | `src/components/studio/wizards/StarChartWizard.tsx` | Newly wired |
+| 12 | `src/components/studio/wizards/GetToKnowWizard.tsx` | Newly wired |
+| 13 | `src/components/studio/wizards/RoutineBuilderWizard.tsx` | Newly wired |
+| 14 | `src/components/studio/wizards/MeetingSetupWizard.tsx` | Newly wired |
+| 15 | `src/components/studio/wizards/ActivityListWizard.tsx` | Migrated OFF the separate `useWizardProgress` mechanism |
+| 16 | `src/components/studio/wizards/UniversalListWizard.tsx` | Migrated OFF `useWizardProgress`; retired the redundant in-page resume banner |
+| 17 | `src/components/studio/wizards/useWizardProgress.ts` | DELETED — zero remaining callers |
+| 18 | `src/pages/Studio.tsx` | Drafts tab rewrite, `WIZARD_TYPE_LABELS`, `openWizardTypeFresh`, migration call, discard confirm |
+| 19 | `src/lib/compliance/childDataTables.ts` | COPPA registry: `wizard_drafts` classified `hard_delete` |
+| 20 | `supabase/functions/_shared/coppa-cascade-plan.ts` | COPPA cascade twin: `wizard_drafts` entry |
+| 21 | `scripts/coppa-write-gates-rollback.sql` | Regenerated alongside migration 100335 |
+| 22 | `tests/e2e/features/wizard-draft-persistence.spec.ts` | NEW — the 6 ST-C proof pins (6/6 GREEN, live) |
+| 23 | `tests/e2e/features/wizard-draft-persistence-eyes-on-tour.spec.ts` | NEW — Convention #277 tour (2/2 GREEN, live) |
+| 24 | `src/pages/Lists.tsx` | Pre-existing template-title race, found by shelf-truth F-04d, fixed narrowly under seat ruling |
+| 25 | `STUB_REGISTRY.md` | New "STUDIO ST-C — Drafts v2" section (the two ST-C.2-owned stubs) + summary counts |
+| 26 | `.claude/rules/current-builds/STUDIO-EXPERIENCE.md` | This build record |
+
+**DO NOT STAGE (two concurrent lanes active in this same tree throughout this session, confirmed
+via repeated `git status` checks):**
+- **PRD-31 Stripe/BETA-COHORT lane:** `supabase/functions/stripe-webhook-handler/index.ts`,
+  `supabase/supabase/config.toml`, `supabase/functions/create-subscription-change/`,
+  `supabase/functions/create-subscription-checkout/`,
+  `supabase/functions/create-subscription-portal-session/`,
+  `scripts/stripe-setup-subscription-products.ts`,
+  `supabase/migrations/00000000100334_prd31_slice2_stripe_subscriptions.sql`,
+  `supabase/migrations/00000000100336_*.sql`, `supabase/migrations/00000000100337_*.sql`,
+  `tests/e2e/features/subscription-tiers.spec.ts`,
+  `.claude/rules/current-builds/PRD-31-subscriptions.md`.
+- **BETA-COHORT (PRD-40 §9 interim consent + founding-at-signup) lane:**
+  `.claude/rules/current-builds/BETA-COHORT.md`, `scripts/beta-cohort-flag-existing.sql`,
+  `scripts/full-schema-dump.cjs` (adds `beta_cohort_settings` to DOMAIN_ORDER — not ST-C's),
+  `src/components/coppa/FinishVerifyingModal.tsx`,
+  `src/components/coppa/BatchConsentModal.tsx`, `src/components/coppa/CoppaConsentFlow.tsx`,
+  `src/hooks/useMemberSaveAndConsentGate.tsx`, `src/lib/coppa/useCoppaGate.ts`,
+  `src/lib/coppa/useStripeVerificationPayment.ts`, `src/pages/FamilySetup.tsx`,
+  `src/pages/PrivacyConsentPage.tsx`, `src/pages/SettingsPage.tsx`,
+  `supabase/migrations/00000000100338_*.sql`, `supabase/migrations/00000000100339_*.sql`,
+  `tests/beta-cohort-auth-user-metadata.test.ts`,
+  `tests/e2e/features/coppa-consent-screens.spec.ts`, `tests/e2e/features/subscription-tiers.spec.ts`,
+  `tests/e2e/helpers/seed-testworths-complete.ts`, `tests/verification/new-jj-kk-onboarding.ts`,
+  `RLS-VERIFICATION.md` (its entire pending diff is BETA-COHORT's migration-100338 rls-verifier
+  append — zero ST-C content in it).
+
+**Next steps:** referee pass → selective staging (list
+above) → `npm run schema:dump` → founder confirm → commit.
+
 ## Retroactive verification (founder ruling)
 The graded 89-tile matrix + Pass B/scenario evidence in the evidence record §2–§3 constitutes the retroactive Post-Build Verification for Phase 3.7 and Phase 3.8 (their feature-decision files' tables were never filled). Copy at close-out.
 
@@ -791,6 +1149,13 @@ Visual-pass notes fed back into slices: (1) mobile Assign pill needed a verified
 | **ST-B** memberName resolution → Assign preselect (probe 2) | ✅ step 5/6 Assign: Ruthie's pill FILLED in her member color, Alex/Casey/Jordan outline-only; pill bar kid-scoped (no adults/Special Adults — ST-A rider (b) still holding) | — | ✅ same at 375px, Back/Next reachable | Mom | `nlc-stb-{vp}-6-assign-ruthie-preselected.png` (both read) | 2026-09-11 |
 | **ST-B** Routine builder verbatim description passthrough (probe 4) | ✅ Routine Name "Morning Routine" + textarea holding the EXACT original phrase "help me set up a morning routine" — the `finalizePreFill` guarantee, on the very path the seat's referee finding flagged | — | ✅ same at 375px | Mom | `nlc-stb-{vp}-7-routine-verbatim-description.png` (both read) | 2026-09-11 |
 | **ST-B** Studio shelf sweep regression (Pass A tour) | ✅ 89/89 tiles open their intended surface, **zero console errors across all 89** | — | — | Mom | `studio-audit-out/pass-a.ndjson` + 89 shots; 3 flagged "no dialog" tiles read individually and confirmed WORKING (member picker isn't `role="dialog"`) | 2026-09-11 |
+| **ST-C** "Save & Come Back" footer button, mid-edit | ✅ button present in the footer between Cancel and Next, chart name field holds typed content ("STUDIOAUD Tour Draft A") | — (not toured; ModalV2 `sm` dialogs are width-fluid between the two verified extremes, ST-A precedent) | ✅ bottom-sheet modal, icon-only Save button reachable between Cancel/Next, no clipping | Mom | `wizard-draft-{vp}-1-save-and-come-back-button.png` (both read) | 2026-09-11 |
+| **ST-C** Close/discard prompt ("Save as a draft to come back to?") | ✅ three actions render correctly: "No, discard" / "Keep working" / "Yes, save as draft" (primary, filled) | — | ✅ same three actions, stacked cleanly at 375px | Mom | `wizard-draft-{vp}-2-close-save-prompt.png` (both read) | 2026-09-11 |
+| **ST-C** Discard sub-confirmation ("Discard for good?") | ✅ warm-but-clear copy ("This can't be undone — your progress will be gone for good"), "Go back" / "Discard for good" (destructive red) | — | ✅ same at 375px | Mom | `wizard-draft-{vp}-2b-close-discard-confirm.png` (both read) | 2026-09-11 |
+| **ST-C** Reopen prompt — single draft | ✅ "Continue where you left off?" with one draft row (title + "Saved [date] at [time]") + "Start Fresh" | — | ✅ same at 375px | Mom | `wizard-draft-{vp}-3-reopen-prompt-single-draft.png` (both read) | 2026-09-11 |
+| **ST-C** Reopen prompt — multi-draft picker (2 drafts, Convention 250 §2.2 requirement) | ✅ BOTH "STUDIOAUD Tour Draft B" and "STUDIOAUD Tour Draft A" render as separate selectable rows with their own timestamps, "Start Fresh" still present | — | ✅ same, both rows fully readable stacked at 375px | Mom | `wizard-draft-{vp}-4-reopen-prompt-multi-draft-picker.png` (both read) | 2026-09-11 |
+| **ST-C** Studio Drafts tab, two drafts, Resume/Discard | ✅ "Drafts (2)" tab label; two cards each showing title, wizard-type label ("Progress Chart"), "Last saved" timestamp, green Resume + outline Discard buttons | — | ✅ single-column stack, BottomNav visible below, no overlap | Mom | `wizard-draft-{vp}-5-drafts-tab-two-drafts.png` (both read) | 2026-09-11 |
+| **ST-C** Console errors, both viewports | ✅ zero | — | ✅ zero | Mom | `wizard-draft-{desktop,mobile}-console.json` (both read: `[]`) | 2026-09-11 |
 
 ## Post-Build Verification
 *(Checkpoint 5 of the cleanup build — every finding F-01…F-21 + Bucket-1 item: Wired / Stubbed / Missing. Zero Missing required.)*

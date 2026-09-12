@@ -2719,7 +2719,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 369 rows
+### `activity_log_entries` — 372 rows
 
 | # | Column |
 |---|---|
@@ -2816,7 +2816,7 @@
 | 11 | `notes` |
 | 12 | `created_at` |
 
-### `parent_verifications` — 3 rows
+### `parent_verifications` — 4 rows
 
 | # | Column |
 |---|---|
@@ -2858,7 +2858,7 @@
 | 17 | `created_at` |
 | 18 | `updated_at` |
 
-### `parent_verification_attempts` — 7 rows
+### `parent_verification_attempts` — 11 rows
 
 | # | Column |
 |---|---|
@@ -2903,7 +2903,7 @@
 | 9 | `job_run_id` |
 | 10 | `executed_at` |
 
-### `stripe_webhook_events` — 6 rows
+### `stripe_webhook_events` — 16 rows
 
 | # | Column |
 |---|---|
@@ -2914,6 +2914,14 @@
 | 5 | `processed_at` |
 | 6 | `status` |
 | 7 | `error` |
+
+### `beta_cohort_settings` — 1 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `enabled` |
+| 3 | `updated_at` |
 
 ---
 
@@ -3236,7 +3244,7 @@
 | 13 | `animation_slug` |
 | 14 | `revealed_at` |
 
-### `contracts` — 157 rows
+### `contracts` — 197 rows
 
 | # | Column |
 |---|---|
@@ -3965,7 +3973,7 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
-### `point_transactions` — 49 rows
+### `point_transactions` — 50 rows
 
 | # | Column |
 |---|---|
@@ -4499,7 +4507,7 @@
 | 7 | `new_visibility` |
 | 8 | `created_at` |
 
-### `username_check_log` — 5 rows
+### `username_check_log` — 6 rows
 
 | # | Column |
 |---|---|
@@ -4771,7 +4779,7 @@
 
 ---
 
-> **Summary:** 146 API-exposed tables in domain sections | 100 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
+> **Summary:** 147 API-exposed tables in domain sections | 100 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >
