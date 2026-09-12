@@ -1,4 +1,41 @@
-# Current State — 2026-09-12 (PRD-31 SLICE 2 CLOSED `5fbaa28`; ST-C in proof; next: ST-C commit → ST-C.2 → PRD-31 Slice 3)
+# Current State — 2026-09-12 (ST-C `b59e6c8` + BETA-COHORT `07cde8a` CLOSED; beta-cohort mode ON in production; next: ST-C.2 → PRD-31 Slice 3)
+
+## 2026-09-12 (evening) — ST-C + BETA-COHORT CLOSED; beta signups are OPEN
+
+**BETA-COHORT (`07cde8a`):** beta-cohort mode is ON in production. New families are flagged
+founding at signup (soft cap, test families excluded); founding families with under-13 kids go
+through the REAL consent flow with a "verify later" step instead of the $1 charge (PRD-40 §9,
+founder ruling); the "finish verifying" $1 prompt is built and dormant until the seat flips the
+switch OFF at live-Stripe cutover. Migrations 100338/100339/100340 applied. **Seat hotfix
+100339** — 100338's trigger extension derived `is_test_family` without COALESCE and broke EVERY
+real signup for ~25 minutes (found by rls-verifier, reproduced by the seat; zero signups occurred
+in the window). Lesson recorded. Bridgette's Family flagged founding (public count = 2).
+**Beta families can sign up as soon as Vercel deploys this push.** Young kids: interim consent.
+Teens/adults: unchanged. Still TEST-mode Stripe — no real charges anywhere.
+
+**ST-C (`b59e6c8`):** real save-and-return on all 10 Setup Wizards (`wizard_drafts`); two gaps
+founder-accepted as **ST-C.2** (SequentialCreatorModal, TaskCreationModal routine drafts — the
+higher-value one). Narrow Lists.tsx race fix rode along under seat ruling.
+
+**Cleanup done today (founder-approved):** 30 orphaned sequential child tasks (Testworth) ·
+23 orphaned child PIN-shadow auth users (June→today; fixture teardowns never swept them —
+**follow-up: a shared teardown helper that sweeps `{member_id}@pin.myaimcentral.app` users**).
+
+**Supabase Disk IO email (2026-09-12):** budget depleted — almost certainly today's load (~30
+suites, 5 rls-verifier passes, a 270-policy regen, 4 schema dumps). Baseline: THREE every-minute
+crons (process-embeddings, safety-classify, validate-ai-output); DB 3.4 GB. **Founder action:**
+check the IO chart on a quiet day; if still red → widen those three crons to */5 (free) or bump
+compute. No action taken.
+
+**Environment quirks recorded:** first vitest run of a freshly written test file sometimes
+collects no tests and passes on immediate re-run (3x today); Stripe Payment Element "Card"
+accordion can ignore the first click (1x today). Neither is code.
+
+**Queue:** ST-C.2 (routine-modal drafts) · PRD-31 Slice 3 (credits + metering) · STUDIO ST-D ·
+staging Supabase project before live Stripe (payment E2E cannot run against live keys) ·
+founder-owned: live Stripe keys (two lines in C:/tmp/stripe-live.env when ready), attorney
+package (+ "interim beta consent" and "pending-child placeholder" questions), service-role key
+rotation, Resend email, virtual mailbox, PECON feel-pass, voice-UX trio.
 
 ## 2026-09-12 — PRD-31 SLICE 2 (Stripe subscriptions) CLOSED — commit `5fbaa28`, pushed
 

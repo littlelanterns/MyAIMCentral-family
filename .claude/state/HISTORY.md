@@ -6,6 +6,13 @@
 
 ---
 
+## 2026-09-12 — STUDIO ST-C (Drafts v2) + BETA-COHORT CLOSED
+
+**ST-C** (`b59e6c8`): `wizard_drafts` server-backed save-and-return on all 10 Setup Wizards; localStorage migration; close/reopen prompts; Drafts tab; Lists.tsx race fix. Two gaps → ST-C.2 (founder-accepted). Proof 6/6 + 16/16 + tours; rls-verifier 43 probes; residue 0.
+**BETA-COHORT** (`07cde8a`): founding-at-signup + PRD-40 §9 interim consent + finish-verifying; migrations 100338/100339(seat hotfix)/100340; consent E2E 12/12 + 4 regression pins; rls-verifier 64 probes; residue 0. Beta-cohort mode ON in production.
+**Seat actions:** rolled the TEST Stripe webhook endpoint (secret drift since 07-10); swept 30 orphan tasks + 23 orphan PIN-shadow users; user-level permissions defaultMode=auto; two plaintext service-role-key allow entries removed from ~/.claude/settings.json (rotation = open founder decision).
+**Next:** ST-C.2 → PRD-31 Slice 3 → ST-D; staging project before live Stripe.
+
 ## 2026-09-12 — PRD-31 Slice 2 (Stripe Subscriptions + Founding Program) CLOSED
 
 **Type:** Feature slice (billing plumbing) + founder rulings 2026-09-11 encoded

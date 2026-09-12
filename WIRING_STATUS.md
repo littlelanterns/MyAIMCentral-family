@@ -1,7 +1,38 @@
 # Wiring Status — End-to-End Routing
 
 > Tracks which RoutingStrip destinations actually work vs stub.
-> Updated each build session. Last updated: 2026-09-12 (PRD-31 Slice 2 Stripe subscriptions).
+> Updated each build session. Last updated: 2026-09-12 (BETA-COHORT + STUDIO ST-C).
+
+## BETA-COHORT — Founding-at-signup + Beta Interim Consent (2026-09-12, commit `07cde8a`)
+
+Lets moms with under-13 kids join beta now. Rulings: PRD-40 §9 + PRD-31 addendum 2026-09-12. Record: `.claude/completed-builds/2026-09/BETA-COHORT.md`.
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| Beta-cohort switch | `beta_cohort_settings` (single row, singleton guard, service-role-write) + `get_beta_cohort_mode()`; seat flips OFF at live cutover | **Wired (ON)** | Migrations 100338/100340 |
+| Founding-at-signup | `handle_new_user()` flags new families founding while ON, soft cap < 100, `is_test_family` excluded | **Wired** | Seat hotfix 100339: NULL metadata broke every real signup for ~25 min (zero signups in the window) — lesson: COALESCE every metadata-derived boolean |
+| Interim consent ("verify later") | Founding families + switch ON: real Screens 1–4/7, Screen 5 = acknowledgment → `create_beta_interim_verification()` (gate order parent → founding → switch → idempotent) → `beta_interim` row; non-founding keep the R-8 card | **Wired** | 12/12 consent E2E; rls-verifier 64 probes |
+| Real + interim verification coexist | `uq_pv_active_per_parent` split into real/interim partial indexes; intent function ignores interim rows | **Wired** | Immutability untouched |
+| Finish verifying at live cutover | `FinishVerifyingModal` on Screen 8 + shared `useStripeVerificationPayment` (extracted from Screen 5); surfaces only when the switch is OFF | **Wired (dormant until OFF)** | |
+| Batch-consent stale checkbox race | `CoppaAcknowledgeModal` keyed per child | **Wired (fix)** | Found by the proof run |
+| Founding banner + admin readiness `interim_verifications_owed` | Settings → Family Management; `/admin/coppa` | **Wired** | Never blocks the stamp |
+| Existing beta family flagged | `scripts/beta-cohort-flag-existing.sql` (seat-run) | **Done** | Public founding count = 2 |
+| Beta plan picker + tier badges | — | Stub (PRD-31 Slice 5 / 4) | Founder ruling 2026-09-12 item 3 |
+
+## STUDIO-EXPERIENCE ST-C — Drafts v2 (2026-09-12, commit `b59e6c8`)
+
+Real save-and-return (Convention #250). Record: `.claude/rules/current-builds/STUDIO-EXPERIENCE.md` → "## ST-C".
+
+| Capability | How It Works | Status | Notes |
+|---|---|---|---|
+| `wizard_drafts` (owner + mom RLS; COPPA hard_delete; 2 write gates) | Migrations 100333/100335 | **Wired** | rls-verifier 43 probes zero gaps; mom cannot author a draft for a child (by design) |
+| Server-backed multi-draft hook + one-time localStorage migration | `useWizardDraft`/`useWizardDraftList`; `useWizardProgress` retired | **Wired** | |
+| Close/reopen prompts + "Save & Come Back" via `SetupWizard` chrome | `useWizardDraftChrome`, `WizardDraftPrompts` (ModalV2) | **Wired** | All 10 Setup Wizards |
+| Drafts tab reads the table | `Studio.tsx` | **Wired** | |
+| Lists.tsx template-title race | Non-destructive prefill | **Wired (fix)** | Pre-existing, found by shelf-truth F-04d |
+| SequentialCreatorModal + TaskCreationModal routine drafts | — | Stub (ST-C.2) | Founder-accepted 2026-09-12 |
+| `studio-experience-audit.spec.ts` leaves auto-saved drafts | — | Follow-up | Add wizard_drafts cleanup to that tour |
+| `wizard-draft-persistence` test "existing draft row untouched" | — | Flake candidate | Seat 5/6 then 6/6, no residue, no concurrent edits |
 
 ## PRD-31 Slice 2 — Stripe Subscriptions + Founding Program (2026-09-12, commit `5fbaa28`)
 
