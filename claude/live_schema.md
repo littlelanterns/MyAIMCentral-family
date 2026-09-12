@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-09-07
+> Auto-generated from live Supabase on 2026-09-12
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -43,6 +43,7 @@
 | 24 | `family_password_hash` |
 | 25 | `family_password_failed_attempts` |
 | 26 | `family_password_locked_until` |
+| 27 | `is_test_family` |
 
 ### `family_members` — 21 rows
 
@@ -129,7 +130,7 @@
 | 4 | `granted_by` |
 | 5 | `created_at` |
 
-### `view_as_sessions` — 553 rows
+### `view_as_sessions` — 561 rows
 
 | # | Column |
 |---|---|
@@ -141,7 +142,7 @@
 | 6 | `ended_at` |
 | 7 | `origin` |
 
-### `view_as_feature_exclusions` — 433 rows
+### `view_as_feature_exclusions` — 441 rows
 
 | # | Column |
 |---|---|
@@ -212,6 +213,9 @@
 | 10 | `is_active` |
 | 11 | `created_at` |
 | 12 | `updated_at` |
+| 13 | `stripe_product_id` |
+| 14 | `stripe_price_id_normal` |
+| 15 | `stripe_price_id_founding` |
 
 ### `family_subscriptions` — 2 rows
 
@@ -233,6 +237,7 @@
 | 14 | `is_founding_family` |
 | 15 | `founding_rate_monthly` |
 | 16 | `founding_rate_yearly` |
+| 17 | `price_adjustment_kind` |
 
 ### `feature_key_registry` — 226 rows
 
@@ -452,7 +457,7 @@
 
 *(listed in DOMAIN_ORDER but not present in the live database — may have been planned in a PRD but not yet migrated, or dropped/renamed)*
 
-### `ai_usage_tracking` — 964 rows
+### `ai_usage_tracking` — 1015 rows
 
 | # | Column |
 |---|---|
@@ -731,7 +736,7 @@
 | 18 | `reward_image_url` |
 | 19 | `reward_image_asset_key` |
 
-### `tasks` — 238 rows
+### `tasks` — 215 rows
 
 | # | Column |
 |---|---|
@@ -862,7 +867,7 @@
 | 18 | `mastery_evidence_url` |
 | 19 | `mastery_evidence_note` |
 
-### `routine_step_completions` — 2575 rows
+### `routine_step_completions` — 2591 rows
 
 | # | Column |
 |---|---|
@@ -950,7 +955,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 55 rows
+### `lists` — 57 rows
 
 | # | Column |
 |---|---|
@@ -1003,7 +1008,7 @@
 | 47 | `include_in_shopping_mode` |
 | 48 | `subject_member_id` |
 
-### `list_items` — 197 rows
+### `list_items` — 216 rows
 
 | # | Column |
 |---|---|
@@ -1845,7 +1850,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 141 rows
+### `notifications` — 142 rows
 
 | # | Column |
 |---|---|
@@ -2714,7 +2719,7 @@
 
 ## Activity, Analytics & Admin (PRD-32)
 
-### `activity_log_entries` — 367 rows
+### `activity_log_entries` — 369 rows
 
 | # | Column |
 |---|---|
@@ -2853,7 +2858,7 @@
 | 17 | `created_at` |
 | 18 | `updated_at` |
 
-### `parent_verification_attempts` — 6 rows
+### `parent_verification_attempts` — 7 rows
 
 | # | Column |
 |---|---|
@@ -2869,7 +2874,7 @@
 | 10 | `verification_id` |
 | 11 | `attempted_at` |
 
-### `parental_data_exports` — 0 rows
+### `parental_data_exports` — 1 rows
 
 | # | Column |
 |---|---|
@@ -2930,7 +2935,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 0 rows
+### `ai_output_scans` — 49 rows
 
 | # | Column |
 |---|---|
@@ -3450,6 +3455,19 @@
 | 13 | `created_at` |
 | 14 | `pool_name` |
 
+### `founding_codes` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `code` |
+| 3 | `minted_by` |
+| 4 | `note` |
+| 5 | `expires_at` |
+| 6 | `redeemed_by_family_id` |
+| 7 | `redeemed_at` |
+| 8 | `created_at` |
+
 ### `gamification_configs` — 18 rows
 
 | # | Column |
@@ -3947,7 +3965,7 @@
 | 15 | `cancelled_at` |
 | 16 | `batch_id` |
 
-### `point_transactions` — 47 rows
+### `point_transactions` — 49 rows
 
 | # | Column |
 |---|---|
@@ -4587,6 +4605,19 @@
 | 13 | `last_viewed_at` |
 | 14 | `created_at` |
 
+### `wizard_drafts` — 0 rows
+
+| # | Column |
+|---|---|
+| 1 | `id` |
+| 2 | `family_id` |
+| 3 | `member_id` |
+| 4 | `wizard_type` |
+| 5 | `title` |
+| 6 | `state` |
+| 7 | `created_at` |
+| 8 | `last_saved_at` |
+
 ### `wizard_templates` — 0 rows
 
 | # | Column |
@@ -4740,7 +4771,7 @@
 
 ---
 
-> **Summary:** 146 API-exposed tables in domain sections | 98 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
+> **Summary:** 146 API-exposed tables in domain sections | 100 API-exposed but uncatalogued | 0 migration-only (`public`) tables | 6 `platform_intelligence` tables | 14 DOMAIN_ORDER entries missing from live database
 >
 > **Migration-only tables** exist in the database but aren't in the PostgREST schema cache. They are accessible from Edge Functions and direct SQL. To expose them via the REST API, add the schema/table to the API grant.
 >

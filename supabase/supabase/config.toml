@@ -640,6 +640,19 @@ verify_jwt = false
 [functions.nlc-compose]
 verify_jwt = false
 
+# PRD-31 Slice 2 — client-invoked, mom-only. authenticateRequest +
+# role='primary_parent' check validates the caller in code (R-10-class).
+# stripe-webhook-handler above is EXTENDED with the 5 subscription events,
+# not redeployed as a separate function (ruling R31-12).
+[functions.create-subscription-checkout]
+verify_jwt = false
+
+[functions.create-subscription-change]
+verify_jwt = false
+
+[functions.create-subscription-portal-session]
+verify_jwt = false
+
 # Experimental features may be deprecated any time
 [experimental]
 # Configures Postgres storage engine to use OrioleDB (S3)

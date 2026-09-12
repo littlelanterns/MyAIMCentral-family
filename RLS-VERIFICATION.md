@@ -1950,3 +1950,160 @@ All zero or exact baseline. The session-scoped `probe_results` TEMP TABLE was dr
 | Residue after the probe transaction | Zero — every touched table (templates, staff, family_members) confirmed back to exact pre-probe baseline by an independent post-transaction query; the real production template `1.0.0` was never touched |
 
 **Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings, zero gaps. All four `SECURITY DEFINER` RPCs correctly gate on `staff_permissions.permission_type = 'coppa_admin'` specifically — proven not just against `anon`/non-staff/family-shadow callers but against a REAL staff session holding a *different* admin permission, which is the more interesting and stricter negative case this migration was designed to enforce. The genuinely-anon behavioral probes (108/109) and the column-guard behavioral probes (608–612) both exercised real Postgres `ROLE` switches rather than relying solely on metadata (`has_function_privilege`/`has_column_privilege`) checks, closing the gap between "the grants look right on paper" and "the grants actually block a real attempt." The stamp guard's central claim — that populating `lawyer_approved_at` is genuinely unreachable by any direct client write, even from a fully-authorized `coppa_admin` staff session, and is refused server-side while the sequencing law's blocker count is nonzero — is proven live against real production data (36 total unconsented under-13 records spanning the founder's own family and the Testworth test fixture, correctly enumerated by name). Zero fixture residue confirmed by an independent post-transaction query; the real `1.0.0` template and the platform-wide `coppa_admin` grant count were both back at their exact pre-probe baseline.
+
+---
+
+## Migrations 100334/100336/100337 — PRD-31 Slice 2 (Stripe subscriptions + founding codes) (2026-09-11)
+
+Slice 2 ships the schema/RPC surface for real Stripe-backed subscriptions plus a founder-minted, one-time "founding code" mechanism that grants founding-family pricing outside the organic 100-family window: `subscription_tiers.stripe_product_id`/`stripe_price_id_normal`/`stripe_price_id_founding` (public pricing data), `family_subscriptions.price_adjustment_kind` (`founding`/`founding_code`/`scholarship`, written only by `stripe-webhook-handler`), `families.is_test_family` (excludes long-lived shared E2E fixture families like Testworth from the public founding counter), a brand-new `founding_codes` table (RLS enabled, **zero policies of any kind** — the "closed table, RPC-only" idiom already established for `stripe_webhook_events`/most of `coppa_consents`), a rewritten `get_founding_family_count()` (excludes test families, counts only `price_adjustment_kind='founding'` organic rows, clamps at 100), three new `SECURITY DEFINER` functions (`mint_founding_code`/`list_founding_codes`, staff-gated; `redeem_founding_code`, service_role-only, atomic single-use `UPDATE...WHERE redeemed_at IS NULL`), the `tier_admin` `staff_permissions.permission_type` CHECK value, and a daily-cron founding-status durability sweep (`util.sweep_expired_founding_grace()`, 14-day past_due grace). Migration 100336 is a same-day live fix making `founding_codes.minted_by` nullable (the migration's own `SECURITY DEFINER` gate deliberately permits `service_role` callers, and `auth.uid()` is `NULL` for a real service-role invocation with no JWT claims — the original `NOT NULL` constraint made the *sanctioned* near-term calling pattern fail every time). Migration 100337 is a second same-day fix: a thin `public`-schema, service_role-only wrapper around `util.sweep_expired_founding_grace()`, because this project's PostgREST config exposes only `public`/`graphql_public` — the `util` schema itself has no client-reachable entry point, matching the established `util.*`-is-direct-SQL-only convention (`util.coppa_reconcile_age_brackets()`, migration 100329, is the precedent this function was modeled on and has never had an RPC-level test for the identical reason).
+
+**Methodology.** All 72 probes ran inside a single `BEGIN ... ROLLBACK` transaction against the linked production database (project ref `vjfbzpliqialqmabfnxs`) via `supabase db query --linked -f`, using the established `SET LOCAL ROLE` + `SET LOCAL request.jwt.claims` JWT-claim-impersonation methodology from this file, with a `CREATE TEMP TABLE probe_log` capture pattern (explicitly `GRANT INSERT`ed to `authenticated`, `anon`, **and `service_role`** — the last of these was a first-run omission, discovered live when the very first `service_role`-impersonated probe failed at `42501: permission denied for table probe_log`, fixed, and the whole script re-run cleanly) and `DO $$ ... EXCEPTION WHEN OTHERS THEN ... END $$` blocks so a caught permission/authorization error never aborts the surrounding transaction. Nine identities were used across two real production families plus one real second family: **The Testworth Family** (`1f6200a7-df82-4ac4-bce3-3edcafe66bc5`, `is_test_family=true`) — Sarah (mom/primary_parent), Mark (dad/additional_adult), Amy (special_adult), Casey (independent teen), Jordan (guided kid), and the family-shadow session (`role='family'`); **OurFamily** (`4bc86323-545b-4faf-b31f-3926fdd8c5a6`, real founding family, `is_test_family=false`) — Tenise (mom/primary_parent, holds a REAL, pre-existing `coppa_admin` staff row, reused read-only), Jerrod (dad/additional_adult, given a TEMP `tier_admin` staff row for this probe only — see below), Mosiah (guided kid), and the family-shadow session; **Bridgette's Family** (`cccf754c-87b7-43ec-814f-55146009352f`, a real, non-founding second family used specifically for the `family_subscriptions` cross-family SELECT-isolation proof) — Bridgette (mom/primary_parent). Plus genuinely-anonymous (`SET LOCAL ROLE anon` with `SET LOCAL request.jwt.claims TO '';` explicitly clearing any stale claims, per the anon-impersonation lesson already on file in this document) and `service_role` (which has `rolbypassrls=true` on this project, confirmed via `pg_roles`, matching `postgres`/`supabase_admin` — this is by design, the trusted server-side caller).
+
+**A real methodology defect was found and fixed mid-session, not shipped silently:** the first full run used `SAVEPOINT` / `ROLLBACK TO SAVEPOINT` to isolate the three destructive sub-tests (the founding-grace-sweep behavioral proof, and the `get_founding_family_count()` exclusion + clamp proofs) so state would cleanly revert without hand-written UPDATE-back statements. This backfired: `ROLLBACK TO SAVEPOINT` discards **every** statement issued after the savepoint, including the `INSERT INTO probe_log` calls logging the actual assertions — so the first run's `probe_log` output showed only the post-revert confirmation rows (`5f-sweep-reverted`, `7c7d-reverted`, `7e-reverted`) and was silently missing the substantive behavioral evidence (`5a`–`5e`, `7c`, `7d`, `7e`) entirely. Caught by inspecting the returned row set before writing this section, not assumed correct because the script exited 0. Fixed by dropping `SAVEPOINT` entirely in favor of explicit manual reversion (flip state → assert into `probe_log` → flip state back → assert the revert into `probe_log`) — the outer `BEGIN...ROLLBACK` still discards everything at the very end regardless of which method is used mid-transaction, so this cost nothing in terms of the zero-residue guarantee, only in needing a second run to get complete evidence. `uuid` also has no `max()` aggregate in Postgres (`function max(uuid) does not exist`) — the first draft's `SELECT count(*), max(family_id) INTO ...` pattern (borrowed from earlier `int`/`text`-column precedent in this file) had to be split into two separate `SELECT ... LIMIT 1` statements for the `family_subscriptions` cross-family-isolation probes.
+
+**Fixtures created and torn down, all inside the one transaction:** a temporary `staff_permissions` row for Jerrod (`tier_admin`, exercising the new CHECK value and proving "any staff row" — not specifically `coppa_admin` — satisfies the mint/list gate); three `founding_codes` fixture rows (`RLSPROBE-VALID-CODE` unexpired/unredeemed, `RLSPROBE-EXPIRED-CODE` expired, `RLSPROBE-REDEEMED-CODE` pre-redeemed by Bridgette's Family); three more codes minted live during the probe itself (`RLSPROBE-STAFF-MINTED-1`, `RLSPROBE-STAFF-MINTED-2`, `RLSPROBE-SERVICE-MINTED`); a temporary `founding` subscription row for Testworth (to prove the `is_test_family` exclusion, then to disprove it by flipping the flag); 105 synthetic `families`+`family_subscriptions` rows (`RLSPROBE Clamp Family 1`..`105`, all `primary_parent_id` reusing Tenise's real `auth.users` id since `families.primary_parent_id` has no uniqueness constraint — only an FK to `auth.users`, so no synthetic auth users were needed) to genuinely trigger the `LEAST(...,100)` clamp rather than merely trusting the SQL literal; and a temporary `past_due` flip on OurFamily's real `family_subscriptions` row to make it sweep-eligible. Every one of these was either deleted/reverted explicitly mid-transaction (per the methodology-fix note above) or discarded by the final `ROLLBACK;` (the fixtures that were never manually reverted — the founding_codes rows, the temp staff row — only ever needed the final rollback, since nothing downstream depended on their absence).
+
+### Results — Item 1: `founding_codes` has zero client policies (all 9 identities × up to 4 operations)
+
+| Role | SELECT | INSERT | UPDATE | DELETE |
+|---|---|---|---|---|
+| anon (genuinely anonymous) | 0 rows | `42501: new row violates row-level security policy` | 0 rows | 0 rows |
+| Sarah — Testworth mom/primary_parent | 0 rows | `42501` (same) | 0 rows | 0 rows |
+| Mark — Testworth dad/additional_adult | 0 rows | `42501` (same) | — | — |
+| Amy — Testworth special_adult | 0 rows | `42501` (same) | — | — |
+| Casey — Testworth independent teen | 0 rows | `42501` (same) | — | — |
+| Jordan — Testworth guided kid | 0 rows | `42501` (same) | — | — |
+| Testworth family-shadow session (`role='family'`) | 0 rows | `42501` (same) | — | — |
+| Tenise — OurFamily mom, REAL `coppa_admin` staff row | 0 rows | `42501` (same) | — | — |
+| Jerrod — OurFamily dad, TEMP `tier_admin` staff row | 0 rows | `42501` (same) | — | — |
+| **service_role** (positive control, `rolbypassrls=true`) | **3 rows** (the 3 setup fixtures) | — | — | — |
+
+**PASS — 22/22.** Zero client policies means **every** non-`bypassrls` role, including two staff sessions holding real `staff_permissions` rows of two different `permission_type`s, is denied on all four operations identically — staff-ness confers no special table-level access whatsoever to `founding_codes`; the only sanctioned reads are through `list_founding_codes()`/`mint_founding_code()`'s own internal `SECURITY DEFINER` context (proven separately as items 2–3 below). `service_role` correctly bypasses RLS entirely (confirmed via `pg_roles.rolbypassrls=true`, matching `postgres`/`supabase_admin` on this project — by design, the trusted Edge Function caller).
+
+### Results — Item 2: `mint_founding_code(TEXT, TIMESTAMPTZ, TEXT)`
+
+| Caller | Outcome | Detail |
+|---|---|---|
+| anon | **BLOCKED — GRANT layer** | `42501: permission denied for function mint_founding_code` (EXECUTE revoked from anon/PUBLIC by the migration) |
+| Sarah, Mark, Amy, Casey, Jordan, Testworth family-shadow (all `authenticated`, all **non-staff**) | **BLOCKED — in-body** | `not_authorized` (6/6 — the function's own `RAISE EXCEPTION` fires; EXECUTE IS granted to `authenticated`, so the entire boundary here rests on the in-body check, and it holds for every family-role type) |
+| Tenise — REAL `coppa_admin` staff row | **ALLOWED** | Code `RLSPROBE-STAFF-MINTED-1` minted; `minted_by` independently verified as her own `auth.uid()` (`7434224b-...`) by a SEPARATE read-as-superuser step after `RESET ROLE` — see methodology note below |
+| Jerrod — TEMP `tier_admin` staff row | **ALLOWED** | Code `RLSPROBE-STAFF-MINTED-2` minted; `minted_by` = his own id, verified the same way — proves the gate is genuinely "any `staff_permissions` row", not hardcoded to `coppa_admin`, and exercises the new `tier_admin` CHECK value live |
+| **service_role, with NO JWT claims at all** (the real shape of a service-role Edge Function call) | **ALLOWED — migration 100336's exact fix, proven** | Code `RLSPROBE-SERVICE-MINTED` minted with `minted_by = NULL` |
+
+**PASS — 10/10.** A genuine test-methodology correction was needed here too: the first draft tried to read back `minted_by` via `SELECT ... FROM founding_codes WHERE code = v_code` while STILL impersonating the minting `authenticated` session — this silently returned 0 rows (per item 1's own finding that staff sessions have no direct table SELECT access) and produced a false "FAIL" (`minted_by=NULL`) for BOTH staff mints, which would have wrongly read as "the function doesn't record the real minter." Fixed by moving the verification to a separate `DO` block issued AFTER `RESET ROLE` (i.e., read as the connecting superuser, which bypasses RLS) — re-run confirmed `minted_by` was correctly populated with each staff caller's own `auth.uid()` all along; only the read-back method in the original test was wrong, not the underlying security behavior. `service_role`'s mint is the one case where `minted_by` genuinely IS `NULL` in production, which is migration 100336's whole point and is proven directly (that block runs the read-back as `service_role`, which correctly bypasses RLS, so no such artifact applied there).
+
+### Results — Item 3: `list_founding_codes()`
+
+| Caller | Outcome |
+|---|---|
+| anon | **BLOCKED — GRANT layer** — `42501: permission denied for function list_founding_codes` |
+| Sarah (non-staff mom) | **BLOCKED — in-body** — `not_authorized` |
+| Tenise (staff) | **ALLOWED** — returned 6 rows (the 3 setup fixtures + 3 codes minted during items 2h/2i/2j by that point in the transaction) |
+| service_role | **ALLOWED** — returned the same 6 rows |
+
+**PASS — 4/4.** Same gate as `mint_founding_code`, confirmed independently. Note the contrast with item 1h: the SAME Tenise session that gets 0 rows from a bare `SELECT * FROM founding_codes` gets the full row set through this RPC — the RPC genuinely is the sanctioned read path, not a redundant second door.
+
+### Results — Item 4: `redeem_founding_code(TEXT, UUID)`
+
+| Test | Outcome |
+|---|---|
+| anon | **BLOCKED — GRANT layer** — `42501: permission denied for function redeem_founding_code` |
+| Tenise, `authenticated` (even though she IS staff) | **BLOCKED — GRANT layer, same failure mode as anon** — `42501: permission denied for function redeem_founding_code`. This function has **no staff carve-out at all**: `EXECUTE` was `REVOKE`d from BOTH `anon` AND `authenticated`, granted only to `service_role` — every authenticated caller, staff or not, is refused at the grant layer before the function body (and its `auth.role() <> 'service_role'` check) ever runs |
+| service_role — valid, unexpired code (`RLSPROBE-VALID-CODE`), redeeming for OurFamily | **ALLOWED, returns `true`** — first attempt |
+| service_role — same code, second attempt | **`false` (no-op)** — the atomic `UPDATE ... WHERE redeemed_at IS NULL` correctly fails to match a second time |
+| service_role — expired code (`RLSPROBE-EXPIRED-CODE`) | **`false`** — blocked by the `expires_at > now()` clause |
+| service_role — already-redeemed code (`RLSPROBE-REDEEMED-CODE`, pre-attributed to Bridgette's Family), attempted "hijack" for Testworth | **`false`; still attributed to Bridgette's Family** — the `redeemed_at IS NULL` guard prevents re-attribution to a different family entirely; the code's `redeemed_by_family_id` was independently re-read after the attempt and confirmed unchanged |
+| `family_subscriptions` state for OurFamily / Bridgette's Family / Testworth, checked immediately after all four redeem calls above | **Completely unchanged** — OurFamily still `founding=true, kind='founding', status='active'`; Bridgette's Family still `founding=false, kind=NULL, status='active'`; Testworth still 0 rows |
+
+**PASS — 7/7.** "Cross-family redemption cannot touch another family's subscription" is true by construction, not merely by policy: `redeem_founding_code()`'s function body **never references `family_subscriptions` at all** — it only ever writes `founding_codes.redeemed_by_family_id`/`redeemed_at`. The actual founding-pricing grant on `family_subscriptions` happens in a SEPARATE step inside the webhook handler's own logic (per the migration's own header comment), so there is no code path by which calling this RPC with an arbitrary `p_family_id` could write to, or corrupt, any family's subscription row — confirmed empirically above, not just read from the source.
+
+### Results — Item 5: `public.sweep_expired_founding_grace()` (migration 100337 wrapper) / `util.sweep_expired_founding_grace()`
+
+| Test | Outcome |
+|---|---|
+| Tenise, `authenticated`, calling the `public.` wrapper (even though she owns the family about to be swept) | **BLOCKED — GRANT layer** — `42501: permission denied for function sweep_expired_founding_grace` |
+| anon, calling the `public.` wrapper | **BLOCKED — GRANT layer** — same |
+| Tenise, `authenticated`, calling `util.sweep_expired_founding_grace()` **directly** | **BLOCKED — a DIFFERENT, stronger mechanism** — `42501: permission denied for schema util`. `authenticated` has no `USAGE` grant on the `util` schema at all (confirmed via `has_schema_privilege`), so this fails at schema resolution before the function-level `EXECUTE` grant is even reached |
+| **service_role**, calling `public.sweep_expired_founding_grace()`, with OurFamily's real `family_subscriptions` row temporarily flipped to `status='past_due', past_due_since=now()-20 days` | **ALLOWED — returns `1`** (exactly the one qualifying row in all of production at probe time) |
+| Behavioral verification immediately after | OurFamily: `is_founding_family=false, price_adjustment_kind=NULL, founding_rate_monthly=NULL, founding_rate_yearly=NULL`; `families.founding_family_lost_at` flipped from `NULL` to a real timestamp — **exactly the PRD's "Founding Status Durability: payment failure beyond 14 days → Lost permanently" rule** |
+| Manual reversion + re-check | OurFamily's `family_subscriptions` and `families.founding_family_lost_at` both confirmed restored to their exact original values (`founding=true, kind='founding', status='active', lost_at=NULL`) |
+
+**PASS — 5/5.** Both entry points into the sweep are genuinely closed to every client role via two independent, differently-shaped mechanisms (function-level `EXECUTE` revocation on the `public.` wrapper; schema-level `USAGE` denial on `util.` directly) — a caller would need to defeat BOTH to reach this function, and `service_role` is the only caller that can. The actual revocation behavior (not just "the function exists and looks right") was proven against a real, temporarily-modified production row and then explicitly reverted.
+
+### Results — Item 6: `family_subscriptions`
+
+| Caller | SELECT result | Note |
+|---|---|---|
+| Tenise — OurFamily primary_parent | **1 row** — her own OurFamily row | correct |
+| Bridgette — 2nd-family (`Bridgette's Family`) primary_parent | **1 row** — her own row, NOT OurFamily's | correct, proves cross-family isolation |
+| **Jerrod — OurFamily additional_adult (NOT the family's primary_parent)** | **0 rows** | **worth knowing, not a bug**: the SELECT policy (`fs_select_own_family`, pre-existing) is scoped to `family_id IN (SELECT id FROM families WHERE primary_parent_id = auth.uid())` — a literal match against the ONE `primary_parent_id` column, not "any member of the family." A co-parent/additional_adult on the family cannot see the family's own billing/subscription row via RLS at all; only the specific member whose `auth.uid()` equals `families.primary_parent_id` can |
+| Mosiah — OurFamily guided kid | 0 rows | same mechanism |
+| OurFamily family-shadow session (`role='family'`) | 0 rows | same mechanism — its `auth.uid()` is the shadow account's own id, which also isn't `primary_parent_id` |
+| Sarah — Testworth primary_parent | 0 rows | correct but not a strong isolation proof by itself — Testworth has no `family_subscriptions` row at all today, so this is a trivial "nothing to see" rather than "policy blocked her from someone else's row"; the Tenise/Bridgette pair above is the real cross-family proof, since both families DO have real rows |
+| Sarah — attempted INSERT for her own (Testworth) family | **BLOCKED** — `42501: new row violates row-level security policy` (no INSERT policy exists at all, for anyone) |
+| Tenise — attempted UPDATE of `price_adjustment_kind` on her OWN OurFamily row | **0 rows affected** (no UPDATE policy exists at all — not even for the family's own primary_parent) |
+| service_role | **2 rows** (positive control — both real rows, OurFamily + Bridgette's Family) |
+
+**PASS — 9/9, with one finding reported as asked ("report what's actually allowed"):** no client role of any kind can INSERT or UPDATE `family_subscriptions` (confirmed for the row-owner mom herself, the strictest possible test of this claim); SELECT is scoped exclusively to `families.primary_parent_id = auth.uid()` — this is narrower than "any family member" and specifically narrower than "any adult in the family": additional_adults, kids, special adults, and family-shadow sessions ALL get zero rows regardless of their actual family membership, even for their own family's own subscription/billing status. This is the SAME pre-existing policy from an earlier migration (not introduced by 100334/100336/100337, which added a column to this table but no new policy) — flagged here because the task asked for exactly what's enforced, not because this migration changed it.
+
+### Results — Item 7: `get_founding_family_count()`
+
+| Test | Result |
+|---|---|
+| anon can call it | **Yes** — returned `1` |
+| authenticated (Casey, Testworth teen) baseline | **`1`** (OurFamily — organic, `is_test_family=false`, `price_adjustment_kind='founding'`) |
+| Testworth (`is_test_family=true`) ALSO given a real `founding` subscription row | Count **stays `1`** — Testworth correctly excluded |
+| Testworth's `is_test_family` flipped to `false` (same synthetic row, no other change) | Count **increases to `2`** — definitively proves the exclusion is driven by `is_test_family`, not some other accidental non-match |
+| Manual revert (flag flipped back to `true`, synthetic row deleted) | Count back to `1`; `is_test_family` confirmed `true` again |
+| 105 synthetic organic-founding `families`+`family_subscriptions` rows inserted (all `is_test_family=false`, `is_founding_family=true`, `price_adjustment_kind='founding'`) alongside the 1 real OurFamily row — raw underlying count = 106 | **Function returns exactly `100`** (`LEAST(106, 100) = 100`) — the clamp genuinely triggers, not merely asserted from reading the SQL |
+| Manual revert (105 synthetic families deleted, cascading their `family_subscriptions` rows via `ON DELETE CASCADE`) | Count back to `1`; 0 leftover synthetic rows |
+
+**PASS — 8/8.** All three named claims — callable by anon+authenticated, excludes `is_test_family`, clamps at 100 — were proven behaviorally rather than by code inspection alone: the exclusion was proven in BOTH directions (excluded while flagged test, included the moment the flag is removed) and the clamp was proven by genuinely exceeding 100 organic rows and observing `LEAST()` actually engage, not just trusting the literal in the function body. The function's own SQL body (`SELECT LEAST(COUNT(*)::INTEGER, 100) FROM ...`) returns only a bare integer — no name, no family_id, no PII of any kind is exposed by this function under any input.
+
+### Results — Item 8: `subscription_tiers` new Stripe id columns
+
+| Test | Result |
+|---|---|
+| anon SELECT (incl. `stripe_product_id`, `stripe_price_id_normal`, `stripe_price_id_founding`) | **Succeeds**, all 4 tier rows readable — matches the pre-existing `st_public_read` policy (`roles={public}, qual=true`), which this migration's new columns fall under automatically since Postgres RLS is row-level, not column-level, and no column-level `REVOKE` was applied to these columns for `anon`/`authenticated` |
+| authenticated (Tenise) UPDATE `stripe_product_id` | **0 rows affected** — no UPDATE policy exists on `subscription_tiers` at all, for any role |
+
+**PASS — 2/2.** One incidental, non-security observation surfaced by the residue-verification query run AFTER the probe transaction (read-only, outside any impersonation): `subscription_tiers.stripe_product_id` for the `essential` tier is **already populated** with a real value (`prod_VF6BH1lVjLDLGR`) in production — meaning `scripts/stripe-setup-subscription-products.ts` (the checked-in idempotent script referenced in migration 100334's own header comment) has already been run against this environment, ahead of what the migration text implies. This is a fact about deployment state, not a security finding — flagged for completeness since it was directly observed during residue verification, not something this probe set out to check.
+
+### Residue verification (independent, post-transaction, run twice)
+
+```sql
+SELECT
+  (SELECT count(*) FROM founding_codes) AS founding_codes_total,                                 -- 0
+  (SELECT count(*) FROM staff_permissions) AS staff_permissions_total,                            -- 1 (Tenise's real, pre-existing coppa_admin row)
+  (SELECT count(*) FROM staff_permissions WHERE user_id = '44a07ad8-...') AS jerrod_staff_rows,    -- 0
+  (SELECT count(*) FROM families WHERE family_name ILIKE '%rlsprobe%' OR family_name ILIKE '%tiertest%') AS probe_families, -- 0
+  (SELECT count(*) FROM founding_codes WHERE code ILIKE '%rlsprobe%' OR code ILIKE '%tiertest%') AS probe_codes, -- 0
+  (SELECT count(*) FROM family_subscriptions WHERE family_id = '<Testworth>') AS testworth_fs_rows, -- 0
+  (SELECT is_test_family FROM families WHERE id = '<Testworth>') AS testworth_is_test_family,      -- true
+  (SELECT (is_founding_family, price_adjustment_kind, status, past_due_since, founding_rate_monthly, founding_rate_yearly)
+     FROM family_subscriptions WHERE family_id = '<OurFamily>') AS ourfamily_fs_state,             -- (true, founding, active, NULL, NULL, NULL) — exact original baseline
+  (SELECT founding_family_lost_at FROM families WHERE id = '<OurFamily>') AS ourfamily_lost_at,     -- NULL
+  (SELECT (is_founding_family, price_adjustment_kind, status) FROM family_subscriptions
+     WHERE family_id = '<Bridgettes-Family>') AS bridgette_fs_state,                                -- (false, NULL, active) — never touched, exact original baseline
+  (SELECT count(*) FROM family_subscriptions) AS family_subscriptions_total,                        -- 2
+  (SELECT count(*) FROM families) AS families_total,                                                -- 3
+  (SELECT count(*) FROM pg_stat_activity WHERE state = 'idle in transaction') AS lingering_idle_txns; -- 0
+```
+
+All values match the exact pre-probe baseline. `founding_codes` is empty; no `RLSPROBE`- or `TIERTEST`-prefixed row exists in `families` or `founding_codes`; the temporary `tier_admin` grant for Jerrod is gone; `staff_permissions` holds only Tenise's real, pre-existing `coppa_admin` row; Testworth's `is_test_family` flag and (absence of any) `family_subscriptions` row are exactly as they were; OurFamily's and Bridgette's Family's `family_subscriptions` rows are byte-identical to their pre-probe values, including the one row (OurFamily) that was deliberately flipped to `past_due` and back mid-transaction; no idle-in-transaction sessions were left open.
+
+### Summary
+
+| Item | Verdict |
+|---|---|
+| 1 — `founding_codes` zero client policies (9 identities × up to 4 ops) | PASS — 22/22 |
+| 2 — `mint_founding_code()` staff-or-service_role gate, incl. migration 100336's `minted_by IS NULL` fix | PASS — 10/10 |
+| 3 — `list_founding_codes()` same gate | PASS — 4/4 |
+| 4 — `redeem_founding_code()` service_role-only, single-use, no cross-family bleed | PASS — 7/7 |
+| 5 — `sweep_expired_founding_grace()` (public wrapper + util direct), behavioral durability proof | PASS — 5/5 |
+| 6 — `family_subscriptions` no client writes; SELECT scoped to literal `primary_parent_id` match | PASS — 9/9 (1 reported finding: co-parents/kids/shadow sessions cannot see their own family's billing row — narrower than "family membership", by pre-existing policy design) |
+| 7 — `get_founding_family_count()` public, PII-free, `is_test_family`-excluding, clamped at 100 | PASS — 8/8 |
+| 8 — `subscription_tiers` new columns readable, not writable | PASS — 2/2 |
+| Residue after the full probe | Zero — every touched table confirmed back to exact pre-probe baseline by an independent, separate post-transaction query, run twice |
+
+**Verdict: PASS.** No CRITICAL, ERROR, or WARNING findings; zero gaps. 72 probes total (69 clean PASS assertions + 2 baseline INFO markers + 1 PASS-BUT-NOTE reporting the `family_subscriptions` SELECT-scope narrowness described above, which is existing, pre-migration policy design, not a defect this migration introduced). The `founding_codes` "closed table, RPC-only" design holds under direct adversarial probing across every family-role type this platform defines, including two independently-verified staff sessions of different `permission_type`s; `redeem_founding_code()`'s single-use guarantee and its complete non-interaction with `family_subscriptions` were proven with real attempted double-spend and cross-family-hijack sequences rather than assumed from the function body; the founding-status durability sweep's actual revocation behavior was exercised against a real (temporarily modified, then restored) production row; and `get_founding_family_count()`'s two headline claims — test-family exclusion and the 100-family clamp — were each proven in both directions with real data crossing the relevant threshold, not merely read off the SQL. One real test-methodology defect (`SAVEPOINT`/`ROLLBACK TO SAVEPOINT` silently discarding the very `probe_log` assertions it was meant to isolate) was caught before this report was written and corrected by switching to explicit manual state reversion; a second, minor methodology fix (`max(uuid)` not existing as a Postgres aggregate) was caught the same way. Both are documented above rather than silently smoothed over.
