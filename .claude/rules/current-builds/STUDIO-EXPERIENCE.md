@@ -312,6 +312,61 @@ a draft, DEPLOY it fully and assert the created primitive rows + draft
 cleanup. tsc -b; tour re-run.
 ```
 
+### ST-C.2 — Routine-modal + Sequential drafts (seat-authored 2026-09-12, founder-accepted scope carve-out from ST-C)
+
+```
+⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 2: paste the rest.
+
+You are the ST-C.2 worker for STUDIO-EXPERIENCE: finish save-and-return on
+the two surfaces ST-C disclosed and the founder accepted as a follow-up
+(2026-09-12): (1) TaskCreationModal FULL-MODE ROUTINE BUILDING — the
+surface that "loses the most work today" — and (2) SequentialCreatorModal.
+READ FIRST: .claude/rules/current-builds/STUDIO-EXPERIENCE.md "## ST-C"
+(the shipped mechanism you must reuse: wizard_drafts table, useWizardDraft/
+useWizardDraftList, useWizardDraftChrome, WizardDraftPrompts) and the
+STUB_REGISTRY "STUDIO ST-C — Drafts v2" section (the exact reasons both
+were deferred — those are your design constraints, not excuses);
+Composition doc §2.2; Convention 250; universal rules in this file.
+
+SCOPE:
+1. TaskCreationModal (3,363 lines, highest-traffic modal): draft ONLY the
+   full-mode routine-building state (template title/description, sections,
+   steps, frequencies, rewards config) into wizard_drafts with
+   wizard_type='routine_builder_full'. Do NOT touch quick mode, edit mode,
+   opportunity/sequential/guided-form branches — the draft hook attaches
+   at the routine SectionCard level with a narrow, additive integration.
+   Close prompt / reopen prompt / "Save & Come Back" per §2.2, via the
+   shared chrome — no bespoke prompt UI.
+2. SequentialCreatorModal: the deferral reason was that SequentialCreator
+   (591 lines) owns its state internally. Lift the minimum needed (title,
+   items, advancement defaults) into a controlled `value/onChange` pair
+   with a backwards-compatible uncontrolled default, so the modal wrapper
+   can wire useWizardDraft the same way the 10 Setup Wizards do. All three
+   entry points (Studio, FO spot-check, Lists) must keep working (Convention
+   #150).
+3. Drafts tab: both new wizard_types resume correctly; Drafts badge counts
+   them.
+4. Hygiene riders (small, in-scope): (a) studio-experience-audit.spec.ts
+   must sweep wizard_drafts in afterAll (the tour auto-saves drafts now);
+   (b) harden wizard-draft-persistence "existing draft row untouched"
+   (seat saw 1 unexplained miss in 2 runs — replace 5s prompt waits with
+   the 30s ceiling pattern and assert the wizard dialog is attached before
+   clicking Close).
+PROOF (rider a): extend wizard-draft-persistence.spec.ts — build a 2-section
+routine in full mode, close via X → wizard_drafts ROW; reopen → sections and
+steps restored; DEPLOY from the restored draft → task_templates +
+task_template_sections + task_template_steps + tasks rows asserted, draft
+deleted; same cycle for a 3-item sequential collection → sequential_collections
++ child tasks asserted. REGRESSION (you are inside the two most-used
+creators): mom-creates-routines-and-tasks.spec.ts (16), studio-shelf-truth
+(16), studio-intelligence-phase1 (its live tests), wizard-draft-persistence
+(6 + yours). Residue: TIME-WINDOW any-name query is authoritative; sweep
+sequential CHILDREN via FK before parents; wizard_drafts = 0 whole-table.
+tsc -b; tour re-run + Mom-UI rows. Record under "## ST-C.2". NOTHING
+commits until pins are green AND the founder confirms; selective staging.
+```
+
 ### ST-D — Studio Intelligence Phase 2
 
 ```
