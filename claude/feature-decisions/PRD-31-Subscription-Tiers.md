@@ -157,3 +157,17 @@ Given to the seat 2026-09-11 while sequencing Slice 2; recorded here as LAW for 
    metering sharpens it); **per-family STORAGE cost is NOT tracked today** (only BookShelf file
    sizes) — registered as a follow-up rollup for PRD-32 analytics, not Slice 2 scope.
 
+### Addendum — Founder Ruling 2026-09-12: beta families are founding; plan picker; Essential default
+
+1. **Every beta family is a founding family.** Flagged AT SIGNUP while the beta switch is on
+   (`families.is_founding_family=true`, `family_subscriptions.price_adjustment_kind='founding'`),
+   subject to the soft cap (organic count < 100 at signup time; ties both win). Existing beta
+   families (e.g. Bridgette's Family) are flagged by the seat in one batch.
+2. **Default plan = Essential** for every new family (already `handle_new_user` behavior);
+   the founder's stated preference ("what I'd prefer if I was subscribing").
+3. **Beta plan picker + tier badges (display-only):** families may choose a plan to preview in
+   Settings during beta; features show their tier as a label; NOTHING is gated. The chosen row
+   becomes the real plan at the paid flip. Folded into Slice 5 (picker = Screen 1 beta variant)
+   and Slice 4 (the "show tiers" display layer). Not part of the BETA-COHORT slice.
+4. **Under-13 in beta** = PRD-40 §9 interim consent (founding-gated), never a disclaimer.
+

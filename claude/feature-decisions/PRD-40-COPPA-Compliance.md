@@ -174,3 +174,38 @@ Founder verbatim: OD-1 yes ("land the addendum this session — adding new adden
 | D-PRD40-1..6 | **Wired** | Cohorts dormant-but-built; Stripe boundary honored by PRD-31 S1; export inclusive w/ in-code rationale; ARP delivered; greenfield Stripe; accept+backfill scripted |
 
 **Zero Missing.** Open items: the seat's batched Slice-6 production sequence, the founder ceremony, and the cohort-2 gates.
+
+## §9 — Founder Ruling 2026-09-12: BETA INTERIM CONSENT (amends R-8 for founding beta families)
+
+Context: founder wants moms with under-13 kids in beta now ("I need moms with younger kids to
+test it and report bugs"); Stripe is still TEST mode so the $1 verification step would decline a
+real card; the attorney review of the consent wording is pending.
+
+**Ruling (verbatim intent):** "Can we just do it with the coppa click through and no dollar
+payment until we switch to live mode, then they can click it again?" — YES.
+
+1. **Scope:** founding families only (beta families are founding — PRD-31 ruling 2026-09-12),
+   while a single server-side BETA INTERIM switch is ON. Non-founding families keep the R-8
+   "almost ready" card unchanged.
+2. **The flow is the REAL consent flow** (Screens 1–4 disclosures, scroll-enforced acks,
+   Screen 7 acknowledgment, `commit_consented_members` RPC, real `coppa_consents` rows against
+   the active template) — the ONLY change is that Screen 5's $1 payment step is replaced by an
+   explicit "verify later" acknowledgment that records a `parent_verifications` row with a NEW,
+   forever-distinguishable `verification_method` (e.g. `beta_interim`). Never a disclaimer,
+   never a bare checkbox outside the flow, never a weakening of the immutability rules.
+3. **Re-verification at live cutover:** when the switch flips OFF (Stripe live), every parent
+   holding only an interim verification gets a "finish verifying" prompt = the real $1 step,
+   recorded as a NEW `parent_verifications` row (the interim row is never updated — immutability
+   stands). Until they complete it, nothing is revoked and nothing is blocked (their consent rows
+   are real); the gap is identity verification, disclosed as such.
+4. **Admin visibility:** `/admin/coppa` readiness shows the count of interim verifications still
+   owed; they do NOT block the attorney stamp (the sequencing law counts unconsented under-13s,
+   and interim-consented children ARE consented on the active template).
+5. **Attorney package:** add "interim beta consent, identity verified at launch" as an explicit
+   question for counsel. This ruling accepts the identity-verification gap for personally-invited
+   beta families as the founder's own risk decision; it is recorded here so it is never mistaken
+   for a compliance claim.
+6. **Founding-at-signup is back on:** because the interim path removes the TEST-mode payment
+   dead-end, new beta signups may be flagged founding at signup (PRD-31 ruling) and thereby
+   receive the full consent flow immediately.
+

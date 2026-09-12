@@ -22,8 +22,9 @@ primary-parent-only (pre-existing policy).
 (SequentialCreatorModal + TaskCreationModal routine drafts) as a follow-up **ST-C.2**; suite
 slot relayed, awaiting proof (6 draft tests + shelf-truth 16 + tour). Then referee → commit.
 
-**Queue after ST-C:** ST-C.2 (routine-modal drafts) · PRD-31 Slice 3 (credits + metering) ·
-STUDIO ST-D. Founder-owned: attorney package, virtual mailbox, kid-tablet PECON feel-pass,
+**Queue after ST-C:** **BETA-COHORT (founding-at-signup + PRD-40 §9 interim consent + "finish
+verifying" path; founder wants moms with young kids testing NOW)** · ST-C.2 (routine-modal drafts) ·
+PRD-31 Slice 3 (credits + metering) · STUDIO ST-D. Rulings 2026-09-12 recorded in both ruling records. Founder-owned: attorney package, virtual mailbox, kid-tablet PECON feel-pass,
 voice-UX trio, **service-role key rotation decision**.
 
 ## 2026-09-11 — STUDIO ST-B (NLC v2) CLOSED — commit `820c40b`, pushed
