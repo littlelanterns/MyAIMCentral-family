@@ -153,7 +153,7 @@ service-role DB assertions. MEALTEST fixture prefix, swept beforeAll+afterAll, z
 ## DISPATCH PROMPT — PHASE A (paste into a FRESH session after decisions resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-42 KitchenCompass, PHASE A (recipes, weekly plan,
@@ -221,7 +221,7 @@ coordination note (loader/prompt/section keys it consumes).
 ## DISPATCH PROMPT — PHASE B (paste into a FRESH session after Phase A sign-off)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-42 KitchenCompass, PHASE B (suggestion engine +

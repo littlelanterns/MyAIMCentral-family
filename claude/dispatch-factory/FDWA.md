@@ -74,7 +74,7 @@ otherwise; highest kid-facing-pain-per-effort item in the factory — good first
 ## DISPATCH PROMPT (paste into a FRESH session — after batch-4 decisions resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for FDWA — the family-device write audit closure. Pre-dispatch

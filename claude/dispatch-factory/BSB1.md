@@ -69,7 +69,7 @@ dispatch prompt below stands as written.
 ## 5. DISPATCH PROMPT (paste into a FRESH session — only after KIDS-REWARDS-PAGE closes out)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for BOOKSHELF-BECOMING BUILD 1 — "Never Lose My Place."

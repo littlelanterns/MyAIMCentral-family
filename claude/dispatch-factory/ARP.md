@@ -53,7 +53,7 @@
 ## DISPATCH PROMPT (paste into a FRESH session — ideally before 2026-07-07)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-fable-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-fable-5-1[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are drafting the ATTORNEY REVIEW PACKAGE for MyAIM Central's COPPA/privacy compliance

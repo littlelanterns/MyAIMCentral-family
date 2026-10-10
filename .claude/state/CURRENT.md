@@ -1,5 +1,9 @@
 # Current State — 2026-09-12 (ST-C `b59e6c8` + BETA-COHORT `07cde8a` CLOSED; beta-cohort mode ON in production; next: ST-C.2 → PRD-31 Slice 3)
 
+## 2026-10-10 — Founder back after a month; MODEL ROUTING RE-PINNED (no code changes)
+
+Founder ruling 2026-10-10: **Opus 5.5 is the daily seat and the default model** (settings.json updated); **Fable 5.1 is reserved for deliberate judgment gates** (pre-build, Checkpoint 5, cross-PRD architecture, unattended runs); **Sonnet 5.5** replaces Sonnet 5 for workers (effort high; xhigh for hard slices); **Haiku 5.5** replaces Haiku 4.5 (retires no sooner than 2026-10-15). Security never on Fable (unchanged). `.claude/rules/model-routing.md` rewritten with a "which model, when" guide; all live dispatch headers (`current-builds/`, `dispatch-factory/`) now say `claude-sonnet-5-5[1m]`; agent pins unchanged (aliases). **Side finding, not acted on:** LiLa in-app pipeline pins retired `anthropic/claude-sonnet-4` (22 call sites, last logged call 2026-08-06, still answers via OpenRouter partner routing) and `anthropic/claude-haiku-4.5` (27 fns); Sonnet 5.5 / Haiku 5.5 live on OpenRouter and accept `temperature`. Needs its own dispatch pack (~50 files + cost-logger + model-id guard). **Tree state at session start:** ST-C.2 code sits UNCOMMITTED since 2026-09-12 (8 files, proof not yet run) — unchanged by this session.
+
 ## 2026-09-12 (evening) — ST-C + BETA-COHORT CLOSED; beta signups are OPEN
 
 **BETA-COHORT (`07cde8a`):** beta-cohort mode is ON in production. New families are flagged

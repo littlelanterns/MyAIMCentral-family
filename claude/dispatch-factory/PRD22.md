@@ -86,7 +86,7 @@ placeholder card only (5-line component), full screen lands with PRD31 Slice 5.
 ## DISPATCH PROMPT (paste into a FRESH session — after D-PRD22-1..6 resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-22 — Settings. Pre-dispatch pack:

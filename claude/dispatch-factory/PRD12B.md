@@ -68,7 +68,7 @@ PRD-11B celebration filter socket. Chunked-Whisper module is reusable downstream
 ## DISPATCH PROMPT (paste into a FRESH session — after PRD-12A closes out + batch-4 decisions resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-12B — Family Vision Quest. Pre-dispatch pack:

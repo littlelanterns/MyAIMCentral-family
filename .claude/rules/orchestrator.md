@@ -30,7 +30,7 @@ Confirm direction with founder, produce dispatch prompts. Stop before code.
 ### Execute Mode (Active Coordination)
 Coordinate a multi-worker phase. Monitor outputs, run checkpoints, manage state.
 
-**Model routing:** follow `.claude/rules/model-routing.md`. Every dispatch prompt MUST begin with the two-step model header ("STEP 1: type `/model <id>` first — STEP 2: paste the rest") because the model switch is a manual founder action; pasted text cannot change a session's model. Implementation workers → Sonnet (xhigh); judgment/audit sessions → Fable; orchestration → Opus.
+**Model routing:** follow `.claude/rules/model-routing.md`. Every dispatch prompt MUST begin with the two-step model header ("STEP 1: type `/model <id>` first — STEP 2: paste the rest") because the model switch is a manual founder action; pasted text cannot change a session's model. Implementation workers → Sonnet 5.5 (effort high; xhigh for hard slices); pre-build audit / Checkpoint 5 / architecture → Fable 5.1; orchestration seat, referee, and all security work → Opus 5.5 (the default model). The "which model, when" guide in model-routing.md is authoritative.
 
 1. Founder dispatches Worker N (orchestrator generates prompt, founder pastes)
 2. Worker completes → Checkpoint 2 fires (deliverables present, tsc clean, mom-UI if UI touched)

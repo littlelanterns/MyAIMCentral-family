@@ -7,7 +7,7 @@ tools:
   - Grep
   - Bash
   - Agent
-model: fable # judgment gate — decision 2026-07-12; re-pin rec ready at claude/orchestration/Model-Routing-Repin-2026-07-12.md
+model: fable # judgment gate — founder ruling 2026-10-10: Fable 5.1 for pre-build / Checkpoint 5 only; the daily seat is Opus 5.5 (see .claude/rules/model-routing.md)
 ---
 
 # Pre-Build Auditor

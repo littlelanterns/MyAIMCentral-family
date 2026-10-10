@@ -73,7 +73,7 @@ confirmed live by the recon). Independent otherwise; HIGH kid-facing value per e
 ## DISPATCH PROMPT (paste into a FRESH session — after batch-5 decisions resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for GDCX — Guided Dashboard completion (PRD-25 residuals).

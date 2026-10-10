@@ -72,7 +72,7 @@ with TRKG. Coordinate with FDWA (routine_step_completions shadow policy — eith
 
 ## DISPATCH PROMPT (paste into a FRESH session — after batch-7 decisions resolve)
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for RSTP — per-step routine rewards. Pack:

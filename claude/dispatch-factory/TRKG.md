@@ -67,7 +67,7 @@ Convention #271 Layer-2 extension is this build's contribution to the canonical 
 
 ## DISPATCH PROMPT (paste into a FRESH session — after batch-7 decisions resolve)
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for TRKG — tracker goals + gamification-mode honesty. Pack:

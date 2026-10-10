@@ -146,7 +146,7 @@ calls (D6 final, D9, D22-extended). The only future founder action is the
 ## DISPATCH PROMPT — BUILD A (paste into a FRESH session)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for BIGPLANS BUILD A — Foundation & Core Planning (the
@@ -195,7 +195,7 @@ modes, deploy pipeline, check-in machinery), archive build file.
 ## DISPATCH PROMPT — BUILD B (paste into a FRESH session — after Build A closes)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for BIGPLANS BUILD B — The Wheel & Overcoming. This is the
@@ -244,7 +244,7 @@ Close-out: Checkpoint 5 zero-Missing, coordination note for Build C, archive.
 ## DISPATCH PROMPT — BUILD C (paste into a FRESH session — after Build B closes; TRKG live for full chart value)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for BIGPLANS BUILD C — Tiers & Integrations (the flagship's

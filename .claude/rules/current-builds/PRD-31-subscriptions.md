@@ -90,7 +90,7 @@ Per-slice prompts for Slices 2–7 are generated at dispatch time from the slice
 ### Slice 1 dispatch prompt (paste into a FRESH session after founder markup)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the Slice-1 worker for PRD-31 — Subscription Tier System: schema

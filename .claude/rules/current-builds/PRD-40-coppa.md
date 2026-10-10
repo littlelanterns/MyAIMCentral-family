@@ -73,7 +73,7 @@ The pack's dispatch prompt (`claude/dispatch-factory/PRD40.md` §DISPATCH PROMPT
 ### Slice 1 dispatch prompt (paste into a FRESH session when the seat sequences it)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the Slice-1 worker for PRD-40 — COPPA Compliance & Parental
@@ -491,7 +491,7 @@ taken, the registry classification table, live reality for Slice 2).
 - **2026-08-23 — Slice 3 (Consent UX Screens 1–7 + roster retrofit) CODE COMPLETE — NOT applied/run, holding for founder gates.** Worker session after the ~6-week founder absence; freshness preamble confirmed zero commits since `d2e07a5`.
 
   **Session-context deviations (recorded for founder acknowledgment):**
-  1. **Ran on Fable, not Sonnet** — the dispatch prompt's `/model claude-sonnet-5[1m]` header was not applied before paste (the switch is a manual founder step). Proceeded per the amended 2026-08-23 routing policy (Fable in normal usage; this is consent-UI work, not the security/adversarial carve-out) and the VOICE-INPUT-REPAIR precedent. Flagged at session start.
+  1. **Ran on Fable, not Sonnet** — the dispatch prompt's `/model claude-sonnet-5-5[1m]` header was not applied before paste (the switch is a manual founder step). Proceeded per the amended 2026-08-23 routing policy (Fable in normal usage; this is consent-UI work, not the security/adversarial carve-out) and the VOICE-INPUT-REPAIR precedent. Flagged at session start.
   2. **VITE_STRIPE_PUBLISHABLE_KEY is ABSENT** (checked `.env.local`/`.env`/`src`). The dispatch said stop-and-ask before building the payment step; in a non-interactive session I built the payment step correctly against `import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY` with a graceful "not configured" state instead of halting the slice, and the key is now the top founder-action gate. `.env.local` was never touched (standing rule). `@stripe/stripe-js@^8.11.0` was already a dependency; no new packages.
   3. **THREE parallel lanes are active in this tree.** At session start `git status` showed 2 modified files; mid-session the tree grew ~20 more (ST-A shelf-truth files: Studio wizards, `studio-seed-data`, `GuidedFormAssignModal`, `seed-testworths-complete.ts`, new `src/lib/members/`; plus PRD-31 Slice 1: migration 100316 + `tests/prd31-registry-completeness.test.ts` + its build-file updates). Verified ZERO file overlap with this slice (my `useFamilyMember.ts` diff is exclusively the interface addition). The two `tsc -b` errors in `SharedTaskListWizard.tsx` are that lane's in-flight state, not this slice's — my files are tsc-clean and lint-clean. **Staging must be strictly selective** (file list below) and E2E runs must be serialized with the other lanes per the seat rule.
 

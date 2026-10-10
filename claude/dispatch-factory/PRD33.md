@@ -59,7 +59,7 @@ verification. Multi-session; Sonnet xhigh workers; Fable-else-Opus gates.
 
 ## DISPATCH PROMPT (only after un-parking; a FULL pre-build audit is mandatory then)
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-33 — Offline/PWA. This pack was produced 2026-07-04

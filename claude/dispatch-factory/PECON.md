@@ -77,7 +77,7 @@
 ## DISPATCH PROMPT — Worker A: PECON-EARN (paste into a FRESH session after batch-10 decisions resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PECON Worker A (PECON-EARN) — the point-economy EARNING
@@ -170,7 +170,7 @@ Worker B in the build file.
 ## DISPATCH PROMPT — Worker B: PECON-SHOP (paste into a FRESH session AFTER Worker A's Checkpoint 5)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PECON Worker B (PECON-SHOP) — the Reward Shop: catalog,

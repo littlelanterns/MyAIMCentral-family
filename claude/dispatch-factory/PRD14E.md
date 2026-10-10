@@ -49,7 +49,7 @@
 
 ## DISPATCH PROMPT (paste into a FRESH session — after batch-8 decisions + PRD-11B close-out)
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-14E — Family Hub TV Mode. Pack:

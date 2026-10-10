@@ -96,7 +96,7 @@ A. PRD-27's tracker-widget feed + push notifications stay dependency-gated stubs
 ## DISPATCH PROMPT — BUILD A (paste into a FRESH session after batch-6 decisions)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for SAEX BUILD A — the Caregiver Foundation. Pack:

@@ -96,7 +96,7 @@ generic 12-channel review queue (superseded by per-channel pattern).
 ## DISPATCH PROMPT (paste into a FRESH session — after D-PRD32-1..6 resolve)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the implementation worker for PRD-32 + PRD-32A + PRD-21B — the Admin Console pack.
