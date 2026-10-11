@@ -430,6 +430,11 @@ const WIZARD_TYPE_LABELS: Record<string, string> = {
   routine_builder: 'Routine Builder',
   meeting_setup: 'Family Meetings',
   universal_list: 'List',
+  // STUDIO-EXPERIENCE ST-C.2: TaskCreationModal's full-mode routine
+  // composer (distinct from `routine_builder`, the AI-parse RoutineBuilderWizard
+  // above) and SequentialCreatorModal.
+  routine_builder_full: 'Routine (Full Mode)',
+  sequential_creator: 'Sequential Collection',
 }
 
 // ─────────────────────────────────────────────
@@ -618,6 +623,21 @@ export function StudioPage() {
         setListWizardPreset(undefined)
         setUniversalListNLCPrefill(undefined)
         setListWizardOpen(true)
+        break
+      // STUDIO-EXPERIENCE ST-C.2:
+      case 'routine_builder_full':
+        setModalInitialType('routine')
+        setModalDefaultTitle('')
+        setModalPreloadedSections(undefined)
+        setEditingTemplateId(null)
+        setDeployFromTemplateId(null)
+        setModalInitialAssigneeId(undefined)
+        setModalOpen(true)
+        break
+      case 'sequential_creator':
+        setSequentialPrefill(undefined)
+        setSequentialTemplateId(null)
+        setSequentialModalOpen(true)
         break
       default:
         console.warn('[Studio] Unknown wizard type for draft resume:', wizardType)

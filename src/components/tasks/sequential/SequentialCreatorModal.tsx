@@ -16,14 +16,21 @@
  * content. The deployment context (who gets it) belongs on the wrapper.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { ModalV2 } from '@/components/shared'
-import { SequentialCreator, type SequentialCreateData, type SequentialCreateDefaults } from './SequentialCreator'
+import {
+  SequentialCreator,
+  type SequentialCreateData,
+  type SequentialCreateDefaults,
+  type SequentialCreatorDraftValue,
+} from './SequentialCreator'
 import { useCreateSequentialCollection } from '@/hooks/useSequentialCollections'
 import { useFamilyMembers } from '@/hooks/useFamilyMember'
 import { useAssignableMembers } from '@/hooks/useAssignableMembers'
 import type { FamilyMember } from '@/hooks/useFamilyMember'
 import { getMemberColor } from '@/lib/memberColors'
+import { useWizardDraftChrome } from '@/components/studio/wizards/useWizardDraftChrome'
+import { WizardDraftReopenPrompt, WizardDraftClosePrompt } from '@/components/studio/wizards/WizardDraftPrompts'
 
 interface SequentialCreatorModalProps {
   isOpen: boolean
@@ -53,13 +60,12 @@ export function SequentialCreatorModal({
   defaultAssigneeId,
   onSaved,
   initialDefaults,
-  title,
+  title: modalTitleOverride,
   initialTitle,
   initialItems,
 }: SequentialCreatorModalProps) {
   const { data: familyMembers = [] } = useFamilyMembers(familyId)
   const createCollection = useCreateSequentialCollection()
-  const [assigneeId, setAssigneeId] = useState<string | null>(defaultAssigneeId ?? null)
   const [error, setError] = useState<string | null>(null)
 
   // RR-DEPLOY-SCOPING: limit to who the current member may assign tasks to
@@ -73,6 +79,56 @@ export function SequentialCreatorModal({
     if (children.length > 0) return children
     return scoped
   }, [familyMembers, assignableIds])
+
+  // ── STUDIO-EXPERIENCE ST-C.2 — save-and-return ──────────────────────
+  // Draft-relevant state lives HERE (the wrapper), not inside
+  // SequentialCreator, so it can flow through useWizardDraftChrome the
+  // same way the 10 Setup Wizards do. `assigneeId` is wrapper-only state;
+  // `creatorValue` is the lifted controlled value handed down to
+  // SequentialCreator (see that component's doc comment).
+  const [assigneeId, setAssigneeId] = useState<string | null>(defaultAssigneeId ?? null)
+  const defaultCreatorValue = useCallback(
+    (): SequentialCreatorDraftValue => ({
+      title: initialTitle ?? '',
+      rawText: initialItems?.length ? initialItems.join('\n') : '',
+      defaultAdvancementMode: initialDefaults?.defaultAdvancementMode ?? 'complete',
+      defaultPracticeTarget: initialDefaults?.defaultPracticeTarget ?? 5,
+      defaultRequireApproval: initialDefaults?.defaultRequireApproval ?? true,
+      defaultRequireEvidence: initialDefaults?.defaultRequireEvidence ?? false,
+      defaultTrackDuration: initialDefaults?.defaultTrackDuration ?? false,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+  const [creatorValue, setCreatorValue] = useState<SequentialCreatorDraftValue>(defaultCreatorValue)
+
+  interface SequentialDraftState {
+    assigneeId: string | null
+    creatorValue: SequentialCreatorDraftValue
+  }
+  const draftState: SequentialDraftState = { assigneeId, creatorValue }
+  const applyDraftState = useCallback((next: SequentialDraftState) => {
+    setAssigneeId(next.assigneeId)
+    setCreatorValue(next.creatorValue)
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<SequentialDraftState>({
+    wizardType: 'sequential_creator',
+    familyId,
+    memberId: createdBy,
+    isOpen,
+    state: draftState,
+    setState: applyDraftState,
+    getTitle: () => creatorValue.title.trim() || 'Untitled Sequential Collection',
+    hasContent: () => creatorValue.title.trim().length > 0 || creatorValue.rawText.trim().length > 0,
+    skipReopenPrompt: !!(initialTitle || (initialItems && initialItems.length > 0)),
+    onRealClose: onClose,
+  })
+
+  const resetCreatorState = useCallback(() => {
+    setAssigneeId(defaultAssigneeId ?? null)
+    setCreatorValue(defaultCreatorValue())
+  }, [defaultAssigneeId, defaultCreatorValue])
 
   async function handleSave(data: SequentialCreateData) {
     setError(null)
@@ -107,26 +163,24 @@ export function SequentialCreatorModal({
         homeworkSubjectIds: data.homeworkSubjectIds,
       })
       onSaved?.(result.collection.id)
-      handleClose()
+      await draftChrome.onDeploySuccess()
+      setError(null)
+      setAssigneeId(defaultAssigneeId ?? null)
+      onClose()
     } catch (err) {
       console.error('[SequentialCreatorModal] Failed to create collection:', err)
       setError(err instanceof Error ? err.message : 'Something went wrong. Try again.')
     }
   }
 
-  function handleClose() {
-    setError(null)
-    setAssigneeId(defaultAssigneeId ?? null)
-    onClose()
-  }
-
   return (
+    <>
     <ModalV2
       id="sequential-creator"
       isOpen={isOpen}
-      onClose={handleClose}
+      onClose={draftChrome.requestClose}
       type="transient"
-      title={title ?? 'New Sequential Collection'}
+      title={modalTitleOverride ?? 'New Sequential Collection'}
       size="md"
     >
       <div className="flex flex-col gap-3">
@@ -185,10 +239,14 @@ export function SequentialCreatorModal({
           familyId={familyId}
           memberId={createdBy}
           onSave={handleSave}
-          onCancel={handleClose}
+          onCancel={draftChrome.requestClose}
           initialDefaults={initialDefaults}
           initialTitle={initialTitle}
           initialItems={initialItems}
+          value={creatorValue}
+          onValueChange={setCreatorValue}
+          onSaveDraft={draftChrome.chromeProps.onSaveAndComeBack}
+          isSavingDraft={draftChrome.chromeProps.isSavingDraft}
         />
 
         {createCollection.isPending && (
@@ -201,5 +259,26 @@ export function SequentialCreatorModal({
         )}
       </div>
     </ModalV2>
+
+    <WizardDraftReopenPrompt
+      isOpen={draftChrome.chromeProps.showReopenPrompt}
+      drafts={draftChrome.chromeProps.pendingDrafts}
+      onContinue={draftChrome.chromeProps.onContinueDraft}
+      onStartFresh={() => {
+        resetCreatorState()
+        draftChrome.chromeProps.onStartFresh()
+      }}
+    />
+    <WizardDraftClosePrompt
+      isOpen={draftChrome.chromeProps.showClosePrompt}
+      isSaving={draftChrome.chromeProps.isSavingDraft}
+      onSaveAndClose={draftChrome.chromeProps.onConfirmSaveAndClose}
+      onDiscardAndClose={async () => {
+        await draftChrome.chromeProps.onConfirmDiscardAndClose()
+        resetCreatorState()
+      }}
+      onKeepWorking={draftChrome.chromeProps.onCancelClosePrompt}
+    />
+    </>
   )
 }

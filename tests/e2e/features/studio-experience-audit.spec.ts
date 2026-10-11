@@ -13,10 +13,54 @@
 import { test, expect, type Page } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import { createClient } from '@supabase/supabase-js'
+import * as dotenv from 'dotenv'
 import { loginAsMom } from '../helpers/auth'
 import { waitForAppReady } from '../helpers/assertions'
 
+dotenv.config({ path: '.env.local' })
+
 test.skip(!process.env.STUDIO_AUDIT, 'Manual studio audit — set STUDIO_AUDIT=1 to run')
+
+// STUDIO-EXPERIENCE ST-C.2 hygiene rider: since ST-C wired all 10 Setup
+// Wizards (and ST-C.2 adds the TaskCreationModal routine-full-mode +
+// SequentialCreatorModal surfaces) onto the real wizard_drafts chrome, this
+// tour's own Escape-to-dismiss cleanup step now auto-saves a draft for every
+// wizard tile it opens with content on screen (Composition §2.2's "dismiss
+// defaults to save"). A name-prefix sweep can't catch these — tile default
+// titles are real example content ("Reading Fun", "Homeschool Variety
+// Pack"), not test fixtures — so this is a TIME-WINDOW sweep instead,
+// matching the ST-B lesson that a name-based residue check can silently
+// miss real rows. Not gated by STUDIO_AUDIT since it must run whenever the
+// tour itself runs.
+const sr = createClient(
+  process.env.VITE_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string,
+)
+let sweepFamilyId = ''
+let sweepStartedAt = ''
+
+test.beforeAll(async () => {
+  sweepStartedAt = new Date().toISOString()
+  const { data: fam } = await sr
+    .from('families')
+    .select('id')
+    .eq('family_login_name_lower', 'testworthfamily')
+    .maybeSingle()
+  sweepFamilyId = (fam?.id as string) ?? ''
+})
+
+test.afterAll(async () => {
+  if (!sweepFamilyId) return
+  const { data: drafts } = await sr
+    .from('wizard_drafts')
+    .select('id')
+    .eq('family_id', sweepFamilyId)
+    .gte('created_at', sweepStartedAt)
+  if (drafts?.length) {
+    await sr.from('wizard_drafts').delete().in('id', drafts.map((d) => d.id as string))
+  }
+})
 
 const OUT_DIR = process.env.STUDIO_AUDIT_OUT
   ? process.env.STUDIO_AUDIT_OUT

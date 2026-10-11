@@ -1,6 +1,14 @@
 # Active Build: STUDIO-EXPERIENCE — Studio Surface Audit + Cleanup
 
 > **Status: ST-A + ST-F + ST-B + ST-C ALL PROOF COMPLETE — HOLDING for founder review + commit approval. NOTHING COMMITTED.**
+> **ST-C.2 (2026-09-12): TaskCreationModal full-mode routine building + SequentialCreatorModal now wired onto the same
+> shared `wizard_drafts` chrome — the two surfaces ST-C explicitly did not attempt. CODE COMPLETE, local proof green
+> (tsc/eslint/prebuild/redteam clean, full vitest 918/928 with the identical 10 pre-existing failures re-confirmed
+> against a clean-HEAD stash, zero new). Both new Playwright tests + the `studio-experience-audit.spec.ts` hygiene
+> rider parse-clean. NOT YET RUN against the browser/production — holding for a seat-granted suite slot per this
+> dispatch's own instruction ("STOP and report back to the seat before running any Playwright suite"). Zero migrations
+> (no schema changes). See "## ST-C.2" below for the full account, including the two design decisions this slice made
+> (SequentialCreator's controlled `value`/`onChange` pair; TaskCreationModal's Cancel-button-not-header-X close path).
 > **ST-C (2026-09-11/12): real save-and-return, server-backed (`wizard_drafts` table, migrations 100333+100335, BOTH
 > APPLIED to production) — all 10 SetupWizard-based wizards now share one close/reopen-prompt chrome
 > (`useWizardDraftChrome` + `WizardDraftPrompts`), replacing the old per-wizard-fixed-slot localStorage mechanism on 4
@@ -60,7 +68,7 @@ Sequence: ST-0 → ST-A → ST-F → ST-B → ST-C → ST-D → ST-E → ST-G.
 ## ST-0 HOTFIX dispatch prompt (ready to paste on gate approval)
 
 ```
-⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first, before pasting anything else): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest of this prompt.
 
 You are the ST-0 hotfix worker for STUDIO-EXPERIENCE. One P0: the Progress
@@ -107,7 +115,7 @@ selective staging (this fix's files only).
 ### ST-A — Shelf truth
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-A worker for STUDIO-EXPERIENCE: make every Studio shelf tile do
@@ -184,7 +192,7 @@ tsc -b clean; Studio tour re-run for Mom-UI rows.
 ### ST-F — Reward-wire truth
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-F worker for STUDIO-EXPERIENCE: make wizard-composed rewards
@@ -232,7 +240,7 @@ trigger a draw, assert the task lands on the picked kid's dashboard (tasks row
 ### ST-B — NLC v2
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-B worker for STUDIO-EXPERIENCE: make "Describe what you want"
@@ -277,7 +285,7 @@ tsc -b; tour re-run.
 ### ST-C — Drafts v2 (server-backed, Convention 250)
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-C worker for STUDIO-EXPERIENCE: real save-and-return. READ
@@ -315,7 +323,7 @@ cleanup. tsc -b; tour re-run.
 ### ST-C.2 — Routine-modal + Sequential drafts (seat-authored 2026-09-12, founder-accepted scope carve-out from ST-C)
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-C.2 worker for STUDIO-EXPERIENCE: finish save-and-return on
@@ -370,7 +378,7 @@ commits until pins are green AND the founder confirms; selective staging.
 ### ST-D — Studio Intelligence Phase 2
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-D worker for STUDIO-EXPERIENCE: the intelligence layer Studio
@@ -406,7 +414,7 @@ deployment pre-populated and redeploy, asserting new rows. tsc -b; tour re-run.
 ### ST-E — Tracker shelf & pickers
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-E worker for STUDIO-EXPERIENCE: one honest, navigable tracker
@@ -450,7 +458,7 @@ category); the mismatch vitest green. tsc -b; tour re-run.
 ### ST-G — Bulk-add + integration closeout
 
 ```
-⚙ STEP 1 (type this first): /model claude-sonnet-5[1m]
+⚙ STEP 1 (type this first): /model claude-sonnet-5-5[1m]
 ⚙ STEP 2: paste the rest.
 
 You are the ST-G worker for STUDIO-EXPERIENCE: the integration items that make
@@ -1152,6 +1160,257 @@ via repeated `git status` checks):**
 
 **Next steps:** referee pass → selective staging (list
 above) → `npm run schema:dump` → founder confirm → commit.
+
+## ST-C.2 — Routine-modal + Sequential drafts (worker session 2026-09-12) — CODE COMPLETE, LOCAL PROOF GREEN, HOLDING for a seat-granted E2E slot
+
+Follow-up to ST-C, dispatched separately per founder acceptance of the two
+disclosed stubs ST-C registered (`STUB_REGISTRY.md` → "STUDIO ST-C — Drafts
+v2"): TaskCreationModal's full-mode routine building ("the surface that
+loses the most work today") and SequentialCreatorModal. Zero migrations —
+both surfaces reuse the exact `wizard_drafts` table, `useWizardDraftChrome`
+hook, and `WizardDraftReopenPrompt`/`WizardDraftClosePrompt` components ST-C
+already shipped and applied to production. Freshness preamble: HEAD
+`8509a29`, tree clean, latest applied migration 100340 — confirmed this
+slice needs none.
+
+### 1. TaskCreationModal — narrow, additive scope
+
+`routineDraftEligible` gates the ENTIRE mechanism to one specific moment:
+composing a brand-new routine in full mode (`viewMode === 'full' &&
+data.taskType === 'routine' && !editMode && !editingTemplateId &&
+!deployFromTemplateId`). Quick mode, every other task type, the
+editingTemplateId master-edit flow, and deploy-from-template are all
+untouched — exactly as the dispatch specified.
+
+**`RoutineDraftState`** carries only what the dispatch named: `title`,
+`description`, `routineSections` (which already carries its own steps and
+per-section frequencies), `reward`, and the three routine-points fields
+(`routinePointsMode`/`routineStepPoints`/`routineCompletionPoints`).
+Assignments and scheduling are deliberately NOT drafted — narrower than the
+full `CreateTaskData`, matching "narrow, additive integration."
+
+**The close-button design decision (the one non-obvious call this slice
+made).** TaskCreationModal is `type="persistent"` on `ModalV2` — its header
+X, backdrop click, and Escape already MINIMIZE-TO-PILL by default (ModalV2's
+own platform behavior, landed 2026-09-07, untouched here). Wiring the new
+drafts-close-prompt onto the header X would have meant either fighting that
+existing behavior or silently overriding it via `closeButtonBehavior='close'`
+— a bigger, undisclosed behavior change to the single highest-traffic modal
+in the app. Instead, the draft chrome intercepts the footer **Cancel**
+button (and, for free, the pill's own dismiss action, since both currently
+route through the same `onClose` prop under the hood): `effectiveClose =
+routineDraftEligible ? draftChrome.requestClose : onClose`, wired to BOTH
+the Cancel button's `onClick` and `<ModalV2 onClose={effectiveClose}>`. The
+minimize-to-pill path is left completely alone — it's arguably an even
+*better* same-session "come back" mechanism (the WHOLE modal state survives,
+not just the routine slice), and this build treats it as a second,
+independent save-and-return layer sitting underneath the new cross-session/
+cross-device one, not something to replace.
+
+**"Start Fresh" / "Discard" reset the routine-specific fields, not the whole
+form.** Since Studio.tsx conditionally mounts TaskCreationModal
+(`{modalOpen && <TaskCreationModal .../>}`), a real CLOSE always unmounts and
+needs no explicit reset. But "Start Fresh" (reopen-prompt) and "Discard"
+(close-prompt) both leave the modal OPEN — so `resetRoutineDraftFields()`
+(title/description/routineSections/reward/points → blank) is called from
+both paths' wrapped handlers, otherwise a stale half-typed routine from
+before the prompt fired would still be sitting in the form. `applyDraftState`
+uses a plain `setData` (not the checkbox-honesty-tracking `updateData`) —
+same treatment as the pre-existing `initialRoutineSections` merge effect;
+restoring a draft isn't one of the three legitimate re-init identity
+triggers (`queueItem.id`/`activeBatchItem.id`/`editTaskId`), so it doesn't
+need to flip `hasUserInteractedRef`.
+
+**`onDeploySuccess()` is called at all three success paths** that can
+actually persist a new routine while `routineDraftEligible` is true:
+`handleSave`'s normal success branch, `handleSaveToStudio`'s 0-deployments
+branch, and `handleOverlapResolve`'s 'replace' branch (mom hit an overlap,
+chose to replace the existing deployment, and the save proceeded). The
+fourth save path, `handleEditConfirm`, only ever fires when `editingTemplateId`
+is set — which already excludes `routineDraftEligible` by construction, so
+it correctly never touches the draft mechanism (nothing to clear; there
+never was a draft for an edit-in-progress).
+
+### 2. SequentialCreator — the controlled `value`/`onChange` lift
+
+The dispatch's own framing: SequentialCreator "owns its state internally";
+lift the minimum (title, items, advancement defaults) into a controlled
+pair with a backwards-compatible uncontrolled default. Implemented as the
+standard controlled-input pattern (`<input value onChange>`, not a
+shadow-copy-plus-sync-effect): a new `SequentialCreatorDraftValue` export
+covers `title`, `rawText`, and the 5 advancement-default fields
+(`defaultAdvancementMode`/`defaultPracticeTarget`/`defaultRequireApproval`/
+`defaultRequireEvidence`/`defaultTrackDuration`). `isControlled = value !==
+undefined && onValueChange !== undefined` gates every read (`const title =
+isControlled ? value.title : internalTitle`) — while controlled, the
+component reads straight from the parent's own state every render, so a
+draft restore (the parent's `creatorValue` state updating) is reflected
+immediately with zero extra sync effect. The 7 `internalXxx` `useState`s
+stay allocated but simply unread while controlled — dead, not broken, and
+what a future SECOND caller (none exists today) would fall back to.
+
+**Deliberately NOT lifted:** `parsedItems` — the enriched per-item metadata
+(advancement mode, URL, practice target) `CurriculumParseModal` produces.
+This is the disclosed "minimum needed" simplification the dispatch's own
+wording invited: a draft resumed after a curriculum-parse falls back to
+plain items reconstructed from the raw text via `parseSmartList`, losing the
+AI's per-item suggestions. Flagging honestly rather than silently claiming
+full fidelity.
+
+**`SequentialCreatorModal` owns the lifted state**, not `SequentialCreator`
+itself — `creatorValue` (the controlled value passed down) plus a
+wrapper-only `assigneeId` (the assignee picker lives in the modal wrapper,
+never inside `SequentialCreator`) are bundled into one `SequentialDraftState`
+for `useWizardDraftChrome`. This means `assigneeId` — a field the dispatch
+didn't explicitly name — rides along for free at essentially zero extra
+code, and the test proves it round-trips: the deploy-from-restored-draft
+step never re-clicks an assignee pill, so a successful "Create Collection"
+click IS the proof `assigneeId` was restored (an unrestored `null` would
+have surfaced the modal's own "Pick who this collection is for before
+saving" error instead).
+
+**Both wizards route their Cancel-equivalent through `draftChrome.requestClose`
+identically** (`SequentialCreator`'s own in-body Cancel button, plus
+`ModalV2`'s `onClose` for `type="transient"` — no minimize-to-pill concern
+here since this modal was never persistent). A new "Save & Come Back"
+button was added to `SequentialCreator`'s own action row (rendered only when
+the modal wrapper passes `onSaveDraft`), sharing the `wizard-save-and-come-back`
+testid convention SetupWizard's own footer button already established, so
+any future generic helper keyed on that testid works across both mechanisms.
+
+### 3. Drafts tab coverage
+
+`WIZARD_TYPE_LABELS` gained `routine_builder_full: 'Routine (Full Mode)'`
+(deliberately distinct from the pre-existing `routine_builder`, which is
+`RoutineBuilderWizard` — the AI-parse Setup Wizard, an entirely different
+surface) and `sequential_creator: 'Sequential Collection'`.
+`openWizardTypeFresh()` gained matching cases that clear any stale prefill
+state and open the respective modal fresh, letting each wizard's own
+reopen-prompt (not Studio.tsx) decide whether to offer a draft — identical
+pattern to every existing case in that switch. The Drafts tab's "N" badge
+counts every `wizard_type` for the family already (`useWizardDraftList(family?.id,
+undefined, draftRefreshKey)` has no type filter), so both new types are
+counted automatically with no separate change needed.
+
+### 4. Hygiene riders
+
+**(a) `studio-experience-audit.spec.ts` now sweeps `wizard_drafts`.** Since
+ST-C wired all 10 Setup Wizards (and this slice adds 2 more) onto the real
+chrome, the tour's own Escape-key dismissal at the end of every tile visit
+now auto-saves a draft per Composition §2.2's "dismiss defaults to save"
+rule — a real, disclosed-but-previously-unfixed residue source ST-C's own
+build record flagged and left for "whoever owns this tour next." Fixed with
+a TIME-WINDOW sweep (`created_at >= sweepStartedAt`), not a name-prefix
+sweep — tile default titles are real example content ("Reading Fun",
+"Homeschool Variety Pack"), never test fixtures, so a prefix filter can't
+distinguish them. This is the same lesson ST-B's own session already
+learned and documented for `tasks` rows; applied here proactively rather
+than discovered after the fact.
+
+**(b) `wizard-draft-persistence.spec.ts` test 3 hardened.** The seat's own
+note: "1 unexplained miss in 2 runs." Bumped the two load-bearing waits from
+5s to 30s (the reopen-prompt's own evaluation waits on the drafts list
+finishing its fetch before deciding whether to show, so a slow round-trip
+under load could plausibly race a short assertion window) and added explicit
+`toBeAttached()` checks before interacting with the reopen-prompt and the
+wizard dialog, including immediately before clicking Close. No assertion's
+MEANING changed — only the ceiling and an extra attachment guard.
+
+### Proof (local — everything short of the browser/production, per the dispatch's own STOP-and-report instruction)
+
+- `npx tsc -b` — clean, zero errors, both immediately after each file edit
+  and again after a full `git stash`/`stash pop` round-trip (confirming the
+  restore was byte-identical).
+- `npx eslint` on all 6 touched files — 0 errors, 1 warning, and that ONE
+  warning (`Studio.tsx:1015`, `exhaustive-deps` on `handleSelectStarterConfig`/
+  `starterConfigs`) is confirmed PRE-EXISTING via the same stash round-trip
+  (identical warning at line 995 on unmodified `main`, shifted only by this
+  slice's own line insertions).
+- **Full `npx vitest run` — 918 passed / 10 failed across 5 files, and this
+  EXACT 10-failure signature was independently re-confirmed identical on a
+  clean `git stash` of `main`** (`build-task-schedule-fields-routine.test.ts`
+  ×1, `convention-lint.test.ts` ×4, `journal-notepad.test.ts` ×2,
+  `personal-growth.test.ts` ×2, `update-routine-template-atomic.test.ts` ×1)
+  — zero new failures, zero fixed, byte-for-byte the same test names on both
+  sides of the stash.
+- `npm run prebuild` — 0 errors / 77 pre-existing warnings (none in this
+  slice's files); `verify_jwt` 67/67; Safe Harbor filter 67/67, 0 unguarded
+  queries; under-13 aggregation-exclusion 90 files / 4 writers.
+- `npm run redteam` — 77/77.
+- `npx playwright test tests/e2e/features/wizard-draft-persistence.spec.ts --list`
+  — **8/8 parse-clean** (the 6 ST-C tests unchanged + the 2 new ST-C.2 tests).
+- `STUDIO_AUDIT=1 npx playwright test tests/e2e/features/studio-experience-audit.spec.ts --list`
+  — 1/1 parse-clean (the sweep hooks add no new test, only `beforeAll`/`afterAll`).
+
+**Not run this session (holding for a seat-granted slot, per this dispatch's
+own instruction to stop and report before any Playwright suite runs):** the
+actual browser execution of both new tests, the hardened test 3, and the
+audit tour's new sweep hooks. The two new tests are written to the SAME
+proof standard as every other ST-* test in this file — real browser clicks,
+real DB assertions via service role, PREFIX-scoped fixtures swept in
+`beforeAll`/`afterAll` (extended to cover `task_templates` +
+`task_template_sections` + `task_template_steps` — children before the
+parent, no `ON DELETE CASCADE` from `task_templates` — and `sequential_collections`
++ their child `tasks`, children swept via FK before the parent, per the
+exact lesson ST-B's own session already learned the hard way).
+
+### Deliberately not done (disclosed, not silently dropped)
+
+- **`MeetingSetupWizard`'s resumed-step position** (ST-C's own note: restores
+  every field but always lands back on the intro screen) — untouched,
+  unrelated to this slice's two surfaces.
+- **Curriculum-parse enriched metadata** in a resumed `SequentialCreator`
+  draft — see the `parsedItems` note above.
+- **A real-device/real-mom tap-reliability pass** on the new "Save & Come
+  Back" buttons — this session's proof is code + parse-verification only,
+  per the production-touch gate; the eventual E2E run is the first real
+  exercise of these two buttons in a live browser.
+
+### Selective-staging file list (verify against a FRESH `git status` before staging — other lanes may still be active)
+
+| # | File | Why it's in this commit |
+|---|---|---|
+| 1 | `src/components/tasks/TaskCreationModal.tsx` | `routineDraftEligible` gate, `RoutineDraftState`, `useWizardDraftChrome` wiring, footer Cancel/Save-&-Come-Back buttons, `onDeploySuccess()` at 3 success paths, `WizardDraftReopenPrompt`/`WizardDraftClosePrompt` rendered as siblings |
+| 2 | `src/components/tasks/sequential/SequentialCreator.tsx` | Controlled `value`/`onChange` pair for title/rawText/advancement-defaults; new `onSaveDraft`/`isSavingDraft` props + footer button |
+| 3 | `src/components/tasks/sequential/SequentialCreatorModal.tsx` | Owns the lifted `creatorValue` + `assigneeId`; wires `useWizardDraftChrome`; renders the two prompt components |
+| 4 | `src/pages/Studio.tsx` | `WIZARD_TYPE_LABELS` + `openWizardTypeFresh()` entries for `routine_builder_full`/`sequential_creator` |
+| 5 | `tests/e2e/features/wizard-draft-persistence.spec.ts` | 2 new ST-C.2 tests; sweep() extended for task_templates/sections/steps + sequential_collections/children; test 3 hardened (rider b) |
+| 6 | `tests/e2e/features/studio-experience-audit.spec.ts` | Time-window `wizard_drafts` sweep (rider a) |
+| 7 | `STUB_REGISTRY.md` | Flip the two ST-C-registered stubs from ⏳ Unwired to reflect this slice (see below) |
+| 8 | `.claude/rules/current-builds/STUDIO-EXPERIENCE.md` | This section |
+
+### ST-C.2 PROOF COMPLETE (seat-run 2026-10-11, founder-granted slot) — 8/8 + 10/10 + 16/16, zero residue
+
+The proof was delayed a month by a production incident, not by the code: the Supabase instance had exhausted
+its Disk IO budget daily (pg_net log bloat + the unindexed every-minute embed poller — see
+`.claude/state/CURRENT.md` 2026-10-10 and migration 100341), so PostgREST 503'd on every request and the first
+two suite attempts died in `beforeAll`/`loginAsMom`. Once the database was healthy:
+
+- **`wizard-draft-persistence.spec.ts` — 8/8 GREEN** (6 ST-C + 2 ST-C.2) as a full serial file.
+- **`mom-creates-routines-and-tasks.spec.ts` — 10/10 GREEN** (TaskCreationModal regression).
+- **`studio-shelf-truth.spec.ts` — 16/16 GREEN** on rerun; the first run's single F-20 failure was the documented
+  `helpers/auth.ts` `networkidle` login flake (120 s wait after a successful sign-in), with 5 tests behind it unrun.
+- `npx tsc -b` clean; eslint clean on the one spec file touched this pass.
+
+**One test-fixture fix landed (spec only, no product code):** ST-C.2 test 1 first failed with its click blocked by a
+dialog showing "Kitchen Duties" — a leftover `wizard_drafts` row (default example title, no `STUDIOAUD` prefix)
+auto-saved by the 2026-09-12 shelf-sweep tour. Convention 250's "dismiss defaults to save" means ANY leftover draft
+raises the reopen-prompt on top of the modal and intercepts every click. The spec's `sweep()` now clears ALL of the
+Testworth family's drafts, not just prefix-titled ones (a test family should carry zero drafts between runs — the
+same name-based-sweep lesson ST-B recorded for orphaned sequential children).
+
+**Residue (authoritative time-window query over tasks / task_templates / sequential_collections / lists /
+dashboard_widgets / reward_reveal_attachments / wizard_drafts for Testworth):** six rows were left by the
+`mom-creates-routines-and-tasks` run — 1 routine draft, 2 tasks, 3 randomizer lists, all default-example-named
+("Kitchen Duties", "Consequence Spinner", "Riley's …") via the ST-A "Use as-is" fast-deploy path, which that
+suite's prefix sweep cannot see. Seat-deleted (children first) → **0 across all seven tables.**
+**Follow-up (registered, not fixed here):** `mom-creates-routines-and-tasks.spec.ts` and `studio-shelf-truth.spec.ts`
+need a time-window or all-Testworth sweep for `wizard_drafts` + example-named deploys — they predate drafts and
+"Use as-is", and now leave residue every run.
+
+**ST-C.2 Post-Build Verification:** both named requirements **Wired** (`STUB_REGISTRY.md` rows flipped ✅ with the
+8/8 date); the two disclosed simplifications stand as recorded above (`parsedItems` enrichment not drafted;
+`MeetingSetupWizard` step position not restored — ST-C's own note). Zero Missing. Committed with this entry.
 
 ## Retroactive verification (founder ruling)
 The graded 89-tile matrix + Pass B/scenario evidence in the evidence record §2–§3 constitutes the retroactive Post-Build Verification for Phase 3.7 and Phase 3.8 (their feature-decision files' tables were never filled). Copy at close-out.

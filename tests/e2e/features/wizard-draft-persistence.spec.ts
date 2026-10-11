@@ -68,11 +68,19 @@ async function resolveFamily() {
 async function sweep() {
   if (!FAMILY_ID) await resolveFamily()
 
+  // ALL of the fixture family's drafts, not just PREFIX-titled ones. Testworth
+  // is a test family, so any draft left in it is residue by definition — and
+  // a single leftover draft is enough to break these tests, because the
+  // wizard's reopen-prompt ("Continue where you left off?") renders on top of
+  // the modal and intercepts every click. Found live 2026-10-11: a
+  // "Kitchen Duties" routine draft auto-saved by the 2026-09-12 shelf-sweep
+  // tour (default example title, no PREFIX) survived the old prefix sweep and
+  // blocked ST-C.2 test 1. Same class as the ST-B orphaned-children lesson:
+  // name-based sweeps miss what they don't know to look for.
   const { data: drafts } = await sr
     .from('wizard_drafts')
     .select('id')
     .eq('family_id', FAMILY_ID)
-    .ilike('title', `${PREFIX}%`)
   if (drafts?.length) {
     await sr.from('wizard_drafts').delete().in('id', drafts.map((d) => d.id as string))
   }
@@ -84,6 +92,50 @@ async function sweep() {
     .ilike('title', `${PREFIX}%`)
   if (widgets?.length) {
     await sr.from('dashboard_widgets').delete().in('id', widgets.map((w) => w.id as string))
+  }
+
+  // ST-C.2: routine template + its sections/steps — no ON DELETE CASCADE
+  // from task_templates, so children must go first.
+  const { data: templates } = await sr
+    .from('task_templates')
+    .select('id')
+    .eq('family_id', FAMILY_ID)
+    .ilike('title', `${PREFIX}%`)
+  if (templates?.length) {
+    const templateIds = templates.map((t) => t.id as string)
+    const { data: sections } = await sr
+      .from('task_template_sections')
+      .select('id')
+      .in('template_id', templateIds)
+    if (sections?.length) {
+      const sectionIds = sections.map((s) => s.id as string)
+      await sr.from('task_template_steps').delete().in('section_id', sectionIds)
+      await sr.from('task_template_sections').delete().in('id', sectionIds)
+    }
+    await sr.from('task_templates').delete().in('id', templateIds)
+  }
+
+  // ST-C.2 (ST-B's own lesson, re-applied): sequential collection CHILDREN
+  // via FK, before the parent row — a title-prefix-only `tasks` sweep can
+  // silently miss them (30 orphaned rows accumulated across ST-A's own
+  // sessions for exactly this reason before it was caught).
+  const { data: collections } = await sr
+    .from('sequential_collections')
+    .select('id')
+    .eq('family_id', FAMILY_ID)
+    .ilike('title', `${PREFIX}%`)
+  if (collections?.length) {
+    const collectionIds = collections.map((c) => c.id as string)
+    const { data: childTasks } = await sr
+      .from('tasks')
+      .select('id')
+      .in('sequential_collection_id', collectionIds)
+    if (childTasks?.length) {
+      const childIds = childTasks.map((t) => t.id as string)
+      await sr.from('task_assignments').delete().in('task_id', childIds)
+      await sr.from('tasks').delete().in('id', childIds)
+    }
+    await sr.from('sequential_collections').delete().in('id', collectionIds)
   }
 
   const { data: tasks } = await sr
@@ -170,6 +222,14 @@ async function fetchDraftByTitle(title: string) {
   return data
 }
 
+/** Collect the current value of every element a locator matches (there is
+ *  no built-in `allInputValues()` on Locator — only the singular
+ *  `inputValue()` — so resolve to individual elements first). */
+async function allInputValuesOf(locator: import('@playwright/test').Locator): Promise<string[]> {
+  const elements = await locator.all()
+  return Promise.all(elements.map((el) => el.inputValue()))
+}
+
 async function localStorageDraftKeyCount(page: Page): Promise<number> {
   return page.evaluate(() => {
     let count = 0
@@ -184,6 +244,17 @@ async function localStorageDraftKeyCount(page: Page): Promise<number> {
 const CHART_TITLE_1 = `${PREFIX} Draft Test Chart`
 const CHART_TITLE_2 = `${PREFIX} Deploy Test Chart`
 const STAR_CHART_TITLE = `${PREFIX} Star Draft`
+
+// STUDIO-EXPERIENCE ST-C.2 fixtures
+const ROUTINE_TITLE = `${PREFIX} Two Section Routine`
+const ROUTINE_SECTION_1 = `${PREFIX} Morning`
+const ROUTINE_SECTION_2 = `${PREFIX} Evening`
+const ROUTINE_STEP_1 = `${PREFIX} Brush Teeth`
+const ROUTINE_STEP_2 = `${PREFIX} Read Book`
+const SEQUENTIAL_TITLE = `${PREFIX} Chapter Draft`
+const SEQUENTIAL_ITEM_1 = `${PREFIX} Chapter A`
+const SEQUENTIAL_ITEM_2 = `${PREFIX} Chapter B`
+const SEQUENTIAL_ITEM_3 = `${PREFIX} Chapter C`
 
 test('ST-C 1: closing via X with unsaved content shows the save prompt; "Yes, save as draft" persists a REAL wizard_drafts row, not localStorage', async ({ page }) => {
   await loginAsMom(page)
@@ -243,13 +314,20 @@ test('ST-C 3: "Start Fresh" opens a blank wizard and leaves the existing draft r
   await gotoStudio(page)
   await openStudioWizard(page, 'Setup Wizards', 'Set Up a Progress Chart')
 
+  // Hardened (30s ceiling, not 5s) — a 1-in-2 unexplained miss was seen
+  // here; the fix is a longer ceiling plus an explicit `toBeAttached()`
+  // check before interacting, so a slow reopen-prompt evaluation (the
+  // chrome waits on the drafts list to finish loading before deciding
+  // whether to show it) never races a short assertion window.
   const reopenPrompt = page.locator('[role="dialog"]').filter({ hasText: 'Continue where you left off?' })
-  await expect(reopenPrompt).toBeVisible({ timeout: 5000 })
+  await expect(reopenPrompt).toBeVisible({ timeout: 30_000 })
+  await expect(reopenPrompt).toBeAttached()
   await reopenPrompt.getByTestId('wizard-draft-start-fresh').click()
-  await expect(reopenPrompt).not.toBeVisible({ timeout: 5000 })
+  await expect(reopenPrompt).not.toBeVisible({ timeout: 10_000 })
 
   const wizardDialog = page.locator('[role="dialog"]').filter({ hasText: 'Name Your Progress Chart' })
-  await expect(wizardDialog).toBeVisible({ timeout: 5000 })
+  await expect(wizardDialog).toBeVisible({ timeout: 30_000 })
+  await expect(wizardDialog).toBeAttached()
   await expect(wizardDialog.getByPlaceholder(/potty chart|piano practice/i)).toHaveValue('')
 
   // The old draft must still exist, byte-identical, after Start Fresh.
@@ -258,8 +336,9 @@ test('ST-C 3: "Start Fresh" opens a blank wizard and leaves the existing draft r
   expect(after!.id).toBe(before!.id)
 
   // Close this blank instance with no content typed — no prompt should show.
+  await expect(wizardDialog).toBeAttached()
   await wizardDialog.getByLabel('Close').click()
-  await expect(wizardDialog).not.toBeVisible({ timeout: 5000 })
+  await expect(wizardDialog).not.toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[role="dialog"]').filter({ hasText: 'Save as a draft to come back to?' })).not.toBeVisible()
 })
 
@@ -394,4 +473,213 @@ test('ST-C 6 (coverage breadth): StarChartWizard — a wizard that had NO draft 
   const wizardDialog = page.locator('[role="dialog"]').filter({ hasText: 'Star Chart Setup' })
   await expect(wizardDialog).toBeVisible({ timeout: 5000 })
   await expect(wizardDialog.getByPlaceholder(/potty stars|reading chart/i)).toHaveValue(STAR_CHART_TITLE)
+})
+
+// ─────────────────────────────────────────────────────────────
+// STUDIO-EXPERIENCE ST-C.2 — TaskCreationModal full-mode routine building
+// + SequentialCreatorModal. Both wizards were explicitly NOT covered by
+// ST-C (registered in STUB_REGISTRY as "not attempted"); this build wires
+// them onto the same shared chrome. Neither is a SetupWizard, so their
+// close/reopen affordances differ slightly from tests 1-6 above:
+//   - TaskCreationModal is `type="persistent"` — the header X/backdrop/
+//     Escape still MINIMIZE-TO-PILL by default (ModalV2's own platform
+//     behavior, untouched). The draft chrome intercepts the FOOTER
+//     "Cancel" button instead (wired to `effectiveClose`), which is the
+//     modal's actual "I'm abandoning this" action.
+//   - SequentialCreatorModal is `type="transient"` (no minimize) with its
+//     own in-body "Cancel" button, wired the same way tests 1-6 use the
+//     header X on a transient SetupWizard.
+// ─────────────────────────────────────────────────────────────
+
+test('ST-C.2 1: TaskCreationModal full-mode routine building — 2-section draft saves, restores, and deploys to real primitive rows', async ({ page }) => {
+  await loginAsMom(page)
+  await gotoStudio(page)
+
+  const dialog = await openStudioWizard(page, 'Task & Chore Templates', 'Routine Checklist')
+
+  // Title (shared with the routine's template/task title and the draft's
+  // getTitle() — this is the one input Quick Mode and Full Mode share, but
+  // Studio always opens this tile in Full Mode).
+  await dialog.locator('input[placeholder="What needs to be done?"]').first().fill(ROUTINE_TITLE)
+
+  // The routine section editor starts empty — "Build sections manually"
+  // is the addSection() entry point at 0 sections.
+  await dialog.getByRole('button', { name: /Build sections manually/i }).click()
+  await dialog.getByPlaceholder('Section name…').first().fill(ROUTINE_SECTION_1)
+  await dialog.getByPlaceholder('Step name…').first().fill(ROUTINE_STEP_1)
+
+  // Add a second section (both the top and bottom "Add section" buttons
+  // call the same addSection() — the top one is always present).
+  await dialog.getByRole('button', { name: /^Add section$/i }).first().click()
+  await dialog.getByPlaceholder('Section name…').nth(1).fill(ROUTINE_SECTION_2)
+  await dialog.getByPlaceholder('Step name…').nth(1).fill(ROUTINE_STEP_2)
+
+  // Close via the footer Cancel button — this is the button wired to
+  // routineDraftEligible ? draftChrome.requestClose : onClose, NOT the
+  // header X (which still minimizes-to-pill on this persistent modal,
+  // untouched by ST-C.2).
+  await dialog.getByRole('button', { name: /^Cancel$/i }).click()
+
+  const closePrompt = page.locator('[role="dialog"]').filter({ hasText: 'Save as a draft to come back to?' })
+  await expect(closePrompt).toBeVisible({ timeout: 30_000 })
+  await closePrompt.getByTestId('wizard-draft-save').click()
+  await expect(dialog).not.toBeVisible({ timeout: 10_000 })
+
+  const draft = await pollDb(() => fetchDraftByTitle(ROUTINE_TITLE))
+  expect(draft.wizard_type).toBe('routine_builder_full')
+  const draftState = draft.state as { routineSections?: Array<{ name: string; steps: Array<{ title: string }> }> }
+  expect(draftState.routineSections?.length).toBe(2)
+  const savedNames = draftState.routineSections!.map((s) => s.name).sort()
+  expect(savedNames).toEqual([ROUTINE_SECTION_1, ROUTINE_SECTION_2].sort())
+  const savedStepTitles = draftState.routineSections!.flatMap((s) => s.steps.map((st) => st.title)).sort()
+  expect(savedStepTitles).toEqual([ROUTINE_STEP_1, ROUTINE_STEP_2].sort())
+
+  // Reopen (fresh mount — Studio.tsx conditionally renders this modal) —
+  // the reopen-prompt fires automatically since a draft exists for this
+  // wizard_type and no explicit prefill was supplied.
+  const dialog2 = await openStudioWizard(page, 'Task & Chore Templates', 'Routine Checklist')
+  const reopenPrompt = page.locator('[role="dialog"]').filter({ hasText: 'Continue where you left off?' })
+  await expect(reopenPrompt).toBeVisible({ timeout: 30_000 })
+  await reopenPrompt.getByTestId(`wizard-draft-continue-${draft.id}`).click()
+  await expect(reopenPrompt).not.toBeVisible({ timeout: 10_000 })
+
+  // Sections and steps restored.
+  await expect(dialog2.locator('input[placeholder="What needs to be done?"]').first()).toHaveValue(ROUTINE_TITLE)
+  await expect(dialog2.getByPlaceholder('Section name…')).toHaveCount(2)
+  const restoredSectionValues = await allInputValuesOf(dialog2.getByPlaceholder('Section name…'))
+  expect(restoredSectionValues.sort()).toEqual([ROUTINE_SECTION_1, ROUTINE_SECTION_2].sort())
+  const restoredStepValues = await allInputValuesOf(dialog2.getByPlaceholder('Step name…'))
+  expect(restoredStepValues.sort()).toEqual([ROUTINE_STEP_1, ROUTINE_STEP_2].sort())
+
+  // Deploy from the restored draft: assign to Ruthie, then Assign & Create.
+  await dialog2.locator('button').filter({ hasText: /^Ruthie$/ }).first().scrollIntoViewIfNeeded()
+  await dialog2.locator('button').filter({ hasText: /^Ruthie$/ }).first().click()
+  await dialog2.getByRole('button', { name: /Assign & Create/i }).click()
+  await expect(dialog2).not.toBeVisible({ timeout: 15_000 })
+
+  // Real primitive rows: task_templates + 2 sections + 2 steps + a deployed task.
+  const template = await pollDb(async () => {
+    const { data } = await sr
+      .from('task_templates')
+      .select('id, title')
+      .eq('family_id', FAMILY_ID)
+      .eq('title', ROUTINE_TITLE)
+      .maybeSingle()
+    return data
+  })
+
+  const sections = await pollDb(async () => {
+    const { data } = await sr
+      .from('task_template_sections')
+      .select('id, title')
+      .eq('template_id', template.id)
+    return data && data.length === 2 ? data : null
+  })
+  expect((sections as Array<{ title: string }>).map((s) => s.title).sort()).toEqual(
+    [ROUTINE_SECTION_1, ROUTINE_SECTION_2].sort(),
+  )
+
+  const { data: steps } = await sr
+    .from('task_template_steps')
+    .select('id, title')
+    .in('section_id', (sections as Array<{ id: string }>).map((s) => s.id))
+  expect((steps ?? []).map((s) => s.title as string).sort()).toEqual([ROUTINE_STEP_1, ROUTINE_STEP_2].sort())
+
+  const task = await pollDb(async () => {
+    const { data } = await sr
+      .from('tasks')
+      .select('id, assignee_id')
+      .eq('family_id', FAMILY_ID)
+      .eq('title', ROUTINE_TITLE)
+      .maybeSingle()
+    return data
+  })
+  expect(task.assignee_id).toBe(MEMBER_IDS['ruthie'])
+
+  // The draft is gone.
+  const { data: staleDraft } = await sr.from('wizard_drafts').select('id').eq('id', draft.id).maybeSingle()
+  expect(staleDraft).toBeNull()
+})
+
+test('ST-C.2 2: SequentialCreatorModal — 3-item draft saves, restores, and deploys to a real sequential collection', async ({ page }) => {
+  await loginAsMom(page)
+  await gotoStudio(page)
+
+  const dialog = await openStudioWizard(page, 'Task & Chore Templates', 'Sequential Collection')
+
+  // Pick an assignee before saving the draft — proves assigneeId (wrapper
+  // state, not part of SequentialCreator's own controlled value) round-trips
+  // through wizard_drafts too, not just title/items/advancement defaults.
+  await dialog.locator('button').filter({ hasText: /^Ruthie$/ }).first().click()
+  await dialog.getByPlaceholder(/Saxon Math/i).fill(SEQUENTIAL_TITLE)
+  await dialog
+    .getByPlaceholder(/Chapter 1 — Introduction/i)
+    .fill([SEQUENTIAL_ITEM_1, SEQUENTIAL_ITEM_2, SEQUENTIAL_ITEM_3].join('\n'))
+
+  // Close via the in-body Cancel button (this modal is `type="transient"` —
+  // no minimize-to-pill; Cancel is wired to draftChrome.requestClose).
+  await dialog.getByRole('button', { name: /^Cancel$/i }).click()
+
+  const closePrompt = page.locator('[role="dialog"]').filter({ hasText: 'Save as a draft to come back to?' })
+  await expect(closePrompt).toBeVisible({ timeout: 30_000 })
+  await closePrompt.getByTestId('wizard-draft-save').click()
+  await expect(dialog).not.toBeVisible({ timeout: 10_000 })
+
+  const draft = await pollDb(() => fetchDraftByTitle(SEQUENTIAL_TITLE))
+  expect(draft.wizard_type).toBe('sequential_creator')
+  const draftState = draft.state as {
+    assigneeId?: string
+    creatorValue?: { title: string; rawText: string }
+  }
+  expect(draftState.assigneeId).toBe(MEMBER_IDS['ruthie'])
+  expect(draftState.creatorValue?.title).toBe(SEQUENTIAL_TITLE)
+  expect(draftState.creatorValue?.rawText).toContain(SEQUENTIAL_ITEM_1)
+  expect(draftState.creatorValue?.rawText).toContain(SEQUENTIAL_ITEM_3)
+
+  // Reopen (fresh mount) — reopen-prompt fires automatically.
+  const dialog2 = await openStudioWizard(page, 'Task & Chore Templates', 'Sequential Collection')
+  const reopenPrompt = page.locator('[role="dialog"]').filter({ hasText: 'Continue where you left off?' })
+  await expect(reopenPrompt).toBeVisible({ timeout: 30_000 })
+  await reopenPrompt.getByTestId(`wizard-draft-continue-${draft.id}`).click()
+  await expect(reopenPrompt).not.toBeVisible({ timeout: 10_000 })
+
+  await expect(dialog2.getByPlaceholder(/Saxon Math/i)).toHaveValue(SEQUENTIAL_TITLE)
+  await expect(dialog2.getByPlaceholder(/Chapter 1 — Introduction/i)).toHaveValue(
+    [SEQUENTIAL_ITEM_1, SEQUENTIAL_ITEM_2, SEQUENTIAL_ITEM_3].join('\n'),
+  )
+
+  // Deploy from the restored draft. No pill re-click needed — if assigneeId
+  // didn't restore, Create Collection would surface "Pick who this
+  // collection is for before saving." instead of succeeding, so a clean
+  // deploy here IS the proof the wrapper-level state round-tripped too.
+  await dialog2.getByRole('button', { name: /Create Collection/i }).click()
+  await expect(dialog2).not.toBeVisible({ timeout: 15_000 })
+
+  const collection = await pollDb(async () => {
+    const { data } = await sr
+      .from('sequential_collections')
+      .select('id, title')
+      .eq('family_id', FAMILY_ID)
+      .eq('title', SEQUENTIAL_TITLE)
+      .maybeSingle()
+    return data
+  })
+
+  const childTasks = await pollDb(async () => {
+    const { data } = await sr
+      .from('tasks')
+      .select('id, title, assignee_id')
+      .eq('sequential_collection_id', collection.id)
+    return data && data.length === 3 ? data : null
+  })
+  expect((childTasks as Array<{ title: string }>).map((t) => t.title).sort()).toEqual(
+    [SEQUENTIAL_ITEM_1, SEQUENTIAL_ITEM_2, SEQUENTIAL_ITEM_3].sort(),
+  )
+  for (const t of childTasks as Array<{ assignee_id: string }>) {
+    expect(t.assignee_id).toBe(MEMBER_IDS['ruthie'])
+  }
+
+  // The draft is gone.
+  const { data: staleDraft } = await sr.from('wizard_drafts').select('id').eq('id', draft.id).maybeSingle()
+  expect(staleDraft).toBeNull()
 })

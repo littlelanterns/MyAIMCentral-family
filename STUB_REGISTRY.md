@@ -845,12 +845,15 @@ ST-C wired server-backed save-and-return (`wizard_drafts` table + the shared
 `useWizardDraftChrome` UX) into all 10 SetupWizard-based Setup Wizards. Two
 surfaces the dispatch named were explicitly NOT attempted this slice — both
 registered here per founder ruling (2026-09-12), not silently dropped.
-A separate ST-C.2 slice owns them.
+ST-C.2 (2026-09-12) closed both — see the row-level status below and
+`.claude/rules/current-builds/STUDIO-EXPERIENCE.md` → "## ST-C.2" for the
+full account.
 
 | Stub | Created By | Wired By | Status | Notes |
 |------|-----------|----------|--------|-------|
-| `SequentialCreatorModal` save-and-return | ST-C (not attempted) | ST-C.2 | ⏳ Unwired (MVP) | `SequentialCreatorModal` is not built on the `SetupWizard` chrome, and its actual editable state (title, items, advancement defaults) lives entirely inside the child `SequentialCreator` component (591 lines) — the modal wrapper itself only holds the assignee pick. Wiring drafts here means either lifting `SequentialCreator`'s internal state up to a controlled prop (a real architecture change to the platform's single source of truth for sequential creation — Convention #150, used from Studio, Tasks, AND Lists) or giving `SequentialCreator` its own hand-rolled prompt UI with none of the "wire the hook, get the chrome for free" leverage the other 10 wizards had. |
-| `TaskCreationModal` full-mode routine-building save-and-return | ST-C (not attempted) | ST-C.2 | ⏳ Unwired (MVP) | `TaskCreationModal` is 3,363 lines and the highest-traffic modal in the app (task creation, editing, routine building, opportunities, sequential, guided forms all route through it). A rushed draft-support change here risked a platform-wide regression with no room left in the ST-C session to prove it safe. This is the surface the dispatch itself flagged as losing the most work today ("routine building loses the most work today") — ST-C.2 should prioritize it. |
+| `SequentialCreatorModal` save-and-return | ST-C (not attempted) | ST-C.2 | ✅ Wired (E2E 8/8, 2026-10-11) | `SequentialCreator` gained a controlled `value`/`onChange` pair (title, raw item text, 5 advancement defaults) — a backwards-compatible lift, not a rewrite (Convention #150's single-source-of-truth status for sequential creation is unaffected; the 3 entry points — Studio, FO spot-check, Lists — are untouched). `SequentialCreatorModal` owns the lifted state + a wrapper-only `assigneeId` and wires `useWizardDraftChrome`. `parsedItems` (curriculum-parse enriched per-item metadata) is deliberately NOT lifted — a disclosed "minimum needed" simplification; a resumed draft falls back to plain items reconstructed from raw text. Local proof green (tsc/eslint/vitest/redteam/prebuild); the 2 new Playwright tests are parse-verified but NOT yet run against the browser — holding for a seat-granted suite slot. |
+| `TaskCreationModal` full-mode routine-building save-and-return | ST-C (not attempted) | ST-C.2 | ✅ Wired (E2E 8/8, 2026-10-11) | `routineDraftEligible` scopes the mechanism to ONLY brand-new routine composition in full mode (not quick mode, not editing, not deploying from a template) — narrow and additive, as the dispatch asked. Cancel-button-and-pill-dismiss route through the draft chrome; the header X/backdrop/Escape still minimize-to-pill as before (untouched platform behavior on this `type="persistent"` modal) — a deliberate, disclosed design call, not an oversight. `RoutineDraftState` covers only title/description/routineSections/reward/routine-points fields, per the dispatch's own enumeration. Local proof green; the new Playwright test is parse-verified but NOT yet run against the browser — holding for a seat-granted suite slot. |
+| E2E fixture sweeps for `wizard_drafts` + example-named "Use as-is" deploys in `mom-creates-routines-and-tasks.spec.ts` / `studio-shelf-truth.spec.ts` | ST-C.2 proof, 2026-10-11 | Next Studio slice (ST-D) or any suite-hygiene pass | ⏳ Unwired (MVP) | Both suites predate Convention-250 drafts and the ST-A fast-deploy path; every run now leaves a routine draft + default-named tasks/lists in Testworth (seat-deleted 2026-10-11, residue 0). Fix = time-window or all-Testworth sweep, the `wizard-draft-persistence.spec.ts` pattern. |
 
 ---
 
@@ -858,9 +861,9 @@ A separate ST-C.2 slice owns them.
 
 | Status | Count |
 |--------|-------|
-| ✅ Wired | ~85 |
+| ✅ Wired | ~87 |
 | 🔗 Partially Wired | ~7 |
-| ⏳ Unwired (MVP) | ~47 |
+| ⏳ Unwired (MVP) | ~45 |
 | 📌 Post-MVP | ~79 |
 | ❌ Superseded | ~3 |
 | **Total** | ~221 |

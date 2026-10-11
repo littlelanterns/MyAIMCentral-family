@@ -24,6 +24,42 @@ interface SequentialCreatorProps {
   initialTitle?: string
   /** ST-A (F-04): pre-filled item names for example templates — editable */
   initialItems?: string[]
+  /**
+   * STUDIO-EXPERIENCE ST-C.2: optional controlled value for the fields a
+   * saved draft needs to restore (title, raw item text, advancement
+   * defaults). When BOTH `value` and `onValueChange` are provided, these
+   * fields are driven by the parent — `SequentialCreatorModal` wires this
+   * to `useWizardDraftChrome` so a draft save/restore round-trip actually
+   * changes what's on screen. Omit either prop for the original
+   * self-contained (uncontrolled) behavior — every prior caller shape
+   * keeps working unchanged.
+   */
+  value?: SequentialCreatorDraftValue
+  onValueChange?: (value: SequentialCreatorDraftValue) => void
+  /** STUDIO-EXPERIENCE ST-C.2: renders a third "Save & Come Back" action
+   *  alongside Create/Cancel when provided. */
+  onSaveDraft?: () => void
+  isSavingDraft?: boolean
+}
+
+/** STUDIO-EXPERIENCE ST-C.2: the subset of SequentialCreator's internal
+ *  state a saved draft needs — title, raw item text, and the advancement
+ *  defaults (Convention 250's "primitives support is_draft" doesn't apply
+ *  here, since a half-built collection has no primitive row yet; the
+ *  wrapper's `wizard_drafts` row carries this shape instead). Deliberately
+ *  NOT included: `parsedItems` (curriculum-parse enriched per-item
+ *  metadata) — a disclosed simplification per the dispatch's "minimum
+ *  needed" scope. A draft resumed after a curriculum-parse falls back to
+ *  reconstructing plain items from the raw text via parseSmartList, losing
+ *  the AI's per-item advancement/URL suggestions. */
+export interface SequentialCreatorDraftValue {
+  title: string
+  rawText: string
+  defaultAdvancementMode: AdvancementMode
+  defaultPracticeTarget: number | null
+  defaultRequireApproval: boolean
+  defaultRequireEvidence: boolean
+  defaultTrackDuration: boolean
 }
 
 export interface SequentialCreateDefaults {
@@ -68,16 +104,74 @@ export function SequentialCreator({
   initialDefaults,
   initialTitle,
   initialItems,
+  value,
+  onValueChange,
+  onSaveDraft,
+  isSavingDraft,
 }: SequentialCreatorProps) {
-  const [title, setTitle] = useState(initialTitle ?? '')
+  // STUDIO-EXPERIENCE ST-C.2: controlled-or-uncontrolled pattern (matches a
+  // controlled <input value onChange>). When the parent supplies BOTH
+  // `value` and `onValueChange`, these 7 fields read straight from `value`
+  // every render (no shadow-copy sync effect needed) and every mutation is
+  // reported back via `onValueChange` instead of touching internal state.
+  // The `internalXxx` useStates below are simply never read while
+  // controlled — dead but harmless, and they're what every OTHER caller
+  // (none exist today beyond SequentialCreatorModal, but the prop contract
+  // stays backwards-compatible) would fall back to.
+  const isControlled = value !== undefined && onValueChange !== undefined
+
+  const [internalTitle, setInternalTitle] = useState(initialTitle ?? '')
+  const [internalRawText, setInternalRawText] = useState(initialItems?.length ? initialItems.join('\n') : '')
+  const [internalDefaultAdvancementMode, setInternalDefaultAdvancementMode] = useState<AdvancementMode>(
+    initialDefaults?.defaultAdvancementMode ?? 'complete',
+  )
+  const [internalDefaultPracticeTarget, setInternalDefaultPracticeTarget] = useState<number | null>(
+    initialDefaults?.defaultPracticeTarget ?? 5,
+  )
+  const [internalDefaultRequireApproval, setInternalDefaultRequireApproval] = useState<boolean>(
+    initialDefaults?.defaultRequireApproval ?? true,
+  )
+  const [internalDefaultRequireEvidence, setInternalDefaultRequireEvidence] = useState<boolean>(
+    initialDefaults?.defaultRequireEvidence ?? false,
+  )
+  const [internalDefaultTrackDuration, setInternalDefaultTrackDuration] = useState<boolean>(
+    initialDefaults?.defaultTrackDuration ?? false,
+  )
+
+  const title = isControlled ? value.title : internalTitle
+  const rawText = isControlled ? value.rawText : internalRawText
+  const defaultAdvancementMode = isControlled ? value.defaultAdvancementMode : internalDefaultAdvancementMode
+  const defaultPracticeTarget = isControlled ? value.defaultPracticeTarget : internalDefaultPracticeTarget
+  const defaultRequireApproval = isControlled ? value.defaultRequireApproval : internalDefaultRequireApproval
+  const defaultRequireEvidence = isControlled ? value.defaultRequireEvidence : internalDefaultRequireEvidence
+  const defaultTrackDuration = isControlled ? value.defaultTrackDuration : internalDefaultTrackDuration
+
+  function patchValue(patch: Partial<SequentialCreatorDraftValue>) {
+    if (isControlled) onValueChange!({ ...value!, ...patch })
+  }
+
+  const setTitle = (t: string) => (isControlled ? patchValue({ title: t }) : setInternalTitle(t))
+  const setRawText = (t: string) => (isControlled ? patchValue({ rawText: t }) : setInternalRawText(t))
+  const setDefaultAdvancementMode = (m: AdvancementMode) =>
+    isControlled ? patchValue({ defaultAdvancementMode: m }) : setInternalDefaultAdvancementMode(m)
+  const setDefaultPracticeTarget = (n: number | null) =>
+    isControlled ? patchValue({ defaultPracticeTarget: n }) : setInternalDefaultPracticeTarget(n)
+  const setDefaultRequireApproval = (b: boolean) =>
+    isControlled ? patchValue({ defaultRequireApproval: b }) : setInternalDefaultRequireApproval(b)
+  const setDefaultRequireEvidence = (b: boolean) =>
+    isControlled ? patchValue({ defaultRequireEvidence: b }) : setInternalDefaultRequireEvidence(b)
+  const setDefaultTrackDuration = (b: boolean) =>
+    isControlled ? patchValue({ defaultTrackDuration: b }) : setInternalDefaultTrackDuration(b)
+
   const [inputMethod, setInputMethod] = useState<'manual' | 'url' | 'image'>('manual')
-  const [rawText, setRawText] = useState(initialItems?.length ? initialItems.join('\n') : '')
   const [showBulkAdd, setShowBulkAdd] = useState(false)
   const [showCurriculumParse, setShowCurriculumParse] = useState(false)
   // Build J: when mom accepts curriculum-parsed items, they're cached here
   // with full per-item metadata (advancement mode, URL, practice target).
   // At save time, these take precedence over rawText items to preserve the
   // AI's suggestions. Cleared on any rawText edit to avoid stale state.
+  // ST-C.2: deliberately NOT part of the lifted draft value (see the
+  // interface doc comment) — stays internal-only always.
   const [parsedItems, setParsedItems] = useState<SequentialCreateItem[] | null>(null)
   const [promotionTiming, setPromotionTiming] = useState<'immediate' | 'next_day' | 'manual'>(
     initialDefaults?.defaultTrackDuration || initialDefaults?.defaultAdvancementMode === 'mastery'
@@ -90,23 +184,6 @@ export function SequentialCreator({
   const [countsForHomework, setCountsForHomework] = useState(false)
   const [homeworkSubjectIds, setHomeworkSubjectIds] = useState<string[]>([])
   const { data: homeschoolSubjects } = useHomeschoolSubjects(familyId)
-
-  // Build J: advancement defaults (collection-level bulk-set-then-override)
-  const [defaultAdvancementMode, setDefaultAdvancementMode] = useState<AdvancementMode>(
-    initialDefaults?.defaultAdvancementMode ?? 'complete',
-  )
-  const [defaultPracticeTarget, setDefaultPracticeTarget] = useState<number | null>(
-    initialDefaults?.defaultPracticeTarget ?? 5,
-  )
-  const [defaultRequireApproval, setDefaultRequireApproval] = useState<boolean>(
-    initialDefaults?.defaultRequireApproval ?? true,
-  )
-  const [defaultRequireEvidence, setDefaultRequireEvidence] = useState<boolean>(
-    initialDefaults?.defaultRequireEvidence ?? false,
-  )
-  const [defaultTrackDuration, setDefaultTrackDuration] = useState<boolean>(
-    initialDefaults?.defaultTrackDuration ?? false,
-  )
 
   const manualItems: SequentialCreateItem[] = parseSmartList(rawText)
 
@@ -575,6 +652,24 @@ export function SequentialCreator({
         >
           Create Collection ({itemCount} {itemCount === 1 ? 'item' : 'items'})
         </button>
+        {/* STUDIO-EXPERIENCE ST-C.2: only rendered when the parent wires
+            drafting (SequentialCreatorModal always does). */}
+        {onSaveDraft && (
+          <button
+            type="button"
+            onClick={onSaveDraft}
+            disabled={!!isSavingDraft}
+            data-testid="wizard-save-and-come-back"
+            className="px-4 py-2.5 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+            style={{
+              background: 'var(--color-bg-secondary)',
+              color: 'var(--color-text-secondary)',
+              border: '1px solid var(--color-border)',
+            }}
+          >
+            {isSavingDraft ? 'Saving…' : 'Save & Come Back'}
+          </button>
+        )}
         <button
           onClick={onCancel}
           className="px-4 py-2.5 rounded-xl text-sm"

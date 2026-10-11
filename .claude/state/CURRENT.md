@@ -1,5 +1,9 @@
 # Current State — 2026-09-12 (ST-C `b59e6c8` + BETA-COHORT `07cde8a` CLOSED; beta-cohort mode ON in production; next: ST-C.2 → PRD-31 Slice 3)
 
+## 2026-10-11 — ST-C.2 PROVEN + COMMITTED (8/8 + 10/10 + 16/16, zero residue)
+
+The month-old uncommitted ST-C.2 code (routine-modal + Sequential-creator save-and-return) passed its full proof once the database was healthy; one spec-only sweep fix (clear ALL Testworth drafts — a leftover default-titled draft had blocked test 1 via the reopen-prompt). Follow-up registered: the two older Studio regression suites leave `wizard_drafts` + example-named deploys every run. Studio Experience now stands at ST-0/A/F/B/C/C.2 done; **next: ST-D** (search + My Library), then ST-E, ST-G. Also queued: the LiLa in-app model migration pack (Sonnet 4 retired; Haiku 4.5 floor 2026-10-15).
+
 ## 2026-10-10 — PRODUCTION INCIDENT RESOLVED: month-long Disk IO exhaustion + sign-in 503s (migration 100341)
 
 **Symptom:** founder could not sign in for ~a month (infinite spinner); Supabase "Disk IO budget depleted" emails every few days with ZERO users. Measured live: PostgREST returned **503 in 4–6s** on every request ("Could not query the database for the schema cache"); first REST read took 12.5s.

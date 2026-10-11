@@ -14,7 +14,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   FileText, Layers, Users, Calendar, AlertCircle, Gift, ChevronDown, ChevronUp,
-  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw, CalendarClock,
+  CheckSquare, RotateCcw, Star, TrendingUp, ListChecks, X, GripVertical, Sparkles, RefreshCw, CalendarClock, Save,
 } from 'lucide-react'
 import { Button, ModalV2, Toggle, Tooltip } from '@/components/shared'
 import { UniversalScheduler, PickDatesAssigneeEditor } from '@/components/scheduling'
@@ -72,6 +72,8 @@ import { useCreatePendingChange, usePendingChangesForSource, useCancelPendingCha
 import { classifyChangeCategory } from '@/lib/pendingChanges/classifyChangeCategory'
 import { computeNextTriggerAt } from '@/lib/pendingChanges/computeNextTriggerAt'
 import type { ChangeCategory } from '@/types/pendingChanges'
+import { useWizardDraftChrome } from '@/components/studio/wizards/useWizardDraftChrome'
+import { WizardDraftReopenPrompt, WizardDraftClosePrompt } from '@/components/studio/wizards/WizardDraftPrompts'
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -671,6 +673,25 @@ function PendingChangesSummary({
 
 // ─── Main Modal ──────────────────────────────────────────────
 
+/**
+ * STUDIO-EXPERIENCE ST-C.2: the narrow slice of CreateTaskData a saved
+ * draft needs to restore — template title/description, routine sections
+ * (which carry their own steps + per-section frequencies), and the
+ * reward/points config for the routine. Scoped ONLY to what the dispatch
+ * named; assignments/schedule/other task-type fields are deliberately NOT
+ * drafted here (see routineDraftEligible below — this mechanism only ever
+ * activates for a brand-new routine composed in full mode).
+ */
+interface RoutineDraftState {
+  title: string
+  description: string
+  routineSections: RoutineSection[]
+  reward: RewardConfigData
+  routinePointsMode: 'none' | 'per_step' | 'per_completion'
+  routineStepPoints: number | null
+  routineCompletionPoints: number | null
+}
+
 export function TaskCreationModal({
   isOpen,
   onClose,
@@ -829,6 +850,104 @@ export function TaskCreationModal({
 
   const [loading, setLoading] = useState(false)
   const [viewMode, setViewMode] = useState<'quick' | 'full'>(initialMode ?? 'full')
+
+  // ── STUDIO-EXPERIENCE ST-C.2 — full-mode routine-building drafts ────
+  // Scoped NARROWLY: only while composing a BRAND NEW routine in full mode.
+  // Quick mode, opportunity/sequential/guided-form branches, and the
+  // editingTemplateId/deployFromTemplateId edit-or-deploy flows are
+  // untouched by design — see .claude/rules/current-builds/
+  // STUDIO-EXPERIENCE.md "## ST-C.2" for the full rationale.
+  const routineDraftEligible =
+    viewMode === 'full' &&
+    data.taskType === 'routine' &&
+    !editMode &&
+    !editingTemplateId &&
+    !deployFromTemplateId
+
+  // Guards a real race in useWizardDraftChrome's reopen-prompt detection.
+  // Every OTHER consumer of that hook (StarChartWizard, etc.) receives
+  // familyId/memberId as already-resolved props from Studio.tsx by the time
+  // it mounts. TaskCreationModal is the first to resolve them itself via
+  // useFamilyMember() — which can still be settling for the first render or
+  // two of a fresh mount. Without this one-effect-cycle delay, the chrome's
+  // internal reopen-check effect can evaluate on the SAME commit familyId
+  // first becomes defined but BEFORE useWizardDraftList's own fetch has had
+  // a chance to flip isLoadingDrafts to true — permanently latching "no
+  // draft to resume" even though the real fetch (arriving one render later)
+  // does find one. Delaying the `isOpen` handed to the chrome by exactly one
+  // effect cycle lets that fetch start (and mark isLoadingDrafts=true)
+  // before the chrome ever sees isOpen=true for this instance.
+  const [familyReady, setFamilyReady] = useState(false)
+  useEffect(() => {
+    if (currentMember?.family_id) setFamilyReady(true)
+  }, [currentMember?.family_id])
+
+  const routineDraftState: RoutineDraftState = {
+    title: data.title,
+    description: data.description,
+    routineSections: data.routineSections ?? [],
+    reward: data.reward,
+    routinePointsMode: data.routinePointsMode ?? 'none',
+    routineStepPoints: data.routineStepPoints ?? null,
+    routineCompletionPoints: data.routineCompletionPoints ?? null,
+  }
+
+  // Restoring a draft is a real user action ("Continue" click) but not one
+  // of the re-init identity triggers — plain setData (not updateData) is
+  // correct here, matching the initialRoutineSections merge effect below.
+  const applyRoutineDraftState = useCallback((next: RoutineDraftState) => {
+    setData(prev => ({
+      ...prev,
+      title: next.title,
+      description: next.description,
+      routineSections: next.routineSections,
+      reward: next.reward,
+      routinePointsMode: next.routinePointsMode,
+      routineStepPoints: next.routineStepPoints,
+      routineCompletionPoints: next.routineCompletionPoints,
+    }))
+  }, [])
+
+  // Used on "Start Fresh" (reopen-prompt) and "Discard" (close-prompt) —
+  // the modal itself never unmounts on those paths (only on a real close),
+  // so the routine-specific fields need an explicit reset back to blank.
+  const resetRoutineDraftFields = useCallback(() => {
+    setData(prev => ({
+      ...prev,
+      title: '',
+      description: '',
+      routineSections: [],
+      reward: defaultReward(),
+      routinePointsMode: 'none',
+      routineStepPoints: null,
+      routineCompletionPoints: null,
+    }))
+  }, [])
+
+  const draftChrome = useWizardDraftChrome<RoutineDraftState>({
+    wizardType: 'routine_builder_full',
+    familyId: currentMember?.family_id,
+    memberId: currentMember?.id,
+    isOpen: isOpen && routineDraftEligible && familyReady,
+    state: routineDraftState,
+    setState: applyRoutineDraftState,
+    getTitle: () => data.title.trim() || 'Untitled Routine',
+    hasContent: () => data.title.trim().length > 0 || (data.routineSections?.length ?? 0) > 0,
+    // An explicit caller-supplied example/prefill is an explicit intent —
+    // never interrupt it with a stale "continue an old draft?" nudge.
+    skipReopenPrompt: !!(initialRoutineSections && initialRoutineSections.length > 0),
+    onRealClose: onClose,
+  })
+
+  // The Cancel button (and the pill's own dismiss action, forwarded through
+  // ModalV2's onClose prop) route through the draft chrome only while a
+  // fresh routine is being composed; every other flow keeps the raw close
+  // it always had. X/backdrop/Escape on this persistent modal still
+  // minimize-to-pill by default (ModalV2's own platform behavior) — that's
+  // untouched and stays a same-session "come back" mechanism in its own
+  // right, layered underneath this cross-session/cross-device one.
+  const effectiveClose = routineDraftEligible ? draftChrome.requestClose : onClose
+
   // Worker ROUTINE-PROPAGATION (c2): "Schedule to start later" toggle
   // for routines. Off by default (silent default = today). When on,
   // reveals the date picker and writes data.startDate.
@@ -1171,6 +1290,12 @@ export function TaskCreationModal({
         showToast('Task saved.')
       }
 
+      // STUDIO-EXPERIENCE ST-C.2: clear the server-side draft (if any) on a
+      // successful save — the routine is now a real deployed primitive.
+      if (routineDraftEligible) {
+        await draftChrome.onDeploySuccess()
+      }
+
       if (batchMode === 'sequential' && batchItems && batchIndex < batchItems.length - 1) {
         setBatchIndex((i) => i + 1)
       } else {
@@ -1206,6 +1331,8 @@ export function TaskCreationModal({
     iconAutoSuggestions,
     showToast,
     showErrorToast,
+    routineDraftEligible,
+    draftChrome,
   ])
 
   const handleSaveToStudio = useCallback(async () => {
@@ -1242,6 +1369,10 @@ export function TaskCreationModal({
       // 0-deployments path. Master-edit-with-deployments path emits
       // its own toast via handleEditConfirm.
       showToast('Template saved.')
+      // STUDIO-EXPERIENCE ST-C.2: clear the server-side draft (if any).
+      if (routineDraftEligible) {
+        await draftChrome.onDeploySuccess()
+      }
       onClose()
     } catch (err) {
       // Worker ROUTINE-SAVE-FIX (c2): same contract as handleSave —
@@ -1252,7 +1383,7 @@ export function TaskCreationModal({
     } finally {
       setLoading(false)
     }
-  }, [data, onSave, onClose, editingTemplateId, showToast, showErrorToast])
+  }, [data, onSave, onClose, editingTemplateId, showToast, showErrorToast, routineDraftEligible, draftChrome])
 
   const toggleMember = (id: string) => {
     const exists = data.assignments.some((a) => a.memberId === id)
@@ -3041,9 +3172,23 @@ export function TaskCreationModal({
 
   const footer = (
     <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', width: '100%', flexWrap: 'wrap' }}>
-      <Button variant="ghost" onClick={onClose} type="button">
+      <Button variant="ghost" onClick={effectiveClose} type="button">
         Cancel
       </Button>
+      {/* STUDIO-EXPERIENCE ST-C.2: only while composing a brand-new routine
+          in full mode — see routineDraftEligible above. */}
+      {routineDraftEligible && (
+        <Button
+          variant="ghost"
+          onClick={draftChrome.chromeProps.onSaveAndComeBack}
+          disabled={draftChrome.chromeProps.isSavingDraft}
+          type="button"
+          data-testid="wizard-save-and-come-back"
+        >
+          <Save size={14} />
+          {draftChrome.chromeProps.isSavingDraft ? 'Saving…' : 'Save & Come Back'}
+        </Button>
+      )}
       {/* Save to Studio — routine templates only, when there are sections to save */}
       {hasRoutineSections && !editMode && (
         <Tooltip
@@ -3213,6 +3358,10 @@ export function TaskCreationModal({
               ? `Replaced previous deployment for ${replacedNameList}.`
               : 'Routine saved.',
           )
+          // STUDIO-EXPERIENCE ST-C.2: clear the server-side draft (if any).
+          if (routineDraftEligible) {
+            await draftChrome.onDeploySuccess()
+          }
           setOverlapState(null)
           if (
             batchMode === 'sequential' &&
@@ -3228,7 +3377,7 @@ export function TaskCreationModal({
         }
       }
     },
-    [overlapState, onSave, onClose, batchMode, batchItems, batchIndex, showToast],
+    [overlapState, onSave, onClose, batchMode, batchItems, batchIndex, showToast, routineDraftEligible, draftChrome],
   )
 
   // ─── Render ─────────────────────────────────────────────────
@@ -3238,7 +3387,7 @@ export function TaskCreationModal({
     <ModalV2
       id={editMode ? 'task-edit' : 'task-create'}
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={effectiveClose}
       type="persistent"
       size="lg"
       title={editMode ? 'Edit task' : makeupConfig ? 'Assign Makeup Work' : 'New task'}
@@ -3358,6 +3507,30 @@ export function TaskCreationModal({
         />
       )
     })()}
+
+    {/* STUDIO-EXPERIENCE ST-C.2: full-mode routine-building save-and-return.
+        Rendered as siblings (not via SetupWizard, which this modal isn't
+        built on) so they float above regardless of the parent modal's own
+        minimize state. */}
+    <WizardDraftReopenPrompt
+      isOpen={draftChrome.chromeProps.showReopenPrompt}
+      drafts={draftChrome.chromeProps.pendingDrafts}
+      onContinue={draftChrome.chromeProps.onContinueDraft}
+      onStartFresh={() => {
+        resetRoutineDraftFields()
+        draftChrome.chromeProps.onStartFresh()
+      }}
+    />
+    <WizardDraftClosePrompt
+      isOpen={draftChrome.chromeProps.showClosePrompt}
+      isSaving={draftChrome.chromeProps.isSavingDraft}
+      onSaveAndClose={draftChrome.chromeProps.onConfirmSaveAndClose}
+      onDiscardAndClose={async () => {
+        await draftChrome.chromeProps.onConfirmDiscardAndClose()
+        resetRoutineDraftFields()
+      }}
+      onKeepWorking={draftChrome.chromeProps.onCancelClosePrompt}
+    />
     </>
   )
 }
