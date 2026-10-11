@@ -1,6 +1,6 @@
 # Live Database Schema — MyAIM Central v2
 
-> Auto-generated from live Supabase on 2026-09-12
+> Auto-generated from live Supabase on 2026-10-11
 > Script: `node scripts/full-schema-dump.cjs`
 >
 > **Two-pass capture:**
@@ -13,7 +13,7 @@
 
 ## Auth & Family (PRD-01, PRD-02)
 
-### `families` — 3 rows
+### `families` — 4 rows
 
 | # | Column |
 |---|---|
@@ -45,7 +45,7 @@
 | 26 | `family_password_locked_until` |
 | 27 | `is_test_family` |
 
-### `family_members` — 21 rows
+### `family_members` — 22 rows
 
 | # | Column |
 |---|---|
@@ -217,7 +217,7 @@
 | 14 | `stripe_price_id_normal` |
 | 15 | `stripe_price_id_founding` |
 
-### `family_subscriptions` — 2 rows
+### `family_subscriptions` — 3 rows
 
 | # | Column |
 |---|---|
@@ -330,7 +330,7 @@
 | 6 | `session_started_at` |
 | 7 | `session_ended_at` |
 
-### `onboarding_milestones` — 0 rows
+### `onboarding_milestones` — 1 rows
 
 | # | Column |
 |---|---|
@@ -736,7 +736,7 @@
 | 18 | `reward_image_url` |
 | 19 | `reward_image_asset_key` |
 
-### `tasks` — 215 rows
+### `tasks` — 218 rows
 
 | # | Column |
 |---|---|
@@ -955,7 +955,7 @@
 | 17 | `dismiss_note` |
 | 18 | `created_at` |
 
-### `lists` — 57 rows
+### `lists` — 64 rows
 
 | # | Column |
 |---|---|
@@ -1008,7 +1008,7 @@
 | 47 | `include_in_shopping_mode` |
 | 48 | `subject_member_id` |
 
-### `list_items` — 216 rows
+### `list_items` — 246 rows
 
 | # | Column |
 |---|---|
@@ -1141,7 +1141,7 @@
 
 ## Dashboards & Calendar (PRD-14 family)
 
-### `dashboard_configs` — 23 rows
+### `dashboard_configs` — 24 rows
 
 | # | Column |
 |---|---|
@@ -1525,7 +1525,7 @@
 | 9 | `acted_by` |
 | 10 | `created_at` |
 
-### `meal_settings` — 3 rows
+### `meal_settings` — 4 rows
 
 | # | Column |
 |---|---|
@@ -1624,7 +1624,7 @@
 
 ## Archives & Context (PRD-13)
 
-### `archive_folders` — 180 rows
+### `archive_folders` — 195 rows
 
 | # | Column |
 |---|---|
@@ -1670,7 +1670,7 @@
 | 21 | `is_negative_preference` |
 | 22 | `embedding` |
 
-### `archive_member_settings` — 18 rows
+### `archive_member_settings` — 19 rows
 
 | # | Column |
 |---|---|
@@ -1850,7 +1850,7 @@
 | 18 | `created_at` |
 | 19 | `updated_at` |
 
-### `notifications` — 142 rows
+### `notifications` — 197 rows
 
 | # | Column |
 |---|---|
@@ -2000,7 +2000,7 @@
 
 ## BookShelf (PRD-23)
 
-### `bookshelf_items` — 562 rows
+### `bookshelf_items` — 0 rows
 
 | # | Column |
 |---|---|
@@ -2943,7 +2943,7 @@
 | 8 | `created_at` |
 | 9 | `completed_at` |
 
-### `ai_output_scans` — 49 rows
+### `ai_output_scans` — 46 rows
 
 | # | Column |
 |---|---|
@@ -3045,7 +3045,7 @@
 | 6 | `is_extra_credit` |
 | 7 | `created_at` |
 
-### `allowance_periods` — 105 rows
+### `allowance_periods` — 124 rows
 
 | # | Column |
 |---|---|
@@ -3077,7 +3077,7 @@
 | 26 | `pool_name` |
 | 27 | `combined_percentage` |
 
-### `asset_suggestion_misses` — 10 rows
+### `asset_suggestion_misses` — 11 rows
 
 | # | Column |
 |---|---|
@@ -3444,7 +3444,7 @@
 | 6 | `dismissed_via_view_as` |
 | 7 | `actual_dismisser_id` |
 
-### `financial_transactions` — 182 rows
+### `financial_transactions` — 206 rows
 
 | # | Column |
 |---|---|
@@ -3476,7 +3476,7 @@
 | 7 | `redeemed_at` |
 | 8 | `created_at` |
 
-### `gamification_configs` — 18 rows
+### `gamification_configs` — 19 rows
 
 | # | Column |
 |---|---|
@@ -3854,7 +3854,7 @@
 | 21 | `earning_source_type` |
 | 22 | `earning_source_id` |
 
-### `member_creature_collection` — 39 rows
+### `member_creature_collection` — 40 rows
 
 | # | Column |
 |---|---|
@@ -3882,7 +3882,7 @@
 | 7 | `verification_expires_at` |
 | 8 | `created_at` |
 
-### `member_page_unlocks` — 20 rows
+### `member_page_unlocks` — 21 rows
 
 | # | Column |
 |---|---|
@@ -3894,7 +3894,7 @@
 | 6 | `unlocked_trigger_type` |
 | 7 | `creatures_at_unlock` |
 
-### `member_sticker_book_state` — 18 rows
+### `member_sticker_book_state` — 19 rows
 
 | # | Column |
 |---|---|
@@ -4298,7 +4298,7 @@
 | 11 | `dismissed_at` |
 | 12 | `created_at` |
 
-### `rhythm_configs` — 68 rows
+### `rhythm_configs` — 73 rows
 
 | # | Column |
 |---|---|
@@ -4369,7 +4369,7 @@
 | 6 | `updated_at` |
 | 7 | `created_by` |
 
-### `safety_notification_recipients` — 3 rows
+### `safety_notification_recipients` — 4 rows
 
 | # | Column |
 |---|---|
@@ -4380,7 +4380,7 @@
 | 5 | `notification_channels` |
 | 6 | `created_at` |
 
-### `safety_pattern_summaries` — 113 rows
+### `safety_pattern_summaries` — 168 rows
 
 | # | Column |
 |---|---|
@@ -4583,7 +4583,7 @@
 | 11 | `created_at` |
 | 12 | `updated_at` |
 
-### `waitlist_signups` — 1 rows
+### `waitlist_signups` — 10 rows
 
 | # | Column |
 |---|---|
@@ -4613,7 +4613,7 @@
 | 13 | `last_viewed_at` |
 | 14 | `created_at` |
 
-### `wizard_drafts` — 0 rows
+### `wizard_drafts` — 1 rows
 
 | # | Column |
 |---|---|
